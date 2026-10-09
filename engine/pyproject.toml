@@ -1,0 +1,20 @@
+[project]
+name = "engine"
+version = "0.0.1"
+description = "Analysis engine for the agricultural remote-sensing workbench"
+requires-python = ">=3.12"
+dependencies = [
+    "earthengine-api>=1.0",
+    "pandas>=2.2",
+    "numpy>=2.0",
+]
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 100
