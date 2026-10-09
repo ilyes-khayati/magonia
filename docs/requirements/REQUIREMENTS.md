@@ -1,6 +1,6 @@
 # Software Requirements Specification
 
-**Agricultural remote-sensing research platform** (working name to be decided)
+**Magonia** — agricultural remote-sensing research platform
 
 | | |
 |---|---|

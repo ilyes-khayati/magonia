@@ -1,7 +1,7 @@
 [project]
 name = "api"
 version = "0.0.1"
-description = "HTTP API for the agricultural remote-sensing workbench"
+description = "HTTP API for Magonia"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi[standard]>=0.115",

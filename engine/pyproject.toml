@@ -1,7 +1,7 @@
 [project]
 name = "engine"
 version = "0.0.1"
-description = "Analysis engine for the agricultural remote-sensing workbench"
+description = "Analysis engine for Magonia"
 requires-python = ">=3.12"
 dependencies = [
     "earthengine-api>=1.0",

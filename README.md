@@ -1,10 +1,11 @@
-# Agri Workbench
+# Magonia
 
 A research workbench for agricultural remote sensing. Researchers pick places on a
 map, pull satellite and climate data, and build analyses from blocks, without
 writing code. Every result shows where it came from.
 
-Working name. Early development.
+Named after Mago of Carthage, whose 28-book treatise on agriculture Rome had translated
+after the city fell, and after Magonia, the medieval kingdom in the sky. Early development.
 
 ## Structure
 
