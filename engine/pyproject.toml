@@ -19,3 +19,7 @@ build-backend = "hatchling.build"
 
 [tool.ruff]
 line-length = 100
+
+[tool.pytest.ini_options]
+markers = ["live: needs a real Earth Engine connection"]
+addopts = "-m 'not live'"
