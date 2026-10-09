@@ -16,8 +16,8 @@ web/dist/
 .env
 *.key
 service-account*.json
-data/
-cache/
+/data/
+/cache/
 
 # OS / editors
 .DS_Store
