@@ -32,6 +32,7 @@ Significant technical choices get a short record in `docs/decisions/`.
 
 ## Troubleshooting
 
-`ModuleNotFoundError: No module named 'engine'` on macOS: the system has marked
-files in `.venv` as hidden, and Python 3.13 skips hidden `.pth` files. Run
-`chflags -R nohidden engine/.venv api/.venv`.
+`ModuleNotFoundError: No module named 'engine'` on macOS: iCloud Desktop sync
+marks files in `.venv` as hidden, and Python 3.13 skips hidden `.pth` files.
+Each `.venv` is a symlink to `.venv.nosync`, which iCloud ignores. To recreate one:
+`rm -rf .venv && mkdir .venv.nosync && ln -s .venv.nosync .venv && uv sync`.
