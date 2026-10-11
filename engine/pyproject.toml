@@ -8,6 +8,8 @@ dependencies = [
     "pandas>=2.2",
     "numpy>=2.0",
     "python-dotenv>=1.2.4",
+    "shapely>=2.2.0",
+    "pyproj>=3.8.0",
 ]
 
 [dependency-groups]
