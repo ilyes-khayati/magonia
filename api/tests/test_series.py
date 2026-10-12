@@ -41,10 +41,24 @@ def test_series_returns_one_point_per_date(client):
     assert response.status_code == 200
     body = response.json()
     assert body["variable"] == "ndvi"
-    assert body["points"] == [
-        {"date": "2023-01-01", "value": 0.58, "sd": 0.05, "n_pixels": 18, "masked": False},
-        {"date": "2023-01-17", "value": None, "sd": None, "n_pixels": 0, "masked": True},
-    ]
+    assert body["points"][0] == {
+        "date": "2023-01-01",
+        "value": 0.58,
+        "sd": 0.05,
+        "n_pixels": 18,
+        "masked": False,
+        "filled": False,
+        "n_obs": 1,
+        "n_valid": 1,
+    }
+    assert body["points"][1]["value"] is None  # a gap at the end is never filled
+
+
+def test_monthly_resolution(client):
+    response = client.post("/series", json={**REQUEST, "resolution": "monthly"})
+    [january] = response.json()["points"]
+    assert january["date"] == "2023-01-01"
+    assert (january["n_obs"], january["n_valid"]) == (2, 1)
 
 
 def test_lst_reports_units_and_pixel_size_warning(client):
@@ -75,7 +89,14 @@ def test_invalid_polygon_is_rejected(client):
 
 
 @pytest.mark.parametrize(
-    "field", [{"masking": "clouds"}, {"variable": "rainfall"}, {"variable": "spei", "scale": 60}]
+    "field",
+    [
+        {"masking": "clouds"},
+        {"variable": "rainfall"},
+        {"variable": "spei", "scale": 60},
+        {"resolution": "weekly"},
+        {"max_gap": -1},
+    ],
 )
 def test_unknown_options_are_rejected(client, field):
     response = client.post("/series", json={**REQUEST, **field})
