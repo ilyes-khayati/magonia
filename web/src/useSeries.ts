@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { fetchSeries, type SeriesOptions, type SeriesResponse } from "./api";
-import { seriesKey } from "./settings";
 
 export type SeriesState =
   | { status: "loading" }
@@ -9,13 +8,14 @@ export type SeriesState =
 
 // Fetches every requested series once and keeps the results by request, so going
 // back to an earlier choice is instant
-export function useSeries(requests: SeriesOptions[]): Map<string, SeriesState> {
+export type SeriesRequest = { key: string; options: SeriesOptions };
+
+export function useSeries(requests: SeriesRequest[]): Map<string, SeriesState> {
   const [results, setResults] = useState<Map<string, SeriesState>>(new Map());
   const started = useRef(new Set<string>());
 
   useEffect(() => {
-    for (const options of requests) {
-      const key = seriesKey(options);
+    for (const { key, options } of requests) {
       if (started.current.has(key)) continue;
       started.current.add(key);
       const save = (state: SeriesState) => setResults((old) => new Map(old).set(key, state));

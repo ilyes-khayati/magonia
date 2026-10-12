@@ -9,14 +9,14 @@ from pathlib import Path
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS workspaces (
-    id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,  -- ids are never reused
     name TEXT NOT NULL,
     settings TEXT NOT NULL DEFAULT '{}',
     created TEXT NOT NULL,
     updated TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS areas (
-    id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,  -- ids are never reused
     workspace_id INTEGER NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     geometry TEXT NOT NULL,
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS results (
     created TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS jobs (
-    id INTEGER PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,  -- ids are never reused
     workspace_id INTEGER REFERENCES workspaces(id) ON DELETE CASCADE,
     area_id INTEGER REFERENCES areas(id) ON DELETE SET NULL,
     request TEXT NOT NULL,

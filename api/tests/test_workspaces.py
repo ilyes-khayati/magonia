@@ -99,3 +99,23 @@ def test_unknown_workspace_or_area(client):
         ).status_code
         == 404
     )
+
+
+def test_ids_of_deleted_areas_are_never_reused(client):
+    # The interface caches results by area; a reused id would show an old area's data
+    workspace = make_workspace(client)
+    url = f"/workspaces/{workspace['id']}/areas"
+    first = client.post(url, json={"name": "a", "geometry": SQUARE}).json()
+    client.delete(f"/areas/{first['id']}")
+    second = client.post(url, json={"name": "b", "geometry": SQUARE}).json()
+    assert second["id"] != first["id"]
+
+
+def test_very_large_areas_are_refused_with_the_limit(client):
+    workspace = make_workspace(client)
+    huge = {"type": "Polygon", "coordinates": [[[0, 30], [3, 30], [3, 33], [0, 33], [0, 30]]]}
+    response = client.post(
+        f"/workspaces/{workspace['id']}/areas", json={"name": "region", "geometry": huge}
+    )
+    assert response.status_code == 422
+    assert "limited to 10,000 km²" in response.json()["detail"]
