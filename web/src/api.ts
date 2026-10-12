@@ -33,6 +33,25 @@ export async function fetchCatalogue(): Promise<Variable[]> {
   return response.json();
 }
 
+type Job = {
+  id: number;
+  status: "queued" | "running" | "done" | "failed";
+  error: string | null;
+  result: SeriesResponse | null;
+};
+
+async function readJob(response: Response): Promise<Job> {
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    const detail = typeof body.detail === "string" ? body.detail : `status ${response.status}`;
+    throw new Error(detail);
+  }
+  return response.json();
+}
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Starts a background job on the API, then asks every second until it finishes
 export async function fetchSeries(
   geometry: unknown,
   start: string,
@@ -41,15 +60,17 @@ export async function fetchSeries(
   masking: Masking,
   scale: number | null,
 ): Promise<SeriesResponse> {
-  const response = await fetch("/api/series", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ geometry, start, end, variable, masking, scale }),
-  });
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({}));
-    const detail = typeof body.detail === "string" ? body.detail : `status ${response.status}`;
-    throw new Error(detail);
+  let job = await readJob(
+    await fetch("/api/jobs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ geometry, start, end, variable, masking, scale }),
+    }),
+  );
+  while (job.status === "queued" || job.status === "running") {
+    await wait(1000);
+    job = await readJob(await fetch(`/api/jobs/${job.id}`));
   }
-  return response.json();
+  if (job.status === "failed" || !job.result) throw new Error(job.error ?? "The job failed.");
+  return job.result;
 }
