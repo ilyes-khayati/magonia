@@ -5,8 +5,8 @@ from typing import Literal
 import ee
 import pandas as pd
 
-NDVI_COLLECTION = "MODIS/061/MOD13Q1"
-NDVI_SCALE = 0.0001  # MOD13Q1 stores NDVI as integers
+from engine.catalogue import NDVI
+
 CLOUDY = 2  # SummaryQA: 0 good, 1 marginal, 2 snow or ice, 3 cloudy
 
 Masking = Literal["pixel", "date", "none"]
@@ -24,7 +24,7 @@ def ndvi_series(geometry: dict, start: str, end: str, masking: Masking = "pixel"
         raise ValueError(f"masking must be 'pixel', 'date' or 'none', not {masking!r}")
 
     area = ee.Geometry(geometry)
-    images = ee.ImageCollection(NDVI_COLLECTION).filterDate(start, end)
+    images = ee.ImageCollection(NDVI.collection).filterDate(start, end)
     stats = (
         ee.Reducer.mean()
         .combine(ee.Reducer.stdDev(), sharedInputs=True)
@@ -33,7 +33,7 @@ def ndvi_series(geometry: dict, start: str, end: str, masking: Masking = "pixel"
 
     def summarise(image):
         quality = image.select("SummaryQA")
-        ndvi = image.select("NDVI")
+        ndvi = image.select(NDVI.band)
         if masking == "pixel":
             ndvi = ndvi.updateMask(quality.lt(CLOUDY))
         values = ndvi.reduceRegion(stats, area, scale=250)
@@ -42,9 +42,9 @@ def ndvi_series(geometry: dict, start: str, end: str, masking: Masking = "pixel"
             None,
             {
                 "date": image.date().format("YYYY-MM-dd"),
-                "ndvi": values.get("NDVI_mean"),
-                "sd": values.get("NDVI_stdDev"),
-                "n_pixels": values.get("NDVI_count"),
+                "ndvi": values.get(f"{NDVI.band}_mean"),
+                "sd": values.get(f"{NDVI.band}_stdDev"),
+                "n_pixels": values.get(f"{NDVI.band}_count"),
                 "quality": mean_quality,
             },
         )
@@ -63,8 +63,8 @@ def to_table(features: list[dict], masking: Masking = "pixel") -> pd.DataFrame:
         [f["properties"] for f in features], columns=["date", "ndvi", "sd", "n_pixels", "quality"]
     )
     table["date"] = pd.to_datetime(table["date"])
-    table["ndvi"] = pd.to_numeric(table["ndvi"]) * NDVI_SCALE
-    table["sd"] = pd.to_numeric(table["sd"]) * NDVI_SCALE
+    table["ndvi"] = pd.to_numeric(table["ndvi"]) * NDVI.scale + NDVI.offset
+    table["sd"] = pd.to_numeric(table["sd"]) * NDVI.scale
     table["n_pixels"] = pd.to_numeric(table["n_pixels"]).fillna(0).astype(int)
 
     if masking == "date":
