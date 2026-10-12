@@ -1,19 +1,27 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   createArea,
   createWorkspace,
   deleteArea,
+  fetchCatalogue,
   listWorkspaces,
   openWorkspace,
   renameArea,
+  updateWorkspace,
   type Area,
+  type Variable,
+  type VariableKey,
   type WorkspaceSummary,
 } from "./api";
 import { readAreaFile } from "./areaFiles";
+import DataPanel from "./components/DataPanel";
 import MapView, { type Target, type Tool } from "./components/MapView";
+import Results from "./components/Results";
 import Sidebar from "./components/Sidebar";
 import Toolbar from "./components/Toolbar";
+import { DEFAULTS, readSettings, seriesKey, seriesOptions, type Settings } from "./settings";
 import { applyTheme, areaColour, initialTheme, type Theme } from "./theme";
+import { useSeries } from "./useSeries";
 
 type Message = { text: string; error?: boolean } | null;
 
@@ -58,8 +66,19 @@ export default function App() {
   const [tool, setTool] = useState<Tool>(null);
   const [target, setTarget] = useState<Target | null>(null);
   const [message, setMessage] = useState<Message>(null);
+  const [catalogue, setCatalogue] = useState<Variable[]>([]);
+  const [settings, setSettings] = useState<Settings>(DEFAULTS);
+  const [wide, setWide] = useState(false);
+  const saving = useRef<number | undefined>(undefined);
 
   useEffect(() => applyTheme(theme), [theme]);
+
+  // Notices fade after a few seconds; errors stay until the next action
+  useEffect(() => {
+    if (!message || message.error) return;
+    const timer = window.setTimeout(() => setMessage(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [message]);
 
   const fail = (error: unknown) =>
     setMessage({ text: error instanceof Error ? error.message : String(error), error: true });
@@ -68,7 +87,8 @@ export default function App() {
     const workspace = await openWorkspace(id);
     setWorkspaceId(id);
     setAreas(workspace.areas);
-    setHidden(new Set());
+    setSettings(readSettings(workspace.settings));
+    setHidden(new Set((workspace.settings.hidden as number[] | undefined) ?? []));
     remember(id);
     const box = bounds(workspace.areas.map((a) => a.geometry));
     if (box) setTarget({ key: Date.now(), bounds: box });
@@ -76,6 +96,7 @@ export default function App() {
 
   useEffect(() => {
     (async () => {
+      setCatalogue(await fetchCatalogue());
       let found = await listWorkspaces();
       if (!found.length) found = [await createWorkspace("My workspace")];
       setWorkspaces(found);
@@ -151,18 +172,59 @@ export default function App() {
     }
   }
 
+  // Settings and hidden areas are saved with the workspace, half a second after the last change
+  function save(nextSettings: Settings, nextHidden: Set<number>) {
+    window.clearTimeout(saving.current);
+    const id = workspaceId;
+    if (id === null) return;
+    saving.current = window.setTimeout(() => {
+      updateWorkspace(id, { settings: { ...nextSettings, hidden: [...nextHidden] } }).catch(fail);
+    }, 500);
+  }
+
+  function change(update: Partial<Settings>) {
+    const next = { ...settings, ...update };
+    setSettings(next);
+    save(next, hidden);
+  }
+
   function toggle(area: Area) {
     const next = new Set(hidden);
     if (next.has(area.id)) next.delete(area.id);
     else next.add(area.id);
     setHidden(next);
+    save(settings, next);
   }
 
   const colours = useMemo(
     () => new Map(areas.map((area, index) => [area.id, areaColour(theme, index)])),
     [areas, theme],
   );
-  const shown = areas.filter((area) => !hidden.has(area.id));
+  const shown = useMemo(() => areas.filter((area) => !hidden.has(area.id)), [areas, hidden]);
+
+  // One request per visible area and chosen variable
+  const requests = useMemo(
+    () =>
+      workspaceId === null
+        ? []
+        : settings.variables.flatMap((variable) =>
+            shown.map((area) => seriesOptions(settings, workspaceId, area.id, variable)),
+          ),
+    [settings, workspaceId, shown],
+  );
+  const results = useSeries(requests);
+  const states = requests.map((r) => results.get(seriesKey(r)));
+  const progress = {
+    total: requests.length,
+    done: states.filter((s) => s?.status === "done").length,
+    failed: states.filter((s) => s?.status === "failed").length,
+  };
+  const entries = (variable: VariableKey) =>
+    shown.map((area) => ({
+      area,
+      colour: colours.get(area.id)!,
+      state: results.get(seriesKey(seriesOptions(settings, workspaceId!, area.id, variable))),
+    }));
 
   const hint =
     tool === "polygon"
@@ -172,7 +234,7 @@ export default function App() {
         : null;
 
   return (
-    <div className="workbench">
+    <div className={wide ? "workbench wide" : "workbench"}>
       <Sidebar
         theme={theme}
         onTheme={() => setTheme(theme === "light" ? "dark" : "light")}
@@ -180,7 +242,9 @@ export default function App() {
         workspaceId={workspaceId}
         onOpen={(id) => open(id).catch(fail)}
         onNew={newWorkspace}
-      />
+      >
+        <DataPanel catalogue={catalogue} settings={settings} onChange={change} progress={progress} />
+      </Sidebar>
 
       <main className="map-area" aria-label="Map">
         <MapView
@@ -211,14 +275,15 @@ export default function App() {
         )}
       </main>
 
-      <aside className="results" aria-label="Results">
-        <h2 style={{ margin: 0, fontSize: 15 }}>Results</h2>
-        <p className="placeholder">
-          {areas.length
-            ? "Choose variables on the left to see them here."
-            : "Draw or upload an area to begin."}
-        </p>
-      </aside>
+      <Results
+        catalogue={catalogue}
+        settings={settings}
+        onChange={change}
+        areas={shown}
+        entries={entries}
+        wide={wide}
+        onWide={() => setWide(!wide)}
+      />
     </div>
   );
 }

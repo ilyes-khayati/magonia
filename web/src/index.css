@@ -416,7 +416,262 @@ button:disabled {
   color: var(--on-selected);
 }
 
+/* Data panel */
+.variable {
+  border: 1px solid var(--line);
+  background: var(--card);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.variable[data-on="true"] {
+  border-color: var(--accent);
+}
+
+.variable input[type="checkbox"],
+.sidebar input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+}
+
+.meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.reason {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.segmented {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.segmented button {
+  border: none;
+  background: transparent;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.segmented button[aria-pressed="true"] {
+  background: var(--selected);
+  color: var(--on-selected);
+}
+
+.status {
+  margin: auto 0 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.status .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.status .dot[data-busy="true"] {
+  background: var(--warning);
+  animation: pulse 1s ease-in-out infinite alternate;
+}
+
+@keyframes pulse {
+  to {
+    opacity: 0.3;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status .dot[data-busy="true"] {
+    animation: none;
+  }
+}
+
 /* Results */
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.card-head > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.card h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.icon-button.round {
+  width: 28px;
+  height: 28px;
+  border-radius: 14px;
+}
+
+.icon-button[aria-expanded="true"] {
+  border-color: var(--accent);
+}
+
+.text-button {
+  border: 1px solid var(--line);
+  background: transparent;
+  border-radius: 14px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-family: var(--mono);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  font-size: 12px;
+}
+
+.legend button {
+  border: none;
+  background: transparent;
+  padding: 2px 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend button[aria-pressed="false"] {
+  opacity: 0.4;
+}
+
+.swatch {
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+}
+
+.warning {
+  margin: 0;
+  font-size: 12px;
+  color: var(--warning);
+  line-height: 1.4;
+}
+
+.error-text {
+  color: var(--danger);
+}
+
+.stats {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  font-family: var(--mono);
+}
+
+.stats th,
+.stats td {
+  padding: 4px 6px;
+  text-align: right;
+  border-top: 1px solid var(--grid);
+  font-weight: 400;
+}
+
+.stats thead th {
+  color: var(--muted);
+  border-top: none;
+}
+
+.stats th[scope="row"],
+.stats thead th:first-child {
+  text-align: left;
+  font-family: "IBM Plex Sans", system-ui, sans-serif;
+}
+
+.provenance dl {
+  margin: 0 0 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--ground);
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 5px 10px;
+  font-size: 12px;
+}
+
+.provenance dt {
+  color: var(--muted);
+  text-transform: capitalize;
+}
+
+.provenance dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.provenance .provenance-title {
+  grid-column: 1 / -1;
+  color: var(--ink);
+  font-weight: 600;
+  text-transform: none;
+}
+
+.provenance code {
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.summary {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  line-height: 1.5;
+}
+
+.ask {
+  border-style: dashed;
+  background: transparent;
+}
+
+.ask textarea {
+  resize: none;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--ground);
+  padding: 8px 10px;
+}
+
 .placeholder {
   margin: 0;
   padding: 24px;
