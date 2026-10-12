@@ -5,9 +5,10 @@ test("drawing an area shows its NDVI curve", async ({ page }) => {
   await page.route("**/api/series", (route) =>
     route.fulfill({
       json: [
-        { date: "2023-01-01", ndvi: 0.58 },
-        { date: "2023-01-17", ndvi: 0.6 },
-        { date: "2023-02-02", ndvi: 0.55 },
+        { date: "2023-01-01", ndvi: 0.58, sd: 0.05, n_pixels: 18, masked: false },
+        { date: "2023-01-17", ndvi: null, sd: null, n_pixels: 0, masked: true },
+        { date: "2023-02-02", ndvi: 0.55, sd: 0.04, n_pixels: 18, masked: false },
+        { date: "2023-02-18", ndvi: 0.6, sd: 0.05, n_pixels: 18, masked: false },
       ],
     }),
   );
@@ -20,4 +21,5 @@ test("drawing an area shows its NDVI curve", async ({ page }) => {
   }
 
   await expect(page.locator(".recharts-line")).toBeVisible();
+  await expect(page.getByText("1 cloudy date removed")).toBeVisible();
 });

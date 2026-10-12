@@ -4,7 +4,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { TerraDraw, TerraDrawPolygonMode } from "terra-draw";
 import { TerraDrawMapLibreGLAdapter } from "terra-draw-maplibre-gl-adapter";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { fetchSeries, type SeriesPoint } from "./api";
+import { fetchSeries, type Masking, type SeriesPoint } from "./api";
 
 const SATELLITE: StyleSpecification = {
   version: 8,
@@ -27,6 +27,12 @@ const END = "2025-01-01";
 
 type Status = "idle" | "drawing" | "loading" | "done" | "error";
 
+const CLOUD_FILTERS: Record<Masking, string> = {
+  pixel: "Remove cloudy pixels",
+  date: "Remove cloudy dates",
+  none: "No cloud filter",
+};
+
 const MESSAGES: Record<Status, string> = {
   idle: "Draw an area to see its vegetation.",
   drawing: "Click to place points. Click the first point to close the area.",
@@ -42,6 +48,20 @@ export default function App() {
   const [series, setSeries] = useState<SeriesPoint[]>([]);
   const [error, setError] = useState("");
   const [ready, setReady] = useState(false);
+  const [masking, setMasking] = useState<Masking>("pixel");
+  const maskingRef = useRef<Masking>("pixel");
+  const area = useRef<unknown>(null);
+
+  async function load(geometry: unknown, choice: Masking) {
+    setStatus("loading");
+    try {
+      setSeries(await fetchSeries(geometry, START, END, choice));
+      setStatus("done");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setStatus("error");
+    }
+  }
 
   useEffect(() => {
     const map = new MapLibre({
@@ -60,14 +80,8 @@ export default function App() {
         const feature = terra.getSnapshotFeature(id);
         if (!feature) return;
         terra.setMode("static");
-        setStatus("loading");
-        try {
-          setSeries(await fetchSeries(feature.geometry, START, END));
-          setStatus("done");
-        } catch (e) {
-          setError(e instanceof Error ? e.message : String(e));
-          setStatus("error");
-        }
+        area.current = feature.geometry;
+        await load(feature.geometry, maskingRef.current);
       });
       draw.current = terra;
       setReady(true);
@@ -78,9 +92,18 @@ export default function App() {
   function startDrawing() {
     draw.current?.clear();
     draw.current?.setMode("polygon");
+    area.current = null;
     setSeries([]);
     setStatus("drawing");
   }
+
+  function changeMasking(choice: Masking) {
+    setMasking(choice);
+    maskingRef.current = choice;
+    if (area.current) load(area.current, choice);
+  }
+
+  const removed = series.filter((point) => point.masked).length;
 
   return (
     <>
@@ -92,10 +115,28 @@ export default function App() {
         <button onClick={startDrawing} disabled={!ready || status === "loading"}>
           {status === "done" || status === "error" ? "Draw another area" : "Draw an area"}
         </button>
+        <select
+          aria-label="Cloud filter"
+          value={masking}
+          onChange={(e) => changeMasking(e.target.value as Masking)}
+          disabled={status === "loading"}
+        >
+          {Object.entries(CLOUD_FILTERS).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
       </header>
       <section className="panel bottom">
         <p className={status === "error" ? "error" : ""}>
           {status === "error" ? error : MESSAGES[status]}
+          {status === "done" && masking !== "none" && (
+            <span className="note">
+              {" "}
+              · {removed} cloudy {removed === 1 ? "date" : "dates"} removed
+            </span>
+          )}
         </p>
         {status === "done" && (
           <ResponsiveContainer width="100%" height={180}>
@@ -107,7 +148,7 @@ export default function App() {
                 contentStyle={{ background: "#111", border: "1px solid #333" }}
                 formatter={(value) => Number(value).toFixed(3)}
               />
-              <Line dataKey="ndvi" stroke="#7ddc8a" dot={false} strokeWidth={1.6} connectNulls />
+              <Line dataKey="ndvi" stroke="#7ddc8a" dot={false} strokeWidth={1.6} />
             </LineChart>
           </ResponsiveContainer>
         )}

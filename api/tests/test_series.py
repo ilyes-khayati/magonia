@@ -15,9 +15,16 @@ REQUEST = {
 }
 
 
-def fake_series(geometry, start, end):
+def fake_series(geometry, start, end, masking):
+    assert masking in ("pixel", "date", "none")
     return pd.DataFrame(
-        {"date": pd.to_datetime(["2023-01-01", "2023-01-17"]), "ndvi": [0.58, float("nan")]}
+        {
+            "date": pd.to_datetime(["2023-01-01", "2023-01-17"]),
+            "ndvi": [0.58, float("nan")],
+            "sd": [0.05, float("nan")],
+            "n_pixels": [18, 0],
+            "masked": [False, True],
+        }
     )
 
 
@@ -32,9 +39,14 @@ def test_series_returns_one_point_per_date(client):
     response = client.post("/series", json=REQUEST)
     assert response.status_code == 200
     assert response.json() == [
-        {"date": "2023-01-01", "ndvi": 0.58},
-        {"date": "2023-01-17", "ndvi": None},
+        {"date": "2023-01-01", "ndvi": 0.58, "sd": 0.05, "n_pixels": 18, "masked": False},
+        {"date": "2023-01-17", "ndvi": None, "sd": None, "n_pixels": 0, "masked": True},
     ]
+
+
+def test_unknown_masking_is_rejected(client):
+    response = client.post("/series", json={**REQUEST, "masking": "clouds"})
+    assert response.status_code == 422
 
 
 def test_end_before_start_is_rejected(client):
