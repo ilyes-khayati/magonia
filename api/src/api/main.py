@@ -6,6 +6,7 @@ import engine
 from engine.areas import AreaError, make_area
 from engine.catalogue import get_variable
 from engine.earth_engine import EarthEngineError, connect
+from engine.prepare import Resolution, aggregate, fill_gaps
 from engine.series import Masking, series, size_warnings
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
@@ -20,6 +21,8 @@ class SeriesRequest(BaseModel):
     variable: Literal["ndvi", "lst", "spei"] = "ndvi"
     masking: Masking = "pixel"  # how flagged observations are removed
     scale: int | None = Field(None, ge=1, le=48)  # SPEI time scale in months
+    resolution: Resolution = "native"
+    max_gap: int = Field(2, ge=0, le=12)  # longest run of empty dates to fill; 0 turns filling off
 
 
 class SeriesPoint(BaseModel):
@@ -28,6 +31,9 @@ class SeriesPoint(BaseModel):
     sd: float | None
     n_pixels: int
     masked: bool
+    filled: bool
+    n_obs: int
+    n_valid: int
 
 
 class SeriesResponse(BaseModel):
@@ -73,6 +79,9 @@ def get_series(request: SeriesRequest) -> SeriesResponse:
         )
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
+    table = aggregate(table, request.resolution)
+    if request.max_gap:
+        table = fill_gaps(table, request.max_gap)
     points = [
         SeriesPoint(
             date=row.date.date(),
@@ -80,6 +89,9 @@ def get_series(request: SeriesRequest) -> SeriesResponse:
             sd=number(row.sd),
             n_pixels=row.n_pixels,
             masked=row.masked,
+            filled=row.filled,
+            n_obs=row.n_obs,
+            n_valid=row.n_valid,
         )
         for row in table.itertuples()
     ]
