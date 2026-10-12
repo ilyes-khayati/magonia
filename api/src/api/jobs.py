@@ -62,7 +62,7 @@ def execute(store: Store, job_id: int, request: Request, key: str) -> None:
     """Run one job and record its result or a readable error."""
     store.set_job(job_id, "running")
     try:
-        connect()
+        connect(store.setting("ee_project"))  # None falls back to EE_PROJECT in .env
         result = run(request, fetch=fetch)
         store.save_result(key, to_response(result, request))
     except (EarthEngineError, ValueError) as exc:

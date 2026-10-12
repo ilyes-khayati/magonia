@@ -160,7 +160,7 @@ export default function DataPanel({ catalogue, settings, onChange, progress }: P
         <span className="reason">{settings.fill ? REASONS.fill : "Gaps stay empty."}</span>
       </div>
 
-      <p className="status" role="status">
+      <p className="status" role="status" aria-live="polite">
         <span className="dot" data-busy={progress.done + progress.failed < progress.total} />
         {progress.total === 0
           ? "Nothing to load yet"

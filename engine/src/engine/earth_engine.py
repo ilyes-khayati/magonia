@@ -30,3 +30,13 @@ def connect(project: str | None = None) -> str:
             "Run `earthengine authenticate` and check that the project has Earth Engine enabled."
         ) from exc
     return project
+
+
+def check(project: str | None = None) -> str:
+    """Connect and make one tiny request, so a wrong project is caught now, not mid-job."""
+    project = connect(project)
+    try:
+        ee.Number(1).getInfo()
+    except ee.EEException as exc:
+        raise EarthEngineError(f"Earth Engine project '{project}' did not answer: {exc}") from exc
+    return project

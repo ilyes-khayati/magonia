@@ -385,7 +385,7 @@ Decisions open: cloud provider (Google Cloud, which hosts Earth Engine, or AWS);
 
 A working end-to-end path on the researcher's own computer:
 
-- Sign in with Google and connect an Earth Engine project (ACC-01, ACC-04)
+- Connect an Earth Engine project (ACC-04)
 - Map with search, basemaps, several drawn or uploaded areas (MAP-01 to MAP-05)
 - NDVI, LST and SPEI with quality masking and gap filling (DATA-01 to DATA-04, PREP-01 to PREP-03, PREP-07)
 - Time window and resolution (TIME-01, TIME-02)
@@ -396,7 +396,7 @@ A working end-to-end path on the researcher's own computer:
 
 ### 8.2 Version 2
 
-Decomposition, correlation and lag analysis, models with explanations and noise floors, interpreter and guardrails, code export, cloud deployment.
+Sign-in (ACC-01), decomposition, correlation and lag analysis, models with explanations and noise floors, interpreter and guardrails, code export, cloud deployment.
 
 ### 8.3 Later
 
