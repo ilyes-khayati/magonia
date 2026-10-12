@@ -1,6 +1,13 @@
 import { expect, test } from "@playwright/test";
 
+const CATALOGUE = [
+  { key: "ndvi", name: "NDVI", units: "", scales: [] },
+  { key: "lst", name: "Land surface temperature (day)", units: "°C", scales: [] },
+  { key: "spei", name: "SPEI", units: "", scales: [1, 3, 6, 12, 24, 48] },
+];
+
 test("drawing an area shows its NDVI curve", async ({ page }) => {
+  await page.route("**/api/catalogue", (route) => route.fulfill({ json: CATALOGUE }));
   // Fake the API so the test does not need Earth Engine
   await page.route("**/api/series", (route) =>
     route.fulfill({
@@ -29,4 +36,7 @@ test("drawing an area shows its NDVI curve", async ({ page }) => {
   await expect(page.locator(".recharts-line")).toBeVisible();
   await expect(page.getByText("1 date without usable data")).toBeVisible();
   await expect(page.getByText("smaller than one pixel")).toBeVisible();
+  await expect(page.getByLabel("Variable").locator("option")).toHaveText(
+    CATALOGUE.map((variable) => variable.name),
+  );
 });

@@ -3,6 +3,7 @@ from datetime import date
 from typing import Literal
 
 import engine
+from engine.catalogue import CATALOGUE
 from engine.earth_engine import EarthEngineError, connect
 from engine.pipeline import Request, run
 from engine.prepare import Resolution
@@ -51,6 +52,12 @@ def number(value: float) -> float | None:
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok", "engine": engine.__version__}
+
+
+@app.get("/catalogue")
+def catalogue() -> list[dict]:
+    """Every variable Magonia can extract, with its source, resolution and licence."""
+    return [variable.to_dict() for variable in CATALOGUE.values()]
 
 
 @app.post("/series")
