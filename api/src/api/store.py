@@ -23,6 +23,10 @@ CREATE TABLE IF NOT EXISTS areas (
     area_km2 REAL NOT NULL,
     UNIQUE (workspace_id, name)
 );
+CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS results (
     key TEXT PRIMARY KEY,
     response TEXT NOT NULL,
@@ -79,6 +83,15 @@ class Store:
     def row(self, sql: str, values: tuple = ()) -> dict | None:
         found = self.rows(sql, values)
         return found[0] if found else None
+
+    # Settings of this installation, such as the Earth Engine project
+
+    def setting(self, key: str) -> str | None:
+        found = self.row("SELECT value FROM settings WHERE key = ?", (key,))
+        return found["value"] if found else None
+
+    def set_setting(self, key: str, value: str) -> None:
+        self.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (key, value))
 
     # Workspaces
 

@@ -2,7 +2,7 @@ import ee
 import pytest
 
 from engine import earth_engine
-from engine.earth_engine import EarthEngineError, connect
+from engine.earth_engine import EarthEngineError, check, connect
 
 
 @pytest.fixture
@@ -38,6 +38,16 @@ def test_earth_engine_failure_is_explained(monkeypatch):
     monkeypatch.setattr(ee, "Initialize", fail)
     with pytest.raises(EarthEngineError, match="earthengine authenticate"):
         connect("some-project")
+
+
+def test_check_reports_a_project_that_does_not_answer(fake_ee, monkeypatch):
+    class Refusing:
+        def getInfo(self):
+            raise ee.EEException("Earth Engine API has not been used in project wrong-id")
+
+    monkeypatch.setattr(ee, "Number", lambda value: Refusing())
+    with pytest.raises(EarthEngineError, match="wrong-id"):
+        check("wrong-id")
 
 
 @pytest.mark.live

@@ -1,4 +1,4 @@
-import type { WorkspaceSummary } from "../api";
+import type { EarthEngineStatus, WorkspaceSummary } from "../api";
 import type { Theme } from "../theme";
 import { MoonIcon, PlusIcon, SunIcon } from "./Icons";
 
@@ -9,10 +9,13 @@ type Props = {
   workspaceId: number | null;
   onOpen: (id: number) => void;
   onNew: () => void;
+  earthEngine: EarthEngineStatus | null;
+  onEarthEngine: () => void;
   children?: React.ReactNode;
 };
 
-export default function Sidebar({ theme, onTheme, workspaces, workspaceId, onOpen, onNew, children }: Props) {
+export default function Sidebar(props: Props) {
+  const { theme, onTheme, workspaces, workspaceId, onOpen, onNew, earthEngine, children } = props;
   return (
     <aside className="sidebar" aria-label="Data">
       <div className="brand">
@@ -51,6 +54,15 @@ export default function Sidebar({ theme, onTheme, workspaces, workspaceId, onOpe
       </div>
 
       {children}
+
+      <button className="engine-status" onClick={props.onEarthEngine}>
+        <span className="dot" data-ok={earthEngine?.connected ?? false} />
+        {earthEngine === null
+          ? "Checking Earth Engine…"
+          : earthEngine.connected
+            ? `Earth Engine · ${earthEngine.project}`
+            : "Earth Engine not connected"}
+      </button>
     </aside>
   );
 }

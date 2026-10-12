@@ -6,6 +6,7 @@ from typing import Annotated, Literal
 import engine
 from engine.areas import AreaError, make_area
 from engine.catalogue import CATALOGUE, get_variable
+from engine.earth_engine import EarthEngineError, check
 from engine.pipeline import Request
 from engine.prepare import Resolution
 from engine.series import Masking, band_name
@@ -51,6 +52,16 @@ RunnerDep = Annotated[Runner, Depends(get_runner)]
 
 
 # Models
+
+
+class EarthEngineStatus(BaseModel):
+    connected: bool
+    project: str | None
+    error: str | None = None
+
+
+class EarthEngineProject(BaseModel):
+    project: str = Field(min_length=1, max_length=100, pattern=r"^[a-z][a-z0-9-]*$")
 
 
 class SeriesRequest(BaseModel):
@@ -147,6 +158,30 @@ def health() -> dict:
 def catalogue() -> list[dict]:
     """Every variable Magonia can extract, with its source, resolution and licence."""
     return [variable.to_dict() for variable in CATALOGUE.values()]
+
+
+# Earth Engine connection
+
+
+@app.get("/earth-engine")
+def earth_engine_status(store: StoreDep) -> EarthEngineStatus:
+    """Whether Earth Engine answers with the saved project (or EE_PROJECT from .env)."""
+    project = store.setting("ee_project")
+    try:
+        return EarthEngineStatus(connected=True, project=check(project))
+    except EarthEngineError as exc:
+        return EarthEngineStatus(connected=False, project=project, error=str(exc))
+
+
+@app.put("/earth-engine")
+def set_earth_engine_project(body: EarthEngineProject, store: StoreDep) -> EarthEngineStatus:
+    """Save the Earth Engine project, once it has answered."""
+    try:
+        project = check(body.project)
+    except EarthEngineError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    store.set_setting("ee_project", project)
+    return EarthEngineStatus(connected=True, project=project)
 
 
 # Jobs
