@@ -35,7 +35,7 @@ class EarthEngine:
 @pytest.fixture
 def earth_engine(monkeypatch):
     fake = EarthEngine()
-    monkeypatch.setattr(jobs, "connect", lambda: "test-project")
+    monkeypatch.setattr(jobs, "connect", lambda project=None: "test-project")
     monkeypatch.setattr(jobs, "fetch", fake.fetch)
     return fake
 

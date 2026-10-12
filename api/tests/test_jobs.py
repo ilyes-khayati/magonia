@@ -35,7 +35,7 @@ def test_changed_request_is_not_served_from_the_cache(client, earth_engine):
 
 
 def test_earth_engine_failure_is_readable(client, monkeypatch):
-    def fail():
+    def fail(project=None):
         raise EarthEngineError("No Earth Engine project set.")
 
     monkeypatch.setattr(jobs, "connect", fail)
@@ -97,7 +97,7 @@ def test_long_request_does_not_block_the_server(store, monkeypatch):
         release.wait(timeout=10)
         return [{"properties": {"date": "2023-01-01", "value": 5800, "sd": 500, "n_pixels": 18}}]
 
-    monkeypatch.setattr(jobs, "connect", lambda: "test-project")
+    monkeypatch.setattr(jobs, "connect", lambda project=None: "test-project")
     monkeypatch.setattr(jobs, "fetch", slow_fetch)
     main.app.dependency_overrides[main.get_store] = lambda: store
     main.app.dependency_overrides[main.get_runner] = lambda: runner

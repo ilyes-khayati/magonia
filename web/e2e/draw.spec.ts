@@ -1,10 +1,20 @@
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 
 // A small in-memory stand-in for the Magonia API, so the tests need neither the
 // API nor Earth Engine
-async function fakeApi(page: Page) {
+async function fakeApi(page: Page, connected = true) {
   const areas: { id: number; workspace_id: number; name: string; geometry: unknown; area_km2: number }[] = [];
   await page.route("**/api/catalogue", (route) => route.fulfill({ json: CATALOGUE }));
+  await page.route("**/api/earth-engine", (route) =>
+    route.request().method() === "PUT"
+      ? route.fulfill({ json: { connected: true, project: "my-project", error: null } })
+      : route.fulfill({
+          json: connected
+            ? { connected: true, project: "my-project", error: null }
+            : { connected: false, project: null, error: "No Earth Engine project set." },
+        }),
+  );
   await page.route("**/api/jobs", (route) =>
     route.fulfill({ status: 202, json: { id: 1, status: "done", error: null, result: RESULT } }),
   );
@@ -71,8 +81,8 @@ const SQUARE = {
   ],
 };
 
-test.beforeEach(async ({ page }) => {
-  await fakeApi(page);
+test.beforeEach(async ({ page }, info) => {
+  await fakeApi(page, !info.title.includes("not connected"));
   await page.goto("/");
   await expect(page.locator(".map[data-ready=true]")).toBeVisible();
 });
@@ -116,3 +126,34 @@ test("an area with NDVI chosen shows its chart, statistics, provenance and summa
   await page.getByRole("button", { name: "Seasonal cycle" }).click();
   await expect(chart.getByText("Average year", { exact: false })).toBeVisible();
 });
+
+test("when Earth Engine is not connected, the setup explains how and saves the project", async ({ page }) => {
+  const dialog = page.getByRole("dialog", { name: "Connect Google Earth Engine" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByLabel("Project id").fill("my-project");
+  await dialog.getByRole("button", { name: "Connect" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByText("Earth Engine · my-project")).toBeVisible();
+});
+
+test("focus mode hides the panels", async ({ page }) => {
+  await page.getByRole("button", { name: "Focus map" }).click();
+  await expect(page.getByRole("complementary", { name: "Results" })).toBeHidden();
+  await page.getByRole("button", { name: "Show panels" }).click();
+  await expect(page.getByRole("complementary", { name: "Results" })).toBeVisible();
+});
+
+for (const theme of ["light", "dark"]) {
+  test(`no serious accessibility problems in the ${theme} theme`, async ({ page }) => {
+    if (theme === "dark") await page.getByRole("button", { name: "Switch to dark theme" }).click();
+    await page.getByTestId("upload").setInputFiles({
+      name: "fields.geojson",
+      mimeType: "application/geo+json",
+      buffer: Buffer.from(JSON.stringify(SQUARE)),
+    });
+    await expect(page.locator(".recharts-line")).toBeVisible();
+    const results = await new AxeBuilder({ page }).exclude(".maplibregl-canvas").analyze();
+    const serious = results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? ""));
+    expect(serious.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
+  });
+}

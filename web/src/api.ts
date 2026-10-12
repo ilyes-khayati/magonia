@@ -69,6 +69,11 @@ const send = (method: string, body?: unknown): RequestInit => ({
 
 export const fetchCatalogue = () => call<Variable[]>("/catalogue");
 
+export type EarthEngineStatus = { connected: boolean; project: string | null; error: string | null };
+export const earthEngineStatus = () => call<EarthEngineStatus>("/earth-engine");
+export const setEarthEngineProject = (project: string) =>
+  call<EarthEngineStatus>("/earth-engine", send("PUT", { project }));
+
 export const listWorkspaces = () => call<WorkspaceSummary[]>("/workspaces");
 export const createWorkspace = (name: string) =>
   call<WorkspaceSummary>("/workspaces", send("POST", { name }));

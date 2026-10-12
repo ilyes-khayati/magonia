@@ -3,18 +3,21 @@ import {
   createArea,
   createWorkspace,
   deleteArea,
+  earthEngineStatus,
   fetchCatalogue,
   listWorkspaces,
   openWorkspace,
   renameArea,
   updateWorkspace,
   type Area,
+  type EarthEngineStatus,
   type Variable,
   type VariableKey,
   type WorkspaceSummary,
 } from "./api";
 import { readAreaFile } from "./areaFiles";
 import DataPanel from "./components/DataPanel";
+import EarthEngineSetup from "./components/EarthEngineSetup";
 import MapView, { type Target, type Tool } from "./components/MapView";
 import Results from "./components/Results";
 import Sidebar from "./components/Sidebar";
@@ -69,6 +72,9 @@ export default function App() {
   const [catalogue, setCatalogue] = useState<Variable[]>([]);
   const [settings, setSettings] = useState<Settings>(DEFAULTS);
   const [wide, setWide] = useState(false);
+  const [earthEngine, setEarthEngine] = useState<EarthEngineStatus | null>(null);
+  const [setupOpen, setSetupOpen] = useState(false);
+  const [focus, setFocus] = useState(false);
   const saving = useRef<number | undefined>(undefined);
 
   useEffect(() => applyTheme(theme), [theme]);
@@ -95,6 +101,12 @@ export default function App() {
   }
 
   useEffect(() => {
+    earthEngineStatus()
+      .then((status) => {
+        setEarthEngine(status);
+        if (!status.connected) setSetupOpen(true);
+      })
+      .catch(() => undefined); // the message below already says the API is unreachable
     (async () => {
       setCatalogue(await fetchCatalogue());
       let found = await listWorkspaces();
@@ -205,7 +217,8 @@ export default function App() {
   // One request per visible area and chosen variable
   const requests = useMemo(
     () =>
-      workspaceId === null
+      // nothing is asked of Earth Engine until it is connected
+      workspaceId === null || !earthEngine?.connected
         ? []
         : settings.variables.flatMap((variable) =>
             shown.map((area) => {
@@ -213,7 +226,7 @@ export default function App() {
               return { key: seriesKey(options, area.geometry), options };
             }),
           ),
-    [settings, workspaceId, shown],
+    [settings, workspaceId, shown, earthEngine],
   );
   const results = useSeries(requests);
   const states = requests.map((r) => results.get(r.key));
@@ -239,7 +252,7 @@ export default function App() {
         : null;
 
   return (
-    <div className={wide ? "workbench wide" : "workbench"}>
+    <div className={`workbench${wide ? " wide" : ""}${focus ? " focus" : ""}`}>
       <Sidebar
         theme={theme}
         onTheme={() => setTheme(theme === "light" ? "dark" : "light")}
@@ -247,6 +260,8 @@ export default function App() {
         workspaceId={workspaceId}
         onOpen={(id) => open(id).catch(fail)}
         onNew={newWorkspace}
+        earthEngine={earthEngine}
+        onEarthEngine={() => setSetupOpen(true)}
       >
         <DataPanel catalogue={catalogue} settings={settings} onChange={change} progress={progress} />
       </Sidebar>
@@ -257,6 +272,8 @@ export default function App() {
           tool={tool}
           target={target}
           onDrawn={drawn}
+          focus={focus}
+          onFocus={() => setFocus(!focus)}
         />
         <Toolbar
           tool={tool}
@@ -289,6 +306,17 @@ export default function App() {
         wide={wide}
         onWide={() => setWide(!wide)}
       />
+
+      {setupOpen && earthEngine && (
+        <EarthEngineSetup
+          status={earthEngine}
+          onConnected={(status) => {
+            setEarthEngine(status);
+            setSetupOpen(false);
+          }}
+          onClose={earthEngine.connected ? () => setSetupOpen(false) : null}
+        />
+      )}
     </div>
   );
 }

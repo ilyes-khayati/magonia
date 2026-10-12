@@ -18,11 +18,13 @@ type Props = {
   tool: Tool;
   target: Target | null;
   onDrawn: (geometry: GeoJSON.Polygon) => void;
+  focus: boolean;
+  onFocus: () => void;
 };
 
 const JENDOUBA: [number, number] = [8.561, 36.508];
 
-export default function MapView({ areas, tool, target, onDrawn }: Props) {
+export default function MapView({ areas, tool, target, onDrawn, focus, onFocus }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibre | null>(null);
   const draw = useRef<TerraDraw | null>(null);
@@ -94,6 +96,12 @@ export default function MapView({ areas, tool, target, onDrawn }: Props) {
     draw.current!.setMode(tool ?? "static");
   }, [tool, ready]);
 
+  // The map must re-measure itself when the side panels open or close
+  useEffect(() => {
+    const timer = window.setTimeout(() => map.current?.resize(), 50);
+    return () => window.clearTimeout(timer);
+  }, [focus]);
+
   useEffect(() => {
     if (!ready || !target) return;
     if (target.bounds) map.current!.fitBounds(target.bounds, { padding: 80, maxZoom: 16 });
@@ -124,6 +132,14 @@ export default function MapView({ areas, tool, target, onDrawn }: Props) {
             ))}
           </div>
         )}
+        <button
+          className="floating button"
+          aria-pressed={focus}
+          title={focus ? "Show the panels again" : "Hide the panels and show only the map"}
+          onClick={onFocus}
+        >
+          {focus ? "Show panels" : "Focus map"}
+        </button>
         <div className="floating zoom">
           <button aria-label="Zoom in" onClick={() => map.current?.zoomIn()}>
             +

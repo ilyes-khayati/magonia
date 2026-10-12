@@ -91,6 +91,18 @@ button:disabled {
   grid-template-columns: 260px minmax(0, 1fr) minmax(560px, 46%);
 }
 
+/* Focus mode (VIS-07): only the map */
+.workbench.focus {
+  grid-template-columns: 0 minmax(0, 1fr) 0;
+}
+
+.workbench.focus > .sidebar,
+.workbench.focus > .results {
+  visibility: hidden;
+  padding: 0;
+  border: none;
+}
+
 .sidebar,
 .results {
   background: var(--panel);
@@ -178,6 +190,89 @@ button:disabled {
   gap: 8px;
 }
 
+.engine-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.engine-status .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--danger);
+}
+
+.engine-status .dot[data-ok="true"] {
+  background: var(--accent);
+}
+
+/* Earth Engine setup */
+.setup {
+  max-width: 520px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--ink);
+  padding: 24px 26px;
+  line-height: 1.55;
+}
+
+.setup::backdrop {
+  background: rgb(0 0 0 / 55%);
+}
+
+.setup h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.setup ol {
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.setup code {
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--ground);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.setup a {
+  color: var(--accent);
+}
+
+.setup form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.setup .close {
+  margin-top: 14px;
+}
+
+.primary {
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 500;
+}
+
 /* Map */
 .map-area {
   position: relative;
@@ -211,6 +306,10 @@ button:disabled {
   justify-content: center;
   pointer-events: none;
   z-index: 2;
+}
+
+.engine-status {
+  margin-top: auto;
 }
 
 .toolbar {
@@ -265,7 +364,7 @@ button:disabled {
   border: none;
   outline: none;
   background: transparent;
-  width: 160px;
+  width: 120px;
   color: var(--ink);
 }
 
@@ -472,7 +571,7 @@ button:disabled {
 }
 
 .status {
-  margin: auto 0 0;
+  margin: 0;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -684,4 +783,10 @@ button:disabled {
 
 .maplibregl-ctrl-attrib {
   font-size: 10px;
+}
+
+/* Links inside text are underlined, not told apart by colour alone */
+.map-frame .maplibregl-ctrl-attrib a,
+.setup a {
+  text-decoration: underline;
 }
