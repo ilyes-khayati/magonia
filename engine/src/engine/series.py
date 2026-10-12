@@ -37,13 +37,27 @@ def series(
     half the area or more is flagged, "none" keeps everything.
     scale is the accumulation period in months, for SPEI only.
     """
+    features = fetch(key, geometry, start, end, masking, scale)
+    return to_table(features, get_variable(key), masking)
+
+
+def band_name(variable: Variable, masking: Masking, scale: int | None) -> str:
+    """Check the options for a variable and return the band to extract."""
     if masking not in ("pixel", "date", "none"):
         raise ValueError(f"masking must be 'pixel', 'date' or 'none', not {masking!r}")
-    variable = get_variable(key)
     if variable.sampling == "centre":
-        band = variable.band.format(scale=check_scale(variable, scale))
-    elif scale is not None:
+        return variable.band.format(scale=check_scale(variable, scale))
+    if scale is not None:
         raise ValueError(f"{variable.name} has no time scale")
+    return variable.band
+
+
+def fetch(
+    key: str, geometry: dict, start: str, end: str, masking: Masking, scale: int | None
+) -> list[dict]:
+    """Ask Earth Engine for one feature per image, with the area's statistics."""
+    variable = get_variable(key)
+    band = band_name(variable, masking, scale)
 
     area = ee.Geometry(geometry)
     images = ee.ImageCollection(variable.collection).filterDate(start, end)
@@ -62,8 +76,7 @@ def series(
                 },
             )
 
-        features = ee.FeatureCollection(images.map(sample)).getInfo()["features"]
-        return to_table(features, variable, "none")
+        return ee.FeatureCollection(images.map(sample)).getInfo()["features"]
 
     stats = (
         ee.Reducer.mean()
@@ -73,7 +86,7 @@ def series(
 
     def summarise(image):
         bad = flagged(key, image)
-        values = image.select(variable.band)
+        values = image.select(band)
         if masking == "pixel":
             values = values.updateMask(bad.Not())
         result = values.reduceRegion(stats, area, scale=variable.pixel_m)
@@ -82,15 +95,14 @@ def series(
             None,
             {
                 "date": image.date().format("YYYY-MM-dd"),
-                "value": result.get(f"{variable.band}_mean"),
-                "sd": result.get(f"{variable.band}_stdDev"),
-                "n_pixels": result.get(f"{variable.band}_count"),
+                "value": result.get(f"{band}_mean"),
+                "sd": result.get(f"{band}_stdDev"),
+                "n_pixels": result.get(f"{band}_count"),
                 "flagged": share_flagged.values().get(0),
             },
         )
 
-    features = ee.FeatureCollection(images.map(summarise)).getInfo()["features"]
-    return to_table(features, variable, masking)
+    return ee.FeatureCollection(images.map(summarise)).getInfo()["features"]
 
 
 def check_scale(variable: Variable, scale: int | None) -> int:
@@ -115,7 +127,7 @@ def to_table(features: list[dict], variable: Variable, masking: Masking = "pixel
     table["n_pixels"] = pd.to_numeric(table["n_pixels"]).fillna(0).astype(int)
     table.loc[table["value"].isna(), "n_pixels"] = 0
 
-    if masking == "date":
+    if masking == "date" and variable.sampling == "mean":
         dropped = pd.to_numeric(table["flagged"]) >= 0.5
         table.loc[dropped, ["value", "sd"]] = float("nan")
         table.loc[dropped, "n_pixels"] = 0
