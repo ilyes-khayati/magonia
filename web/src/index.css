@@ -81,6 +81,11 @@ select {
   font-size: 13px;
 }
 
+.warning {
+  margin: 8px 0 0;
+  color: #f2c46d;
+}
+
 .note {
   color: #6f6f6f;
 }

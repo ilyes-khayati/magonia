@@ -1,9 +1,12 @@
 import math
 from datetime import date
+from typing import Literal
 
 import engine
+from engine.areas import AreaError, make_area
+from engine.catalogue import get_variable
 from engine.earth_engine import EarthEngineError, connect
-from engine.series import Masking, ndvi_series
+from engine.series import Masking, series, size_warnings
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
@@ -14,15 +17,24 @@ class SeriesRequest(BaseModel):
     geometry: dict  # GeoJSON geometry, e.g. a polygon drawn on the map
     start: date
     end: date
-    masking: Masking = "pixel"  # how cloudy observations are removed
+    variable: Literal["ndvi", "lst"] = "ndvi"
+    masking: Masking = "pixel"  # how flagged observations are removed
 
 
 class SeriesPoint(BaseModel):
     date: date
-    ndvi: float | None
+    value: float | None
     sd: float | None
     n_pixels: int
     masked: bool
+
+
+class SeriesResponse(BaseModel):
+    variable: str
+    name: str
+    units: str
+    points: list[SeriesPoint]
+    warnings: list[str]
 
 
 def number(value: float) -> float | None:
@@ -35,24 +47,41 @@ def health() -> dict:
 
 
 @app.post("/series")
-def series(request: SeriesRequest) -> list[SeriesPoint]:
-    """NDVI over the given area, one point per 16-day MODIS composite."""
+def get_series(request: SeriesRequest) -> SeriesResponse:
+    """A variable over the given area, one point per image."""
     if request.end <= request.start:
         raise HTTPException(422, "end must be after start")
+    try:
+        area = make_area(request.geometry, "Area")
+    except AreaError as exc:
+        raise HTTPException(422, str(exc)) from exc
     try:
         connect()
     except EarthEngineError as exc:
         raise HTTPException(503, str(exc)) from exc
-    table = ndvi_series(
-        request.geometry, request.start.isoformat(), request.end.isoformat(), request.masking
+
+    variable = get_variable(request.variable)
+    table = series(
+        request.variable,
+        request.geometry,
+        request.start.isoformat(),
+        request.end.isoformat(),
+        request.masking,
     )
-    return [
+    points = [
         SeriesPoint(
             date=row.date.date(),
-            ndvi=number(row.ndvi),
+            value=number(row.value),
             sd=number(row.sd),
             n_pixels=row.n_pixels,
             masked=row.masked,
         )
         for row in table.itertuples()
     ]
+    return SeriesResponse(
+        variable=variable.key,
+        name=variable.name,
+        units=variable.units,
+        points=points,
+        warnings=size_warnings(variable, area.area_km2),
+    )

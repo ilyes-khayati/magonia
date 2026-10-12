@@ -14,6 +14,7 @@ class Variable:
     scale: float  # stored value * scale + offset = value in units
     offset: float
     resolution: str
+    pixel_m: int  # pixel size used when averaging over an area
     cadence: str
     quality: str
     licence: str
@@ -34,6 +35,7 @@ NDVI = Variable(
     scale=0.0001,
     offset=0.0,
     resolution="250 m",
+    pixel_m=250,
     cadence="16 days",
     quality="Pixels with SummaryQA of 2 (snow or ice) or 3 (cloudy) are removed.",
     licence="NASA LP DAAC: no restrictions on use or redistribution",
@@ -51,6 +53,7 @@ LST = Variable(
     scale=0.02,
     offset=-273.15,
     resolution="1 km",
+    pixel_m=1000,
     cadence="8 days",
     quality="Pixels whose QC_Day reports an LST error above 2 K are removed.",
     licence="NASA LP DAAC: no restrictions on use or redistribution",
@@ -68,6 +71,7 @@ SPEI = Variable(
     scale=1.0,
     offset=0.0,
     resolution="0.5°",
+    pixel_m=55660,  # 0.5° of latitude
     cadence="monthly",
     quality="No quality flags; the grid cell is far larger than most fields.",
     licence="Open Database License (ODbL) 1.0",

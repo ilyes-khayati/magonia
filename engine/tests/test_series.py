@@ -4,78 +4,104 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from engine.catalogue import LST, NDVI, SPEI
 from engine.earth_engine import connect
-from engine.series import ndvi_series, to_table
+from engine.series import series, size_warnings, to_table
 
 DATA = Path(__file__).parent / "data"
 ORCHARD = DATA / "jendouba_orchard.geojson"
-REFERENCE = DATA / "reference_ndvi_16day.csv"  # extracted independently for the 2026 paper
+# Extracted independently for the 2026 paper
+REFERENCES = {
+    "ndvi": (DATA / "reference_ndvi_16day.csv", "NDVI", "date"),
+    "lst": (DATA / "reference_lst_8day.csv", "LST", "none"),
+}
 
 
-def properties(ndvi, quality=0, sd=500, n_pixels=20):
-    values = {"date": "2023-01-01", "sd": sd, "n_pixels": n_pixels, "quality": quality}
-    if ndvi is not None:  # Earth Engine drops a property when its value is null
-        values["ndvi"] = ndvi
+def properties(value, flagged=0, sd=500, n_pixels=20):
+    values = {"date": "2023-01-01", "sd": sd, "n_pixels": n_pixels, "flagged": flagged}
+    if value is not None:  # Earth Engine drops a property when its value is null
+        values["value"] = value
     return {"properties": values}
 
 
+def orchard():
+    return json.loads(ORCHARD.read_text())["features"][0]["geometry"]
+
+
 def test_to_table_scales_and_parses_dates():
-    table = to_table([properties(5804)])
+    table = to_table([properties(5804)], NDVI)
     assert table["date"][0] == pd.Timestamp("2023-01-01")
-    assert table["ndvi"][0] == pytest.approx(0.5804)
+    assert table["value"][0] == pytest.approx(0.5804)
     assert table["sd"][0] == pytest.approx(0.05)
     assert table["n_pixels"][0] == 20
     assert not table["masked"][0]
 
 
+def test_lst_is_in_celsius():
+    table = to_table([properties(15000, sd=50)], LST)
+    assert table["value"][0] == pytest.approx(26.85)
+    assert table["sd"][0] == pytest.approx(1.0)
+
+
 def test_date_with_no_clean_pixels_is_masked():
-    table = to_table([{"properties": {"date": "2023-01-01", "n_pixels": 0, "quality": 3}}])
+    table = to_table([{"properties": {"date": "2023-01-01", "n_pixels": 0, "flagged": 1}}], NDVI)
     assert table["masked"][0]
-    assert table["ndvi"].isna().all()
+    assert table["value"].isna().all()
     assert table["n_pixels"][0] == 0
 
 
-def test_date_masking_drops_cloudy_dates():
-    features = [properties(5804, quality=0), properties(2300, quality=3)]
-    table = to_table(features, masking="date")
+def test_date_masking_drops_mostly_flagged_dates():
+    features = [properties(5804, flagged=0.4), properties(2300, flagged=0.5)]
+    table = to_table(features, NDVI, masking="date")
     assert list(table["masked"]) == [False, True]
     assert table["n_pixels"][1] == 0
 
 
-def test_no_masking_keeps_cloudy_dates():
-    table = to_table([properties(2300, quality=3)], masking="none")
-    assert table["ndvi"][0] == pytest.approx(0.23)
+def test_no_masking_keeps_flagged_dates():
+    table = to_table([properties(2300, flagged=1)], NDVI, masking="none")
+    assert table["value"][0] == pytest.approx(0.23)
 
 
 def test_to_table_handles_no_images():
-    table = to_table([])
-    assert list(table.columns) == ["date", "ndvi", "sd", "n_pixels", "masked"]
+    table = to_table([], NDVI)
+    assert list(table.columns) == ["date", "value", "sd", "n_pixels", "masked"]
     assert table.empty
 
 
 def test_unknown_masking_is_rejected():
     with pytest.raises(ValueError, match="masking"):
-        ndvi_series({}, "2023-01-01", "2024-01-01", masking="clouds")
+        series("ndvi", {}, "2023-01-01", "2024-01-01", masking="clouds")
+
+
+def test_spei_is_not_available_yet():
+    with pytest.raises(ValueError, match="not available yet"):
+        series("spei", {}, "2023-01-01", "2024-01-01")
+
+
+def test_area_smaller_than_a_pixel_is_warned():
+    assert size_warnings(NDVI, 0.644) == []
+    [warning] = size_warnings(LST, 0.644)
+    assert "0.64 km²" in warning and "1 km" in warning
+    assert size_warnings(SPEI, 100)
 
 
 @pytest.mark.live
 def test_live_orchard_2023():
     connect()
-    geometry = json.loads(ORCHARD.read_text())["features"][0]["geometry"]
-    table = ndvi_series(geometry, "2023-01-01", "2024-01-01")
+    table = series("ndvi", orchard(), "2023-01-01", "2024-01-01")
     assert len(table) == 23
-    assert table["ndvi"].dropna().between(0, 1).all()
+    assert table["value"].dropna().between(0, 1).all()
 
 
 @pytest.mark.live
-def test_live_matches_the_reference_extraction():
+@pytest.mark.parametrize("key", REFERENCES)
+def test_live_matches_the_reference_extraction(key):
+    path, column, masking = REFERENCES[key]
     connect()
-    geometry = json.loads(ORCHARD.read_text())["features"][0]["geometry"]
-    table = ndvi_series(geometry, "2000-03-01", "2025-01-01", masking="date")
-    reference = pd.read_csv(REFERENCE, parse_dates=["date"])
+    table = series(key, orchard(), "2000-03-01", "2025-01-01", masking)
+    reference = pd.read_csv(path, parse_dates=["date"])
 
     assert list(table["date"]) == list(reference["date"])
-    assert list(table["masked"]) == list(reference["NDVI"].isna())
-    assert table["ndvi"].to_numpy() == pytest.approx(
-        reference["NDVI"].to_numpy(), abs=1e-6, nan_ok=True
-    )
+    assert list(table["masked"]) == list(reference[column].isna())
+    expected = reference[column].to_numpy()
+    assert table["value"].to_numpy() == pytest.approx(expected, abs=1e-6, nan_ok=True)
