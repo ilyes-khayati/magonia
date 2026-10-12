@@ -9,7 +9,6 @@ from engine.catalogue import Variable, get_variable
 
 Masking = Literal["pixel", "date", "none"]
 COLUMNS = ["date", "value", "sd", "n_pixels", "masked"]
-AVAILABLE = ("ndvi", "lst")
 
 
 def flagged(key: str, image: ee.Image) -> ee.Image:
@@ -24,22 +23,48 @@ def flagged(key: str, image: ee.Image) -> ee.Image:
 
 
 def series(
-    key: str, geometry: dict, start: str, end: str, masking: Masking = "pixel"
+    key: str,
+    geometry: dict,
+    start: str,
+    end: str,
+    masking: Masking = "pixel",
+    scale: int | None = None,
 ) -> pd.DataFrame:
     """A variable from the catalogue over a GeoJSON geometry, one row per image.
 
     masking chooses how flagged observations are removed: "pixel" drops
     flagged pixels and averages the rest, "date" drops the whole date when
     half the area or more is flagged, "none" keeps everything.
+    scale is the accumulation period in months, for SPEI only.
     """
     if masking not in ("pixel", "date", "none"):
         raise ValueError(f"masking must be 'pixel', 'date' or 'none', not {masking!r}")
     variable = get_variable(key)
-    if key not in AVAILABLE:
-        raise ValueError(f"{variable.name} series are not available yet")
+    if variable.sampling == "centre":
+        band = variable.band.format(scale=check_scale(variable, scale))
+    elif scale is not None:
+        raise ValueError(f"{variable.name} has no time scale")
 
     area = ee.Geometry(geometry)
     images = ee.ImageCollection(variable.collection).filterDate(start, end)
+
+    if variable.sampling == "centre":
+        centre = area.centroid(maxError=1)
+
+        def sample(image):
+            value = image.select(band).reduceRegion(ee.Reducer.first(), centre, variable.pixel_m)
+            return ee.Feature(
+                None,
+                {
+                    "date": image.date().format("YYYY-MM-dd"),
+                    "value": value.get(band),
+                    "n_pixels": 1,
+                },
+            )
+
+        features = ee.FeatureCollection(images.map(sample)).getInfo()["features"]
+        return to_table(features, variable, "none")
+
     stats = (
         ee.Reducer.mean()
         .combine(ee.Reducer.stdDev(), sharedInputs=True)
@@ -68,6 +93,13 @@ def series(
     return to_table(features, variable, masking)
 
 
+def check_scale(variable: Variable, scale: int | None) -> int:
+    """The time scale in months, which multi-scale indices such as SPEI require."""
+    if scale is None or not 1 <= scale <= 48:
+        raise ValueError(f"{variable.name} needs a time scale between 1 and 48 months")
+    return scale
+
+
 def to_table(features: list[dict], variable: Variable, masking: Masking = "pixel") -> pd.DataFrame:
     """Turn Earth Engine features into one row per date, in the variable's units.
 
@@ -81,6 +113,7 @@ def to_table(features: list[dict], variable: Variable, masking: Masking = "pixel
     table["value"] = pd.to_numeric(table["value"]) * variable.scale + variable.offset
     table["sd"] = pd.to_numeric(table["sd"]) * variable.scale
     table["n_pixels"] = pd.to_numeric(table["n_pixels"]).fillna(0).astype(int)
+    table.loc[table["value"].isna(), "n_pixels"] = 0
 
     if masking == "date":
         dropped = pd.to_numeric(table["flagged"]) >= 0.5
@@ -93,6 +126,13 @@ def to_table(features: list[dict], variable: Variable, masking: Masking = "pixel
 
 def size_warnings(variable: Variable, area_km2: float) -> list[str]:
     """Warn when the area is smaller than one pixel of the variable."""
+    if variable.sampling == "centre":
+        warning = (
+            f"{variable.name} is read from the {variable.resolution} grid cell "
+            f"(about {variable.pixel_m / 1000:.0f} km across) that contains the centre of this "
+            "area, so every field in that cell has the same value."
+        )
+        return [warning]
     pixel_km2 = (variable.pixel_m / 1000) ** 2
     if area_km2 >= pixel_km2:
         return []

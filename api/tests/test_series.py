@@ -15,8 +15,9 @@ REQUEST = {
 }
 
 
-def fake_series(key, geometry, start, end, masking):
-    assert masking in ("pixel", "date", "none")
+def fake_series(key, geometry, start, end, masking, scale):
+    if key == "spei" and scale is None:
+        raise ValueError("SPEI needs a time scale between 1 and 48 months")
     return pd.DataFrame(
         {
             "date": pd.to_datetime(["2023-01-01", "2023-01-17"]),
@@ -53,6 +54,19 @@ def test_lst_reports_units_and_pixel_size_warning(client):
     assert "smaller than one 1 km pixel" in body["warnings"][0]
 
 
+def test_spei_is_named_after_its_time_scale(client):
+    response = client.post("/series", json={**REQUEST, "variable": "spei", "scale": 12})
+    body = response.json()
+    assert body["name"] == "SPEI-12"
+    assert "grid cell" in body["warnings"][0]
+
+
+def test_spei_without_a_time_scale_is_rejected(client):
+    response = client.post("/series", json={**REQUEST, "variable": "spei"})
+    assert response.status_code == 422
+    assert "time scale" in response.json()["detail"]
+
+
 def test_invalid_polygon_is_rejected(client):
     bowtie = {"type": "Polygon", "coordinates": [[[0, 0], [1, 1], [1, 0], [0, 1], [0, 0]]]}
     response = client.post("/series", json={**REQUEST, "geometry": bowtie})
@@ -60,7 +74,9 @@ def test_invalid_polygon_is_rejected(client):
     assert "Self-intersection" in response.json()["detail"]
 
 
-@pytest.mark.parametrize("field", [{"masking": "clouds"}, {"variable": "rainfall"}])
+@pytest.mark.parametrize(
+    "field", [{"masking": "clouds"}, {"variable": "rainfall"}, {"variable": "spei", "scale": 60}]
+)
 def test_unknown_options_are_rejected(client, field):
     response = client.post("/series", json={**REQUEST, **field})
     assert response.status_code == 422
