@@ -11,10 +11,12 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@tmcw/togeojson": "^7.1.3",
     "maplibre-gl": "^6.13.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "recharts": "^3.10.1",
+    "shpjs": "^6.2.0",
     "terra-draw": "^1.37.0",
     "terra-draw-maplibre-gl-adapter": "^1.5.0"
   },
