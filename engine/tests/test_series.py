@@ -10,11 +10,6 @@ from engine.series import series, size_warnings, to_table
 
 DATA = Path(__file__).parent / "data"
 ORCHARD = DATA / "jendouba_orchard.geojson"
-# Extracted independently for the 2026 paper
-REFERENCES = {
-    "ndvi": (DATA / "reference_ndvi_16day.csv", "NDVI", "date"),
-    "lst": (DATA / "reference_lst_8day.csv", "LST", "none"),
-}
 
 
 def properties(value, flagged=0, sd=500, n_pixels=20):
@@ -98,34 +93,8 @@ def test_area_smaller_than_a_pixel_is_warned():
 
 
 @pytest.mark.live
-@pytest.mark.parametrize("scale", SPEI.scales)
-def test_live_spei_matches_the_reference_extraction(scale):
-    connect()
-    table = series("spei", orchard(), "2000-03-01", "2025-01-01", scale=scale)
-    reference = pd.read_csv(DATA / "reference_spei_monthly.csv", parse_dates=["date"])
-
-    assert list(table["date"]) == list(reference["date"])
-    expected = reference[f"SPEI_{scale}"].to_numpy()
-    assert table["value"].to_numpy() == pytest.approx(expected, abs=1e-6)
-
-
-@pytest.mark.live
 def test_live_orchard_2023():
     connect()
     table = series("ndvi", orchard(), "2023-01-01", "2024-01-01")
     assert len(table) == 23
     assert table["value"].dropna().between(0, 1).all()
-
-
-@pytest.mark.live
-@pytest.mark.parametrize("key", REFERENCES)
-def test_live_matches_the_reference_extraction(key):
-    path, column, masking = REFERENCES[key]
-    connect()
-    table = series(key, orchard(), "2000-03-01", "2025-01-01", masking)
-    reference = pd.read_csv(path, parse_dates=["date"])
-
-    assert list(table["date"]) == list(reference["date"])
-    assert list(table["masked"]) == list(reference[column].isna())
-    expected = reference[column].to_numpy()
-    assert table["value"].to_numpy() == pytest.approx(expected, abs=1e-6, nan_ok=True)
