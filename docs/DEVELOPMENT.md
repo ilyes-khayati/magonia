@@ -20,6 +20,11 @@
   (see `engine/tests/test_earth_engine.py`).
 - Tests that call real services are marked `@pytest.mark.live`. They are skipped by
   default and run locally with `uv run pytest -m live`.
+- `engine/tests/test_acceptance.py` checks that Magonia reproduces the reference
+  extraction for the Jendouba orchard. CI replays Earth Engine responses stored in
+  `engine/tests/data/recorded/`. After changing the extraction code, run the live
+  version (`uv run pytest -m live tests/test_acceptance.py`), then re-record with
+  `uv run python scripts/record_responses.py`.
 
 ## Configuration
 

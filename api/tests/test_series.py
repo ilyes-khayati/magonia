@@ -1,4 +1,3 @@
-import pandas as pd
 import pytest
 from engine.earth_engine import EarthEngineError
 from fastapi.testclient import TestClient
@@ -15,24 +14,18 @@ REQUEST = {
 }
 
 
-def fake_series(key, geometry, start, end, masking, scale):
-    if key == "spei" and scale is None:
-        raise ValueError("SPEI needs a time scale between 1 and 48 months")
-    return pd.DataFrame(
-        {
-            "date": pd.to_datetime(["2023-01-01", "2023-01-17"]),
-            "value": [0.58, float("nan")],
-            "sd": [0.05, float("nan")],
-            "n_pixels": [18, 0],
-            "masked": [False, True],
-        }
-    )
+def fake_fetch(key, geometry, start, end, masking, scale):
+    """Earth Engine's answer for two dates, the second without data."""
+    return [
+        {"properties": {"date": "2023-01-01", "value": 5800, "sd": 500, "n_pixels": 18}},
+        {"properties": {"date": "2023-01-17", "n_pixels": 0}},
+    ]
 
 
 @pytest.fixture
 def client(monkeypatch):
     monkeypatch.setattr(main, "connect", lambda: "test-project")
-    monkeypatch.setattr(main, "series", fake_series)
+    monkeypatch.setattr(main, "fetch", fake_fetch)
     return TestClient(main.app)
 
 
@@ -41,10 +34,13 @@ def test_series_returns_one_point_per_date(client):
     assert response.status_code == 200
     body = response.json()
     assert body["variable"] == "ndvi"
-    assert body["points"][0] == {
+    first = body["points"][0]
+    assert first["value"] == pytest.approx(0.58)
+    assert first["sd"] == pytest.approx(0.05)
+    assert {
+        key: first[key] for key in ("date", "n_pixels", "masked", "filled", "n_obs", "n_valid")
+    } == {
         "date": "2023-01-01",
-        "value": 0.58,
-        "sd": 0.05,
         "n_pixels": 18,
         "masked": False,
         "filled": False,
@@ -66,6 +62,12 @@ def test_lst_reports_units_and_pixel_size_warning(client):
     body = response.json()
     assert body["units"] == "°C"
     assert "smaller than one 1 km pixel" in body["warnings"][0]
+
+
+def test_provenance_is_returned(client):
+    record = client.post("/series", json=REQUEST).json()["provenance"]
+    assert record["variable"]["collection"] == "MODIS/061/MOD13Q1"
+    assert len(record["id"]) == 16
 
 
 def test_spei_is_named_after_its_time_scale(client):

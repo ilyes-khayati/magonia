@@ -3,11 +3,10 @@ from datetime import date
 from typing import Literal
 
 import engine
-from engine.areas import AreaError, make_area
-from engine.catalogue import get_variable
 from engine.earth_engine import EarthEngineError, connect
-from engine.prepare import Resolution, aggregate, fill_gaps
-from engine.series import Masking, series, size_warnings
+from engine.pipeline import Request, run
+from engine.prepare import Resolution
+from engine.series import Masking, fetch
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
@@ -42,6 +41,7 @@ class SeriesResponse(BaseModel):
     units: str
     points: list[SeriesPoint]
     warnings: list[str]
+    provenance: dict
 
 
 def number(value: float) -> float | None:
@@ -59,29 +59,28 @@ def get_series(request: SeriesRequest) -> SeriesResponse:
     if request.end <= request.start:
         raise HTTPException(422, "end must be after start")
     try:
-        area = make_area(request.geometry, "Area")
-    except AreaError as exc:
-        raise HTTPException(422, str(exc)) from exc
-    try:
         connect()
     except EarthEngineError as exc:
         raise HTTPException(503, str(exc)) from exc
 
-    variable = get_variable(request.variable)
     try:
-        table = series(
-            request.variable,
-            request.geometry,
-            request.start.isoformat(),
-            request.end.isoformat(),
-            request.masking,
-            request.scale,
+        result = run(
+            Request(
+                variable=request.variable,
+                geometry=request.geometry,
+                start=request.start.isoformat(),
+                end=request.end.isoformat(),
+                masking=request.masking,
+                scale=request.scale,
+                resolution=request.resolution,
+                max_gap=request.max_gap,
+            ),
+            fetch=fetch,
         )
-    except ValueError as exc:
+    except ValueError as exc:  # includes invalid areas
         raise HTTPException(422, str(exc)) from exc
-    table = aggregate(table, request.resolution)
-    if request.max_gap:
-        table = fill_gaps(table, request.max_gap)
+
+    variable = result.provenance["variable"]
     points = [
         SeriesPoint(
             date=row.date.date(),
@@ -93,12 +92,13 @@ def get_series(request: SeriesRequest) -> SeriesResponse:
             n_obs=row.n_obs,
             n_valid=row.n_valid,
         )
-        for row in table.itertuples()
+        for row in result.table.itertuples()
     ]
     return SeriesResponse(
-        variable=variable.key,
-        name=f"{variable.name}-{request.scale}" if request.scale else variable.name,
-        units=variable.units,
+        variable=variable["key"],
+        name=f"{variable['name']}-{request.scale}" if request.scale else variable["name"],
+        units=variable["units"],
         points=points,
-        warnings=size_warnings(variable, area.area_km2),
+        warnings=result.warnings,
+        provenance=result.provenance,
     )
