@@ -1,258 +1,224 @@
-import { useEffect, useRef, useState } from "react";
-import { Map as MapLibre, type StyleSpecification } from "maplibre-gl";
-import "maplibre-gl/dist/maplibre-gl.css";
-import { TerraDraw, TerraDrawPolygonMode } from "terra-draw";
-import { TerraDrawMapLibreGLAdapter } from "terra-draw-maplibre-gl-adapter";
+import { useEffect, useMemo, useState } from "react";
 import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ReferenceLine,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import {
-  fetchCatalogue,
-  fetchSeries,
-  type Masking,
-  type SeriesResponse,
-  type Variable,
-  type VariableKey,
+  createArea,
+  createWorkspace,
+  deleteArea,
+  listWorkspaces,
+  openWorkspace,
+  renameArea,
+  type Area,
+  type WorkspaceSummary,
 } from "./api";
+import { readAreaFile } from "./areaFiles";
+import MapView, { type Target, type Tool } from "./components/MapView";
+import Sidebar from "./components/Sidebar";
+import Toolbar from "./components/Toolbar";
+import { applyTheme, areaColour, initialTheme, type Theme } from "./theme";
 
-const SATELLITE: StyleSpecification = {
-  version: 8,
-  sources: {
-    satellite: {
-      type: "raster",
-      tiles: [
-        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-      ],
-      tileSize: 256,
-      attribution: "Imagery © Esri, Maxar, Earthstar Geographics",
-    },
-  },
-  layers: [{ id: "satellite", type: "raster", source: "satellite" }],
-};
+type Message = { text: string; error?: boolean } | null;
 
-const JENDOUBA: [number, number] = [8.561, 36.508];
-const START = "2020-01-01";
-const END = "2025-01-01";
+const LAST_WORKSPACE = "magonia-workspace";
 
-type Status = "idle" | "drawing" | "loading" | "done" | "error";
+function remember(id: number) {
+  try {
+    localStorage.setItem(LAST_WORKSPACE, String(id));
+  } catch {
+    // not remembered; the first workspace opens next time
+  }
+}
 
-// The variables themselves come from the API's catalogue; only their colours live here
-const COLOURS: Record<VariableKey, string> = {
-  ndvi: "#7ddc8a",
-  lst: "#ffb36b",
-  spei: "#6cb8ff",
-};
+function remembered(): number | null {
+  try {
+    return Number(localStorage.getItem(LAST_WORKSPACE)) || null;
+  } catch {
+    return null;
+  }
+}
 
-// Axis range and decimals per variable; SPEI rarely leaves -3..3
-type Axis = { domain: [number | string, number | string]; digits: number; ticks?: number[] };
-
-const AXES: Record<VariableKey, Axis> = {
-  ndvi: { domain: [0, 1], digits: 2 },
-  lst: { domain: ["dataMin - 2", "dataMax + 2"], digits: 0 },
-  spei: { domain: [-3, 3], digits: 0, ticks: [-3, -2, -1, 0, 1, 2, 3] },
-};
-
-const YEARS = `${START.slice(0, 4)}–${Number(END.slice(0, 4)) - 1}`;
-
-const CLOUD_FILTERS: Record<Masking, string> = {
-  pixel: "Remove cloudy pixels",
-  date: "Remove cloudy dates",
-  none: "No cloud filter",
-};
-
-const MESSAGES: Record<Status, string> = {
-  idle: "Draw an area to see how it changes over time.",
-  drawing: "Click to place points. Click the first point to close the area.",
-  loading: "Asking Earth Engine…",
-  done: "",
-  error: "",
-};
+// The box around some geometries, for fitting the map to them
+function bounds(geometries: GeoJSON.Geometry[]): [[number, number], [number, number]] | null {
+  const points = geometries.flatMap((g) =>
+    g.type === "Polygon" ? g.coordinates.flat() : g.type === "MultiPolygon" ? g.coordinates.flat(2) : [],
+  );
+  if (!points.length) return null;
+  const xs = points.map((p) => p[0]);
+  const ys = points.map((p) => p[1]);
+  return [
+    [Math.min(...xs), Math.min(...ys)],
+    [Math.max(...xs), Math.max(...ys)],
+  ];
+}
 
 export default function App() {
-  const container = useRef<HTMLDivElement>(null);
-  const draw = useRef<TerraDraw | null>(null);
-  const [status, setStatus] = useState<Status>("idle");
-  const [result, setResult] = useState<SeriesResponse | null>(null);
-  const [error, setError] = useState("");
-  const [ready, setReady] = useState(false);
-  const [variable, setVariable] = useState<VariableKey>("ndvi");
-  const [masking, setMasking] = useState<Masking>("pixel");
-  const [scale, setScale] = useState(12);
-  // The map's event handler is created once, so it reads the current choices from a ref
-  const choices = useRef({ variable: "ndvi" as VariableKey, masking: "pixel" as Masking, scale: 12 });
-  const area = useRef<unknown>(null);
+  const [theme, setTheme] = useState<Theme>(initialTheme);
+  const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
+  const [workspaceId, setWorkspaceId] = useState<number | null>(null);
+  const [areas, setAreas] = useState<Area[]>([]);
+  const [hidden, setHidden] = useState<Set<number>>(new Set());
+  const [tool, setTool] = useState<Tool>(null);
+  const [target, setTarget] = useState<Target | null>(null);
+  const [message, setMessage] = useState<Message>(null);
 
-  async function load(geometry: unknown) {
-    const { variable, masking, scale } = choices.current;
-    setStatus("loading");
+  useEffect(() => applyTheme(theme), [theme]);
+
+  const fail = (error: unknown) =>
+    setMessage({ text: error instanceof Error ? error.message : String(error), error: true });
+
+  async function open(id: number) {
+    const workspace = await openWorkspace(id);
+    setWorkspaceId(id);
+    setAreas(workspace.areas);
+    setHidden(new Set());
+    remember(id);
+    const box = bounds(workspace.areas.map((a) => a.geometry));
+    if (box) setTarget({ key: Date.now(), bounds: box });
+  }
+
+  useEffect(() => {
+    (async () => {
+      let found = await listWorkspaces();
+      if (!found.length) found = [await createWorkspace("My workspace")];
+      setWorkspaces(found);
+      const last = remembered();
+      await open(found.some((w) => w.id === last) ? last! : found[0].id);
+    })().catch(() =>
+      setMessage({ text: "Could not reach the Magonia API. Is it running?", error: true }),
+    );
+  }, []);
+
+  async function newWorkspace() {
     try {
-      const months = variable === "spei" ? scale : null;
-      setResult(await fetchSeries(geometry, START, END, variable, masking, months));
-      setStatus("done");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-      setStatus("error");
+      const created = await createWorkspace(`Workspace ${workspaces.length + 1}`);
+      setWorkspaces([created, ...workspaces]);
+      await open(created.id);
+    } catch (error) {
+      fail(error);
     }
   }
 
-  const [catalogue, setCatalogue] = useState<Variable[]>([]);
-
-  useEffect(() => {
-    fetchCatalogue()
-      .then(setCatalogue)
-      .catch((e) => {
-        setError(`Could not reach the Magonia API (${e.message}).`);
-        setStatus("error");
-      });
-  }, []);
-
-  useEffect(() => {
-    const map = new MapLibre({
-      container: container.current!,
-      style: SATELLITE,
-      center: JENDOUBA,
-      zoom: 14,
-    });
-    map.on("load", () => {
-      const terra = new TerraDraw({
-        adapter: new TerraDrawMapLibreGLAdapter({ map }),
-        modes: [new TerraDrawPolygonMode()],
-      });
-      terra.start();
-      terra.on("finish", async (id) => {
-        const feature = terra.getSnapshotFeature(id);
-        if (!feature) return;
-        terra.setMode("static");
-        area.current = feature.geometry;
-        await load(feature.geometry);
-      });
-      draw.current = terra;
-      setReady(true);
-    });
-    return () => map.remove();
-  }, []);
-
-  function startDrawing() {
-    draw.current?.clear();
-    draw.current?.setMode("polygon");
-    area.current = null;
-    setResult(null);
-    setStatus("drawing");
+  function freeName(base: string, taken: string[]) {
+    if (!taken.includes(base)) return base;
+    let n = 2;
+    while (taken.includes(`${base} ${n}`)) n += 1;
+    return `${base} ${n}`;
   }
 
-  function choose(change: Partial<typeof choices.current>) {
-    choices.current = { ...choices.current, ...change };
-    setVariable(choices.current.variable);
-    setMasking(choices.current.masking);
-    setScale(choices.current.scale);
-    if (area.current) load(area.current);
+  async function addArea(geometry: GeoJSON.Geometry, wanted?: string, existing = areas) {
+    const name = freeName(wanted ?? `Area ${existing.length + 1}`, existing.map((a) => a.name));
+    const area = await createArea(workspaceId!, name, geometry);
+    return [...existing, area];
   }
 
-  const points = result?.points ?? [];
-  const removed = points.filter((point) => point.masked).length;
-  const shown = result?.variable ?? variable;
-  const colour = COLOURS[shown];
-  const scales = catalogue.find((entry) => entry.key === "spei")?.scales ?? [];
-  const axis = AXES[shown];
-  // SPEI is one grid cell, not an average over the area
-  const statistic = result?.variable === "spei" ? "" : "Mean ";
-  const title = result ? `${statistic}${result.name}${result.units ? ` (${result.units})` : ""}, ${YEARS}` : "";
+  async function drawn(geometry: GeoJSON.Polygon) {
+    setTool(null);
+    try {
+      setAreas(await addArea(geometry));
+      setMessage(null);
+    } catch (error) {
+      fail(error);
+    }
+  }
+
+  async function upload(file: File) {
+    try {
+      const shapes = await readAreaFile(file);
+      let next = areas;
+      for (const shape of shapes) next = await addArea(shape.geometry, shape.name, next);
+      setAreas(next);
+      const box = bounds(shapes.map((s) => s.geometry));
+      if (box) setTarget({ key: Date.now(), bounds: box });
+      setMessage({ text: `Added ${shapes.length} ${shapes.length === 1 ? "area" : "areas"} from ${file.name}.` });
+    } catch (error) {
+      fail(error);
+    }
+  }
+
+  async function rename(area: Area, name: string) {
+    try {
+      const renamed = await renameArea(area.id, name);
+      setAreas(areas.map((a) => (a.id === area.id ? renamed : a)));
+    } catch (error) {
+      fail(error);
+    }
+  }
+
+  async function remove(area: Area) {
+    try {
+      await deleteArea(area.id);
+      setAreas(areas.filter((a) => a.id !== area.id));
+    } catch (error) {
+      fail(error);
+    }
+  }
+
+  function toggle(area: Area) {
+    const next = new Set(hidden);
+    if (next.has(area.id)) next.delete(area.id);
+    else next.add(area.id);
+    setHidden(next);
+  }
+
+  const colours = useMemo(
+    () => new Map(areas.map((area, index) => [area.id, areaColour(theme, index)])),
+    [areas, theme],
+  );
+  const shown = areas.filter((area) => !hidden.has(area.id));
+
+  const hint =
+    tool === "polygon"
+      ? "Click to place points. Click the first point to close the area."
+      : tool === "rectangle"
+        ? "Click one corner, then the opposite corner."
+        : null;
 
   return (
-    <>
-      <div className="map-frame">
-        <div ref={container} className="map" />
-      </div>
-      <header className="panel top">
-        <h1>Magonia</h1>
-        <button onClick={startDrawing} disabled={!ready || status === "loading"}>
-          {status === "done" || status === "error" ? "Draw another area" : "Draw an area"}
-        </button>
-        <select
-          aria-label="Variable"
-          value={variable}
-          onChange={(e) => choose({ variable: e.target.value as VariableKey })}
-          disabled={status === "loading"}
-        >
-          {catalogue.map((entry) => (
-            <option key={entry.key} value={entry.key}>
-              {entry.name}
-            </option>
-          ))}
-        </select>
-        {variable === "spei" && (
-          <select
-            aria-label="Time scale"
-            value={scale}
-            onChange={(e) => choose({ scale: Number(e.target.value) })}
-            disabled={status === "loading"}
+    <div className="workbench">
+      <Sidebar
+        theme={theme}
+        onTheme={() => setTheme(theme === "light" ? "dark" : "light")}
+        workspaces={workspaces}
+        workspaceId={workspaceId}
+        onOpen={(id) => open(id).catch(fail)}
+        onNew={newWorkspace}
+      />
+
+      <main className="map-area" aria-label="Map">
+        <MapView
+          areas={shown.map((area) => ({ id: area.id, geometry: area.geometry, colour: colours.get(area.id)! }))}
+          tool={tool}
+          target={target}
+          onDrawn={drawn}
+        />
+        <Toolbar
+          tool={tool}
+          onTool={setTool}
+          onUpload={upload}
+          onGo={(center) => setTarget({ key: Date.now(), center })}
+          areas={areas}
+          colours={colours}
+          hidden={hidden}
+          onToggle={toggle}
+          onRename={rename}
+          onDelete={remove}
+        />
+        {(hint || message) && (
+          <p
+            className={`floating message${message?.error && !hint ? " error" : ""}`}
+            role={message?.error ? "alert" : "status"}
           >
-            {scales.map((months) => (
-              <option key={months} value={months}>
-                {months} {months === 1 ? "month" : "months"}
-              </option>
-            ))}
-          </select>
+            {hint ?? message?.text}
+          </p>
         )}
-        <select
-          aria-label="Cloud filter"
-          value={masking}
-          onChange={(e) => choose({ masking: e.target.value as Masking })}
-          disabled={status === "loading" || variable === "spei"}
-          title={variable === "spei" ? "SPEI has no quality flags" : undefined}
-        >
-          {Object.entries(CLOUD_FILTERS).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
-        </select>
-      </header>
-      <section className="panel bottom">
-        <p className={status === "error" ? "error" : ""}>
-          {status === "error" ? error : status === "done" ? title : MESSAGES[status]}
-          {status === "done" && result?.variable !== "spei" && masking !== "none" && (
-            <span className="note">
-              {" "}
-              · {removed} {removed === 1 ? "date" : "dates"} without usable data
-            </span>
-          )}
+      </main>
+
+      <aside className="results" aria-label="Results">
+        <h2 style={{ margin: 0, fontSize: 15 }}>Results</h2>
+        <p className="placeholder">
+          {areas.length
+            ? "Choose variables on the left to see them here."
+            : "Draw or upload an area to begin."}
         </p>
-        {status === "done" && (
-          <ResponsiveContainer width="100%" height={180}>
-            <LineChart data={points}>
-              <CartesianGrid stroke="#ffffff14" vertical={false} />
-              <XAxis dataKey="date" tick={{ fill: "#8a8a8a", fontSize: 11 }} minTickGap={40} />
-              <YAxis
-                domain={axis.domain}
-                ticks={axis.ticks}
-                tickFormatter={(value) => Number(value).toFixed(axis.digits)}
-                tick={{ fill: "#8a8a8a", fontSize: 11 }}
-                width={36}
-              />
-              <Tooltip
-                contentStyle={{ background: "#111", border: "1px solid #333" }}
-                formatter={(value) => Number(value).toFixed(axis.digits + 1)}
-              />
-              {shown === "spei" && <ReferenceLine y={0} stroke="#ffffff55" />}
-              <Line dataKey="value" stroke={colour} dot={false} strokeWidth={1.6} />
-            </LineChart>
-          </ResponsiveContainer>
-        )}
-        {status === "done" &&
-          result?.warnings.map((warning) => (
-            <p key={warning} className="warning">
-              {warning}
-            </p>
-          ))}
-      </section>
-    </>
+      </aside>
+    </div>
   );
 }
