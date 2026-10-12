@@ -17,6 +17,24 @@ from api.store import Store, default_path
 
 app = FastAPI(title="Magonia API", version="0.0.1")
 
+# Larger areas make Earth Engine requests slow or fail; the limit is stated, not hidden (DATA-07)
+MAX_AREA_KM2 = 10_000
+
+
+def check_area(geometry: dict, name: str) -> float:
+    """The area in km², or a 422 explaining why it cannot be used."""
+    try:
+        area_km2 = make_area(geometry, name).area_km2
+    except AreaError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    if area_km2 > MAX_AREA_KM2:
+        raise HTTPException(
+            422,
+            f"{name} covers {area_km2:,.0f} km²; areas are limited to {MAX_AREA_KM2:,} km² "
+            "for now. Draw a smaller area.",
+        )
+    return area_km2
+
 
 @cache
 def get_store() -> Store:
@@ -172,8 +190,8 @@ def submit_job(body: SeriesRequest, store: StoreDep, runner: RunnerDep) -> Job:
         resolution=body.resolution,
         max_gap=body.max_gap,
     )
+    check_area(geometry, "This area")
     try:  # check everything that can be checked before calling Earth Engine
-        make_area(geometry, "Area")
         band_name(get_variable(body.variable), body.masking, body.scale)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
@@ -257,12 +275,9 @@ def existing_area(store: Store, area_id: int) -> dict:
 def create_area(workspace_id: int, body: AreaIn, store: StoreDep) -> Area:
     """Save a named area. Invalid polygons are refused with the reason."""
     existing_workspace(store, workspace_id)
+    area_km2 = check_area(body.geometry, body.name)
     try:
-        checked = make_area(body.geometry, body.name)
-    except AreaError as exc:
-        raise HTTPException(422, str(exc)) from exc
-    try:
-        return store.create_area(workspace_id, body.name, body.geometry, checked.area_km2)
+        return store.create_area(workspace_id, body.name, body.geometry, area_km2)
     except sqlite3.IntegrityError:
         raise HTTPException(409, f"an area called {body.name!r} already exists") from None
 

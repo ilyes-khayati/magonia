@@ -208,12 +208,15 @@ export default function App() {
       workspaceId === null
         ? []
         : settings.variables.flatMap((variable) =>
-            shown.map((area) => seriesOptions(settings, workspaceId, area.id, variable)),
+            shown.map((area) => {
+              const options = seriesOptions(settings, workspaceId, area.id, variable);
+              return { key: seriesKey(options, area.geometry), options };
+            }),
           ),
     [settings, workspaceId, shown],
   );
   const results = useSeries(requests);
-  const states = requests.map((r) => results.get(seriesKey(r)));
+  const states = requests.map((r) => results.get(r.key));
   const progress = {
     total: requests.length,
     done: states.filter((s) => s?.status === "done").length,
@@ -223,7 +226,9 @@ export default function App() {
     shown.map((area) => ({
       area,
       colour: colours.get(area.id)!,
-      state: results.get(seriesKey(seriesOptions(settings, workspaceId!, area.id, variable))),
+      state: results.get(
+        seriesKey(seriesOptions(settings, workspaceId!, area.id, variable), area.geometry),
+      ),
     }));
 
   const hint =

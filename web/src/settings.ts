@@ -57,6 +57,7 @@ export function seriesOptions(
   };
 }
 
-// Identical requests share one key, and so one result
-export const seriesKey = (options: SeriesOptions) =>
-  JSON.stringify({ ...options, workspace_id: undefined });
+// Identical requests share one key, and so one result. The geometry is part of the
+// key: an area id alone could later name a different shape.
+export const seriesKey = (options: SeriesOptions, geometry: unknown) =>
+  JSON.stringify({ ...options, workspace_id: undefined, geometry });
