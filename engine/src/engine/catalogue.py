@@ -19,7 +19,8 @@ class Variable:
     quality: str
     licence: str
     citation: str
-    scales: tuple[int, ...] = ()  # accumulation periods in months, for SPEI
+    scales: tuple[int, ...] = ()  # common accumulation periods in months, for SPEI
+    sampling: str = "mean"  # "mean" over the area, or the "centre" cell for coarse grids
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -79,6 +80,7 @@ SPEI = Variable(
     "Standardized precipitation evapotranspiration index (SPEI) revisited. "
     "International Journal of Climatology 34, 3001-3023.",
     scales=(1, 3, 6, 12, 24, 48),
+    sampling="centre",
 )
 
 CATALOGUE = {variable.key: variable for variable in (NDVI, LST, SPEI)}

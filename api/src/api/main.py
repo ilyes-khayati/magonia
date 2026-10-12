@@ -8,7 +8,7 @@ from engine.catalogue import get_variable
 from engine.earth_engine import EarthEngineError, connect
 from engine.series import Masking, series, size_warnings
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 app = FastAPI(title="Magonia API", version="0.0.1")
 
@@ -17,8 +17,9 @@ class SeriesRequest(BaseModel):
     geometry: dict  # GeoJSON geometry, e.g. a polygon drawn on the map
     start: date
     end: date
-    variable: Literal["ndvi", "lst"] = "ndvi"
+    variable: Literal["ndvi", "lst", "spei"] = "ndvi"
     masking: Masking = "pixel"  # how flagged observations are removed
+    scale: int | None = Field(None, ge=1, le=48)  # SPEI time scale in months
 
 
 class SeriesPoint(BaseModel):
@@ -61,13 +62,17 @@ def get_series(request: SeriesRequest) -> SeriesResponse:
         raise HTTPException(503, str(exc)) from exc
 
     variable = get_variable(request.variable)
-    table = series(
-        request.variable,
-        request.geometry,
-        request.start.isoformat(),
-        request.end.isoformat(),
-        request.masking,
-    )
+    try:
+        table = series(
+            request.variable,
+            request.geometry,
+            request.start.isoformat(),
+            request.end.isoformat(),
+            request.masking,
+            request.scale,
+        )
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
     points = [
         SeriesPoint(
             date=row.date.date(),
@@ -80,7 +85,7 @@ def get_series(request: SeriesRequest) -> SeriesResponse:
     ]
     return SeriesResponse(
         variable=variable.key,
-        name=variable.name,
+        name=f"{variable.name}-{request.scale}" if request.scale else variable.name,
         units=variable.units,
         points=points,
         warnings=size_warnings(variable, area.area_km2),
