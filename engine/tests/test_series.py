@@ -73,16 +73,40 @@ def test_unknown_masking_is_rejected():
         series("ndvi", {}, "2023-01-01", "2024-01-01", masking="clouds")
 
 
-def test_spei_is_not_available_yet():
-    with pytest.raises(ValueError, match="not available yet"):
-        series("spei", {}, "2023-01-01", "2024-01-01")
+@pytest.mark.parametrize("scale", [None, 0, 49])
+def test_spei_needs_a_time_scale(scale):
+    with pytest.raises(ValueError, match="between 1 and 48"):
+        series("spei", {}, "2023-01-01", "2024-01-01", scale=scale)
+
+
+def test_time_scale_only_applies_to_spei():
+    with pytest.raises(ValueError, match="no time scale"):
+        series("ndvi", {}, "2023-01-01", "2024-01-01", scale=3)
+
+
+def test_spei_without_a_value_is_masked():
+    table = to_table([{"properties": {"date": "2023-01-01", "n_pixels": 1}}], SPEI, "none")
+    assert table["masked"][0]
+    assert table["n_pixels"][0] == 0
 
 
 def test_area_smaller_than_a_pixel_is_warned():
     assert size_warnings(NDVI, 0.644) == []
     [warning] = size_warnings(LST, 0.644)
     assert "0.64 km²" in warning and "1 km" in warning
-    assert size_warnings(SPEI, 100)
+    assert "grid cell" in size_warnings(SPEI, 5000)[0]
+
+
+@pytest.mark.live
+@pytest.mark.parametrize("scale", SPEI.scales)
+def test_live_spei_matches_the_reference_extraction(scale):
+    connect()
+    table = series("spei", orchard(), "2000-03-01", "2025-01-01", scale=scale)
+    reference = pd.read_csv(DATA / "reference_spei_monthly.csv", parse_dates=["date"])
+
+    assert list(table["date"]) == list(reference["date"])
+    expected = reference[f"SPEI_{scale}"].to_numpy()
+    assert table["value"].to_numpy() == pytest.approx(expected, abs=1e-6)
 
 
 @pytest.mark.live

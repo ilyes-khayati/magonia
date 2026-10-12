@@ -3,7 +3,16 @@ import { Map as MapLibre, type StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { TerraDraw, TerraDrawPolygonMode } from "terra-draw";
 import { TerraDrawMapLibreGLAdapter } from "terra-draw-maplibre-gl-adapter";
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { fetchSeries, type Masking, type SeriesResponse, type VariableKey } from "./api";
 
 const SATELLITE: StyleSpecification = {
@@ -30,6 +39,18 @@ type Status = "idle" | "drawing" | "loading" | "done" | "error";
 const VARIABLES: Record<VariableKey, { label: string; colour: string }> = {
   ndvi: { label: "NDVI", colour: "#7ddc8a" },
   lst: { label: "Land surface temperature", colour: "#ffb36b" },
+  spei: { label: "SPEI (drought)", colour: "#6cb8ff" },
+};
+
+const SPEI_SCALES = [1, 3, 6, 12, 24, 48];
+
+// Axis range and decimals per variable; SPEI rarely leaves -3..3
+type Axis = { domain: [number | string, number | string]; digits: number; ticks?: number[] };
+
+const AXES: Record<VariableKey, Axis> = {
+  ndvi: { domain: [0, 1], digits: 2 },
+  lst: { domain: ["dataMin - 2", "dataMax + 2"], digits: 0 },
+  spei: { domain: [-3, 3], digits: 0, ticks: [-3, -2, -1, 0, 1, 2, 3] },
 };
 
 const YEARS = `${START.slice(0, 4)}–${Number(END.slice(0, 4)) - 1}`;
@@ -57,15 +78,17 @@ export default function App() {
   const [ready, setReady] = useState(false);
   const [variable, setVariable] = useState<VariableKey>("ndvi");
   const [masking, setMasking] = useState<Masking>("pixel");
+  const [scale, setScale] = useState(12);
   // The map's event handler is created once, so it reads the current choices from a ref
-  const choices = useRef({ variable: "ndvi" as VariableKey, masking: "pixel" as Masking });
+  const choices = useRef({ variable: "ndvi" as VariableKey, masking: "pixel" as Masking, scale: 12 });
   const area = useRef<unknown>(null);
 
   async function load(geometry: unknown) {
-    const { variable, masking } = choices.current;
+    const { variable, masking, scale } = choices.current;
     setStatus("loading");
     try {
-      setResult(await fetchSeries(geometry, START, END, variable, masking));
+      const months = variable === "spei" ? scale : null;
+      setResult(await fetchSeries(geometry, START, END, variable, masking, months));
       setStatus("done");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -111,13 +134,18 @@ export default function App() {
     choices.current = { ...choices.current, ...change };
     setVariable(choices.current.variable);
     setMasking(choices.current.masking);
+    setScale(choices.current.scale);
     if (area.current) load(area.current);
   }
 
   const points = result?.points ?? [];
   const removed = points.filter((point) => point.masked).length;
-  const colour = VARIABLES[result?.variable ?? variable].colour;
-  const title = result ? `Mean ${result.name}${result.units ? ` (${result.units})` : ""}, ${YEARS}` : "";
+  const shown = result?.variable ?? variable;
+  const colour = VARIABLES[shown].colour;
+  const axis = AXES[shown];
+  // SPEI is one grid cell, not an average over the area
+  const statistic = result?.variable === "spei" ? "" : "Mean ";
+  const title = result ? `${statistic}${result.name}${result.units ? ` (${result.units})` : ""}, ${YEARS}` : "";
 
   return (
     <>
@@ -141,11 +169,26 @@ export default function App() {
             </option>
           ))}
         </select>
+        {variable === "spei" && (
+          <select
+            aria-label="Time scale"
+            value={scale}
+            onChange={(e) => choose({ scale: Number(e.target.value) })}
+            disabled={status === "loading"}
+          >
+            {SPEI_SCALES.map((months) => (
+              <option key={months} value={months}>
+                {months} {months === 1 ? "month" : "months"}
+              </option>
+            ))}
+          </select>
+        )}
         <select
           aria-label="Cloud filter"
           value={masking}
           onChange={(e) => choose({ masking: e.target.value as Masking })}
-          disabled={status === "loading"}
+          disabled={status === "loading" || variable === "spei"}
+          title={variable === "spei" ? "SPEI has no quality flags" : undefined}
         >
           {Object.entries(CLOUD_FILTERS).map(([value, label]) => (
             <option key={value} value={value}>
@@ -157,7 +200,7 @@ export default function App() {
       <section className="panel bottom">
         <p className={status === "error" ? "error" : ""}>
           {status === "error" ? error : status === "done" ? title : MESSAGES[status]}
-          {status === "done" && masking !== "none" && (
+          {status === "done" && result?.variable !== "spei" && masking !== "none" && (
             <span className="note">
               {" "}
               · {removed} {removed === 1 ? "date" : "dates"} without usable data
@@ -170,15 +213,17 @@ export default function App() {
               <CartesianGrid stroke="#ffffff14" vertical={false} />
               <XAxis dataKey="date" tick={{ fill: "#8a8a8a", fontSize: 11 }} minTickGap={40} />
               <YAxis
-                domain={result?.variable === "ndvi" ? [0, 1] : ["dataMin - 2", "dataMax + 2"]}
-                tickFormatter={(value) => Number(value).toFixed(result?.variable === "ndvi" ? 2 : 0)}
+                domain={axis.domain}
+                ticks={axis.ticks}
+                tickFormatter={(value) => Number(value).toFixed(axis.digits)}
                 tick={{ fill: "#8a8a8a", fontSize: 11 }}
                 width={36}
               />
               <Tooltip
                 contentStyle={{ background: "#111", border: "1px solid #333" }}
-                formatter={(value) => Number(value).toFixed(result?.variable === "ndvi" ? 3 : 1)}
+                formatter={(value) => Number(value).toFixed(axis.digits + 1)}
               />
+              {shown === "spei" && <ReferenceLine y={0} stroke="#ffffff55" />}
               <Line dataKey="value" stroke={colour} dot={false} strokeWidth={1.6} />
             </LineChart>
           </ResponsiveContainer>
