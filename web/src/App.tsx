@@ -13,7 +13,14 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { fetchSeries, type Masking, type SeriesResponse, type VariableKey } from "./api";
+import {
+  fetchCatalogue,
+  fetchSeries,
+  type Masking,
+  type SeriesResponse,
+  type Variable,
+  type VariableKey,
+} from "./api";
 
 const SATELLITE: StyleSpecification = {
   version: 8,
@@ -36,13 +43,12 @@ const END = "2025-01-01";
 
 type Status = "idle" | "drawing" | "loading" | "done" | "error";
 
-const VARIABLES: Record<VariableKey, { label: string; colour: string }> = {
-  ndvi: { label: "NDVI", colour: "#7ddc8a" },
-  lst: { label: "Land surface temperature", colour: "#ffb36b" },
-  spei: { label: "SPEI (drought)", colour: "#6cb8ff" },
+// The variables themselves come from the API's catalogue; only their colours live here
+const COLOURS: Record<VariableKey, string> = {
+  ndvi: "#7ddc8a",
+  lst: "#ffb36b",
+  spei: "#6cb8ff",
 };
-
-const SPEI_SCALES = [1, 3, 6, 12, 24, 48];
 
 // Axis range and decimals per variable; SPEI rarely leaves -3..3
 type Axis = { domain: [number | string, number | string]; digits: number; ticks?: number[] };
@@ -96,6 +102,17 @@ export default function App() {
     }
   }
 
+  const [catalogue, setCatalogue] = useState<Variable[]>([]);
+
+  useEffect(() => {
+    fetchCatalogue()
+      .then(setCatalogue)
+      .catch((e) => {
+        setError(`Could not reach the Magonia API (${e.message}).`);
+        setStatus("error");
+      });
+  }, []);
+
   useEffect(() => {
     const map = new MapLibre({
       container: container.current!,
@@ -141,7 +158,8 @@ export default function App() {
   const points = result?.points ?? [];
   const removed = points.filter((point) => point.masked).length;
   const shown = result?.variable ?? variable;
-  const colour = VARIABLES[shown].colour;
+  const colour = COLOURS[shown];
+  const scales = catalogue.find((entry) => entry.key === "spei")?.scales ?? [];
   const axis = AXES[shown];
   // SPEI is one grid cell, not an average over the area
   const statistic = result?.variable === "spei" ? "" : "Mean ";
@@ -163,9 +181,9 @@ export default function App() {
           onChange={(e) => choose({ variable: e.target.value as VariableKey })}
           disabled={status === "loading"}
         >
-          {Object.entries(VARIABLES).map(([value, { label }]) => (
-            <option key={value} value={value}>
-              {label}
+          {catalogue.map((entry) => (
+            <option key={entry.key} value={entry.key}>
+              {entry.name}
             </option>
           ))}
         </select>
@@ -176,7 +194,7 @@ export default function App() {
             onChange={(e) => choose({ scale: Number(e.target.value) })}
             disabled={status === "loading"}
           >
-            {SPEI_SCALES.map((months) => (
+            {scales.map((months) => (
               <option key={months} value={months}>
                 {months} {months === 1 ? "month" : "months"}
               </option>

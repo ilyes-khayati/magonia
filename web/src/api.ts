@@ -17,6 +17,22 @@ export type SeriesResponse = {
   warnings: string[];
 };
 
+export type Variable = {
+  key: VariableKey;
+  name: string;
+  units: string;
+  product: string;
+  resolution: string;
+  cadence: string;
+  scales: number[];
+};
+
+export async function fetchCatalogue(): Promise<Variable[]> {
+  const response = await fetch("/api/catalogue");
+  if (!response.ok) throw new Error(`catalogue: status ${response.status}`);
+  return response.json();
+}
+
 export async function fetchSeries(
   geometry: unknown,
   start: string,
