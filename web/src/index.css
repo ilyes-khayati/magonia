@@ -72,6 +72,19 @@ button {
   cursor: pointer;
 }
 
+select {
+  background: transparent;
+  color: #e8e8e8;
+  border: 1px solid #ffffff33;
+  border-radius: 8px;
+  padding: 5px 8px;
+  font-size: 13px;
+}
+
+.note {
+  color: #6f6f6f;
+}
+
 button:disabled {
   opacity: 0.4;
   cursor: wait;
