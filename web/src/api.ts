@@ -1,21 +1,8 @@
+// Typed calls to the Magonia API (served under /api by the Vite proxy)
+
 export type Masking = "pixel" | "date" | "none";
 export type VariableKey = "ndvi" | "lst" | "spei";
-
-export type SeriesPoint = {
-  date: string;
-  value: number | null;
-  sd: number | null;
-  n_pixels: number;
-  masked: boolean;
-};
-
-export type SeriesResponse = {
-  variable: VariableKey;
-  name: string;
-  units: string;
-  points: SeriesPoint[];
-  warnings: string[];
-};
+export type Resolution = "native" | "monthly" | "seasonal";
 
 export type Variable = {
   key: VariableKey;
@@ -27,11 +14,75 @@ export type Variable = {
   scales: number[];
 };
 
-export async function fetchCatalogue(): Promise<Variable[]> {
-  const response = await fetch("/api/catalogue");
-  if (!response.ok) throw new Error(`catalogue: status ${response.status}`);
-  return response.json();
+export type SeriesPoint = {
+  date: string;
+  value: number | null;
+  sd: number | null;
+  n_pixels: number;
+  masked: boolean;
+  filled: boolean;
+  n_obs: number;
+  n_valid: number;
+};
+
+export type SeriesResponse = {
+  variable: VariableKey;
+  name: string;
+  units: string;
+  points: SeriesPoint[];
+  warnings: string[];
+  provenance: Record<string, unknown>;
+};
+
+export type Area = {
+  id: number;
+  workspace_id: number;
+  name: string;
+  geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon;
+  area_km2: number;
+};
+
+export type WorkspaceSummary = { id: number; name: string; created: string; updated: string };
+
+export type Workspace = WorkspaceSummary & {
+  settings: Record<string, unknown>;
+  areas: Area[];
+};
+
+async function call<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`/api${path}`, {
+    ...init,
+    headers: init?.body ? { "Content-Type": "application/json" } : undefined,
+  });
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    const detail = typeof body.detail === "string" ? body.detail : `status ${response.status}`;
+    throw new Error(detail);
+  }
+  return response.status === 204 ? (undefined as T) : response.json();
 }
+
+const send = (method: string, body?: unknown): RequestInit => ({
+  method,
+  body: body === undefined ? undefined : JSON.stringify(body),
+});
+
+export const fetchCatalogue = () => call<Variable[]>("/catalogue");
+
+export const listWorkspaces = () => call<WorkspaceSummary[]>("/workspaces");
+export const createWorkspace = (name: string) =>
+  call<WorkspaceSummary>("/workspaces", send("POST", { name }));
+export const openWorkspace = (id: number) => call<Workspace>(`/workspaces/${id}`);
+export const updateWorkspace = (
+  id: number,
+  change: { name?: string; settings?: Record<string, unknown> },
+) => call<Workspace>(`/workspaces/${id}`, send("PATCH", change));
+
+export const createArea = (workspaceId: number, name: string, geometry: unknown) =>
+  call<Area>(`/workspaces/${workspaceId}/areas`, send("POST", { name, geometry }));
+export const renameArea = (id: number, name: string) =>
+  call<Area>(`/areas/${id}`, send("PATCH", { name }));
+export const deleteArea = (id: number) => call<void>(`/areas/${id}`, send("DELETE"));
 
 type Job = {
   id: number;
@@ -40,36 +91,26 @@ type Job = {
   result: SeriesResponse | null;
 };
 
-async function readJob(response: Response): Promise<Job> {
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({}));
-    const detail = typeof body.detail === "string" ? body.detail : `status ${response.status}`;
-    throw new Error(detail);
-  }
-  return response.json();
-}
-
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+export type SeriesOptions = {
+  workspace_id: number;
+  area_id: number;
+  variable: VariableKey;
+  start: string;
+  end: string;
+  masking: Masking;
+  scale: number | null;
+  resolution: Resolution;
+  max_gap: number;
+};
+
 // Starts a background job on the API, then asks every second until it finishes
-export async function fetchSeries(
-  geometry: unknown,
-  start: string,
-  end: string,
-  variable: VariableKey,
-  masking: Masking,
-  scale: number | null,
-): Promise<SeriesResponse> {
-  let job = await readJob(
-    await fetch("/api/jobs", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ geometry, start, end, variable, masking, scale }),
-    }),
-  );
+export async function fetchSeries(options: SeriesOptions): Promise<SeriesResponse> {
+  let job = await call<Job>("/jobs", send("POST", options));
   while (job.status === "queued" || job.status === "running") {
     await wait(1000);
-    job = await readJob(await fetch(`/api/jobs/${job.id}`));
+    job = await call<Job>(`/jobs/${job.id}`);
   }
   if (job.status === "failed" || !job.result) throw new Error(job.error ?? "The job failed.");
   return job.result;
