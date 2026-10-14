@@ -2,6 +2,7 @@ import type { Area, Variable, VariableKey } from "../api";
 import type { Settings } from "../settings";
 import { summarise } from "../stats";
 import ChartCard, { type Entry } from "./ChartCard";
+import CorrelationCard from "./CorrelationCard";
 import { ExpandIcon } from "./Icons";
 
 type Props = {
@@ -61,6 +62,15 @@ export default function Results({ catalogue, settings, onChange, areas, entries,
         chosen.map((v) => (
           <ChartCard key={v.key} variable={v} title={title(v)} entries={entries(v.key)} mode={settings.mode} />
         ))
+      )}
+
+      {areas.length > 0 && chosen.length >= 2 && (
+        <CorrelationCard
+          variables={chosen}
+          title={title}
+          entries={entries}
+          seasonal={settings.resolution === "seasonal"}
+        />
       )}
 
       {summary.length > 0 && (

@@ -38,12 +38,13 @@ async function fakeApi(page: Page, connected = true) {
 
 const CATALOGUE = [
   { key: "ndvi", name: "NDVI", units: "", product: "MODIS", resolution: "250 m", cadence: "16 days", scales: [] },
+  { key: "lst", name: "LST", units: "°C", product: "MODIS", resolution: "1 km", cadence: "8 days", scales: [] },
 ];
 
-// Two years of monthly NDVI with one filled month
+// Two years of monthly NDVI with one filled month, varying a little from year to year
 const POINTS = Array.from({ length: 24 }, (_, i) => ({
   date: `${2023 + Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, "0")}-01`,
-  value: 0.3 + 0.4 * Math.max(0, Math.cos(((i % 12) - 2) / 2)),
+  value: 0.3 + 0.4 * Math.max(0, Math.cos(((i % 12) - 2) / 2)) + 0.01 * ((i * 7) % 5),
   sd: 0.05,
   n_pixels: 18,
   masked: i === 5,
@@ -125,6 +126,20 @@ test("an area with NDVI chosen shows its chart, statistics, provenance and summa
   await expect(page.getByText(/Orchard: NDVI peaks in/)).toBeVisible();
   await page.getByRole("button", { name: "Seasonal cycle" }).click();
   await expect(chart.getByText("Average year", { exact: false })).toBeVisible();
+});
+
+test("choosing a second variable shows how the two are correlated over lags", async ({ page }) => {
+  await page.getByTestId("upload").setInputFiles({
+    name: "fields.geojson",
+    mimeType: "application/geo+json",
+    buffer: Buffer.from(JSON.stringify(SQUARE)),
+  });
+  await expect(page.getByRole("region", { name: "Correlation chart" })).toHaveCount(0);
+  await page.getByRole("checkbox", { name: /LST/ }).check();
+  const card = page.getByRole("region", { name: "Correlation chart" });
+  await expect(card.locator(".recharts-line")).toBeVisible();
+  // the fake API returns the same series for both variables, so they match in the same month
+  await expect(card.getByText(/Orchard: NDVI anomalies are most closely linked to LST anomalies from the same month \(r = 1\.00\)/)).toBeVisible();
 });
 
 test("when Earth Engine is not connected, the setup explains how and saves the project", async ({ page }) => {
