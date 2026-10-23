@@ -1,9 +1,11 @@
 import sqlite3
+from collections.abc import Iterator
 from datetime import date
 from functools import cache
 from typing import Annotated, Literal
 
 import engine
+from engine import assistant
 from engine.areas import AreaError, make_area
 from engine.catalogue import CATALOGUE, get_variable
 from engine.earth_engine import EarthEngineError, check
@@ -11,6 +13,7 @@ from engine.pipeline import Request
 from engine.prepare import Resolution
 from engine.series import Masking, band_name
 from fastapi import Depends, FastAPI, HTTPException, Response
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from api.jobs import Runner, cache_key, execute
@@ -47,8 +50,14 @@ def get_runner() -> Runner:
     return Runner()
 
 
+@cache
+def get_provider() -> assistant.Provider:
+    return assistant.from_environment()
+
+
 StoreDep = Annotated[Store, Depends(get_store)]
 RunnerDep = Annotated[Runner, Depends(get_runner)]
+ProviderDep = Annotated[assistant.Provider, Depends(get_provider)]
 
 
 # Models
@@ -131,6 +140,17 @@ class WorkspaceIn(BaseModel):
 class WorkspaceUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=100)
     settings: dict | None = None  # whatever the interface needs to restore its state
+
+
+class ChatMessage(BaseModel):
+    id: int
+    role: Literal["user", "assistant"]
+    content: str
+    created: str
+
+
+class Question(BaseModel):
+    content: str = Field(min_length=1, max_length=4000)
 
 
 class WorkspaceSummary(BaseModel):
@@ -338,3 +358,55 @@ def delete_area(area_id: int, store: StoreDep) -> Response:
     existing_area(store, area_id)
     store.delete_area(area_id)
     return Response(status_code=204)
+
+
+# The assistant
+
+
+@app.get("/assistant")
+def assistant_info(provider: ProviderDep) -> dict:
+    return {"name": assistant.NAME, "model": provider.name}
+
+
+@app.get("/workspaces/{workspace_id}/messages")
+def list_messages(workspace_id: int, store: StoreDep) -> list[ChatMessage]:
+    """The conversation with the assistant in this workspace, oldest first."""
+    existing_workspace(store, workspace_id)
+    return store.messages(workspace_id)
+
+
+@app.delete("/workspaces/{workspace_id}/messages", status_code=204)
+def clear_messages(workspace_id: int, store: StoreDep) -> Response:
+    existing_workspace(store, workspace_id)
+    store.clear_messages(workspace_id)
+    return Response(status_code=204)
+
+
+@app.post("/workspaces/{workspace_id}/chat")
+def chat(
+    workspace_id: int, body: Question, store: StoreDep, provider: ProviderDep
+) -> StreamingResponse:
+    """Ask the assistant. The answer streams back as plain text and is saved when complete."""
+    existing_workspace(store, workspace_id)
+    history = [{"role": m["role"], "content": m["content"]} for m in store.messages(workspace_id)]
+    pieces = provider.stream([*history, {"role": "user", "content": body.content}])
+    try:  # fail with a clear status before streaming starts, if the model cannot be reached
+        first = next(pieces, "")
+    except assistant.ProviderError as exc:
+        raise HTTPException(503, str(exc)) from exc
+    store.add_message(workspace_id, "user", body.content)
+
+    def answer() -> Iterator[str]:
+        parts = [first]
+        yield first
+        try:
+            for piece in pieces:
+                parts.append(piece)
+                yield piece
+        except assistant.ProviderError as exc:
+            parts.append(f"\n\n[The model stopped: {exc}]")
+            yield parts[-1]
+        finally:  # keep what was said, even if the reader left early
+            store.add_message(workspace_id, "assistant", "".join(parts))
+
+    return StreamingResponse(answer(), media_type="text/plain; charset=utf-8")

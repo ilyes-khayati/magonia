@@ -758,17 +758,66 @@ button:disabled {
   line-height: 1.5;
 }
 
-.ask {
-  border-style: dashed;
-  background: transparent;
+.assistant .conversation {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 420px;
+  overflow-y: auto;
 }
 
-.ask textarea {
+.turn {
+  white-space: pre-wrap;
+  line-height: 1.55;
+  padding: 8px 10px;
+  border-radius: 10px;
+  max-width: 92%;
+}
+
+.turn.user {
+  align-self: flex-end;
+  background: var(--accent);
+  color: var(--card);
+}
+
+.turn.assistant {
+  align-self: flex-start;
+  background: var(--ground);
+}
+
+.thinking {
+  color: var(--muted);
+}
+
+.assistant .error {
+  margin: 0;
+  color: var(--danger);
+}
+
+.composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.composer textarea {
+  flex: 1;
   resize: none;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--ground);
+  color: inherit;
+  font: inherit;
   padding: 8px 10px;
+}
+
+.link {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  font-size: 12px;
+  cursor: pointer;
 }
 
 .placeholder {
