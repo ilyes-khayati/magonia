@@ -305,6 +305,7 @@ export default function App() {
         entries={entries}
         wide={wide}
         onWide={() => setWide(!wide)}
+        workspaceId={workspaceId}
       />
 
       {setupOpen && earthEngine && (

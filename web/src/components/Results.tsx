@@ -1,6 +1,7 @@
 import type { Area, Variable, VariableKey } from "../api";
 import type { Settings } from "../settings";
 import { summarise } from "../stats";
+import AssistantCard from "./AssistantCard";
 import ChartCard, { type Entry } from "./ChartCard";
 import CorrelationCard from "./CorrelationCard";
 import { ExpandIcon } from "./Icons";
@@ -13,9 +14,19 @@ type Props = {
   entries: (variable: VariableKey) => Entry[];
   wide: boolean;
   onWide: () => void;
+  workspaceId: number | null;
 };
 
-export default function Results({ catalogue, settings, onChange, areas, entries, wide, onWide }: Props) {
+export default function Results({
+  catalogue,
+  settings,
+  onChange,
+  areas,
+  entries,
+  wide,
+  onWide,
+  workspaceId,
+}: Props) {
   const chosen = catalogue.filter((v) => settings.variables.includes(v.key));
   const title = (v: Variable) => (v.key === "spei" ? `SPEI-${settings.scale}` : v.name);
 
@@ -87,15 +98,7 @@ export default function Results({ catalogue, settings, onChange, areas, entries,
         </section>
       )}
 
-      <section className="card ask">
-        <label htmlFor="ask" style={{ fontWeight: 600 }}>
-          Ask about these results
-        </label>
-        <textarea id="ask" rows={2} disabled placeholder="Why is the cereal field greener than the orchard in spring?" />
-        <span className="meta">
-          The assistant arrives in version 2. It will answer from these numbers and their provenance.
-        </span>
-      </section>
+      <AssistantCard key={workspaceId} workspaceId={workspaceId} />
     </aside>
   );
 }
