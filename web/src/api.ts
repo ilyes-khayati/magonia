@@ -120,3 +120,31 @@ export async function fetchSeries(options: SeriesOptions): Promise<SeriesRespons
   if (job.status === "failed" || !job.result) throw new Error(job.error ?? "The job failed.");
   return job.result;
 }
+
+// The assistant
+
+export type ChatMessage = { id: number; role: "user" | "assistant"; content: string; created: string };
+
+export const assistantInfo = () => call<{ name: string; model: string }>("/assistant");
+export const listMessages = (workspaceId: number) => call<ChatMessage[]>(`/workspaces/${workspaceId}/messages`);
+export const clearMessages = (workspaceId: number) =>
+  call<void>(`/workspaces/${workspaceId}/messages`, send("DELETE"));
+
+// Sends a question and hands each piece of the answer to onPiece as it arrives
+export async function ask(workspaceId: number, content: string, onPiece: (text: string) => void) {
+  const response = await fetch(`/api/workspaces/${workspaceId}/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
+  });
+  if (!response.ok || !response.body) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(typeof body.detail === "string" ? body.detail : `status ${response.status}`);
+  }
+  const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) return;
+    onPiece(value);
+  }
+}

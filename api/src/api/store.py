@@ -1,4 +1,4 @@
-"""Local storage for workspaces, areas, jobs and cached results (decision 0004)."""
+"""Local storage for workspaces, areas, jobs, cached results and conversations (decision 0004)."""
 
 import json
 import os
@@ -42,6 +42,13 @@ CREATE TABLE IF NOT EXISTS jobs (
     error TEXT,
     created TEXT NOT NULL,
     updated TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id INTEGER NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    role TEXT NOT NULL,  -- user or assistant
+    content TEXT NOT NULL,
+    created TEXT NOT NULL
 );
 """
 
@@ -197,3 +204,21 @@ class Store:
     def result(self, key: str) -> dict | None:
         found = self.row("SELECT response FROM results WHERE key = ?", (key,))
         return json.loads(found["response"]) if found else None
+
+    # Conversations with the assistant, one per workspace
+
+    def add_message(self, workspace_id: int, role: str, content: str) -> dict:
+        cursor = self.execute(
+            "INSERT INTO messages (workspace_id, role, content, created) VALUES (?, ?, ?, ?)",
+            (workspace_id, role, content, now()),
+        )
+        self.touch(workspace_id)
+        return self.row("SELECT * FROM messages WHERE id = ?", (cursor.lastrowid,))
+
+    def messages(self, workspace_id: int) -> list[dict]:
+        return self.rows(
+            "SELECT * FROM messages WHERE workspace_id = ? ORDER BY id", (workspace_id,)
+        )
+
+    def clear_messages(self, workspace_id: int) -> None:
+        self.execute("DELETE FROM messages WHERE workspace_id = ?", (workspace_id,))
