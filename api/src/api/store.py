@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS messages (
     workspace_id INTEGER NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
     role TEXT NOT NULL,  -- user or assistant
     content TEXT NOT NULL,
+    details TEXT NOT NULL DEFAULT '{}',  -- searches, papers found and the citation check
     created TEXT NOT NULL
 );
 """
@@ -72,12 +73,19 @@ class Store:
         self.db.row_factory = sqlite3.Row
         self.db.execute("PRAGMA foreign_keys = ON")
         self.db.executescript(SCHEMA)
+        self.migrate()
         self.lock = threading.Lock()
         self.execute(
             "UPDATE jobs SET status = 'failed', error = ?, updated = ? "
             "WHERE status IN ('queued', 'running')",
             ("The API stopped before this job finished. Please run it again.", now()),
         )
+
+    def migrate(self) -> None:
+        """Bring a database made by an earlier version up to the current schema."""
+        columns = {row["name"] for row in self.db.execute("PRAGMA table_info(messages)")}
+        if "details" not in columns:  # added in 1.3
+            self.db.execute("ALTER TABLE messages ADD COLUMN details TEXT NOT NULL DEFAULT '{}'")
 
     def execute(self, sql: str, values: tuple = ()) -> sqlite3.Cursor:
         with self.lock, self.db:
@@ -207,18 +215,30 @@ class Store:
 
     # Conversations with the assistant, one per workspace
 
-    def add_message(self, workspace_id: int, role: str, content: str) -> dict:
+    def add_message(
+        self, workspace_id: int, role: str, content: str, details: dict | None = None
+    ) -> dict:
         cursor = self.execute(
-            "INSERT INTO messages (workspace_id, role, content, created) VALUES (?, ?, ?, ?)",
-            (workspace_id, role, content, now()),
+            "INSERT INTO messages (workspace_id, role, content, details, created) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (workspace_id, role, content, json.dumps(details or {}), now()),
         )
         self.touch(workspace_id)
-        return self.row("SELECT * FROM messages WHERE id = ?", (cursor.lastrowid,))
+        return self.message(cursor.lastrowid)
+
+    def message(self, message_id: int) -> dict | None:
+        found = self.row("SELECT * FROM messages WHERE id = ?", (message_id,))
+        if found:
+            found["details"] = json.loads(found["details"])
+        return found
 
     def messages(self, workspace_id: int) -> list[dict]:
-        return self.rows(
+        found = self.rows(
             "SELECT * FROM messages WHERE workspace_id = ? ORDER BY id", (workspace_id,)
         )
+        for message in found:
+            message["details"] = json.loads(message["details"])
+        return found
 
     def clear_messages(self, workspace_id: int) -> None:
         self.execute("DELETE FROM messages WHERE workspace_id = ?", (workspace_id,))

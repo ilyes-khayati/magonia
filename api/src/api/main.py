@@ -1,3 +1,5 @@
+import itertools
+import json
 import sqlite3
 from collections.abc import Iterator
 from datetime import date
@@ -146,6 +148,7 @@ class ChatMessage(BaseModel):
     id: int
     role: Literal["user", "assistant"]
     content: str
+    details: dict = {}  # for answers: searches, papers found and the citation check
     created: str
 
 
@@ -386,27 +389,41 @@ def clear_messages(workspace_id: int, store: StoreDep) -> Response:
 def chat(
     workspace_id: int, body: Question, store: StoreDep, provider: ProviderDep
 ) -> StreamingResponse:
-    """Ask the assistant. The answer streams back as plain text and is saved when complete."""
+    """Ask the assistant. Events stream back as JSON lines and the answer is saved at the end.
+
+    Events: text (a piece of the answer), search, search_failed, papers, check (the final
+    answer after its citations were checked) and error.
+    """
     existing_workspace(store, workspace_id)
     history = [{"role": m["role"], "content": m["content"]} for m in store.messages(workspace_id)]
-    pieces = provider.stream([*history, {"role": "user", "content": body.content}])
+    events = assistant.answer(provider, [*history, {"role": "user", "content": body.content}])
     try:  # fail with a clear status before streaming starts, if the model cannot be reached
-        first = next(pieces, "")
+        first = next(events)
     except assistant.ProviderError as exc:
         raise HTTPException(503, str(exc)) from exc
     store.add_message(workspace_id, "user", body.content)
 
-    def answer() -> Iterator[str]:
-        parts = [first]
-        yield first
+    def stream() -> Iterator[str]:
+        said, searches, papers, verdict = [], [], [], None
         try:
-            for piece in pieces:
-                parts.append(piece)
-                yield piece
+            for event in itertools.chain([first], events):
+                match event["type"]:
+                    case "text":
+                        said.append(event["text"])
+                    case "search":
+                        searches.append(event["query"])
+                    case "papers":
+                        papers.extend(event["papers"])
+                    case "check":
+                        verdict = event
+                yield json.dumps(event) + "\n"
         except assistant.ProviderError as exc:
-            parts.append(f"\n\n[The model stopped: {exc}]")
-            yield parts[-1]
+            yield json.dumps({"type": "error", "message": f"The model stopped: {exc}"}) + "\n"
         finally:  # keep what was said, even if the reader left early
-            store.add_message(workspace_id, "assistant", "".join(parts))
+            details = {"searches": searches, "papers": papers}
+            if verdict:
+                details["check"] = {k: verdict[k] for k in ("cited", "removed", "unverified")}
+            text = verdict["text"] if verdict else "".join(said)
+            store.add_message(workspace_id, "assistant", text, details)
 
-    return StreamingResponse(answer(), media_type="text/plain; charset=utf-8")
+    return StreamingResponse(stream(), media_type="application/x-ndjson")

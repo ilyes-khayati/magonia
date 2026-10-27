@@ -5,7 +5,7 @@ from typing import ClassVar
 
 import pytest
 
-from engine.assistant import RULES, Ollama, ProviderError, Scripted, from_environment
+from engine.assistant import RULES, Ollama, ProviderError, Scripted, ToolCall, from_environment
 
 
 def test_scripted_streams_the_answer_word_by_word():
@@ -23,6 +23,11 @@ class FakeOllama(BaseHTTPRequestHandler):
         FakeOllama.received = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
         self.send_response(200)
         self.end_headers()
+        if FakeOllama.received.get("tools"):
+            call = {"function": {"name": "search_papers", "arguments": {"query": "olive"}}}
+            self.wfile.write(
+                json.dumps({"message": {"content": "", "tool_calls": [call]}}).encode() + b"\n"
+            )
         for piece in ["Hello", " there"]:
             self.wfile.write(json.dumps({"message": {"content": piece}}).encode() + b"\n")
         self.wfile.write(json.dumps({"done": True}).encode() + b"\n")
@@ -64,3 +69,9 @@ def test_provider_is_chosen_from_the_environment(monkeypatch):
 
     monkeypatch.setenv("MAGONIA_MODEL_URL", "scripted")
     assert isinstance(from_environment(), Scripted)
+
+
+def test_ollama_passes_tool_calls_through(ollama_url):
+    pieces = list(Ollama(ollama_url).stream([{"role": "user", "content": "Hi"}], tools=[{"x": 1}]))
+    assert pieces[0] == ToolCall("search_papers", {"query": "olive"})
+    assert FakeOllama.received["tools"] == [{"x": 1}]
