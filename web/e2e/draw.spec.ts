@@ -28,6 +28,14 @@ async function fakeApi(page: Page, connected = true) {
       json: { id: 1, name: "My workspace", created: "", updated: "", settings: {}, areas, jobs: [] },
     }),
   );
+  await page.route("**/api/assistant", (route) => route.fulfill({ json: { name: "Magonia", model: "test model" } }));
+  await page.route("**/api/workspaces/1/messages", (route) => route.fulfill({ json: [] }));
+  await page.route("**/api/workspaces/1/chat", (route) =>
+    route.fulfill({
+      contentType: "application/x-ndjson",
+      body: ANSWER.map((event) => JSON.stringify(event)).join("\n") + "\n",
+    }),
+  );
   await page.route("**/api/workspaces/1/areas", (route) => {
     const body = route.request().postDataJSON();
     const area = { id: areas.length + 1, workspace_id: 1, area_km2: 0.5, ...body };
@@ -67,6 +75,32 @@ const RESULT = {
     steps: [{ step: "fill gaps", method: "linear interpolation in time", filled: 1 }],
   },
 };
+
+const paper = (n: number, short: string, title: string) => ({
+  n,
+  id: `W${n}`,
+  short,
+  title,
+  authors: [],
+  year: 2022,
+  venue: "Journal of Agricultural Engineering",
+  doi: `10.1/${n}`,
+  abstract: "Drought stress was mapped in rainfed olive groves.",
+  open_access_url: null,
+  cited_by: 12,
+  countries: ["TN"],
+});
+
+// An answer that searched, found two papers, and cited one real paper and one invented number
+const ANSWER = [
+  { type: "search", query: "olive drought NDVI" },
+  {
+    type: "papers",
+    papers: [paper(1, "Sghaier et al., 2022", "Drought stress in arid olive groves"), paper(2, "Crespo et al., 2025", "Olive VI and drought")],
+  },
+  { type: "text", text: "Drought lowers olive NDVI [1], as also shown in [7]." },
+  { type: "check", text: "Drought lowers olive NDVI [1], as also shown in.", cited: [1], removed: [7], unverified: [] },
+];
 
 const SQUARE = {
   type: "FeatureCollection",
@@ -156,6 +190,25 @@ test("focus mode hides the panels", async ({ page }) => {
   await expect(page.getByRole("complementary", { name: "Results" })).toBeHidden();
   await page.getByRole("button", { name: "Show panels" }).click();
   await expect(page.getByRole("complementary", { name: "Results" })).toBeVisible();
+});
+
+test("an answer shows its checked sources and what the check removed", async ({ page }) => {
+  const assistant = page.getByRole("region", { name: "Magonia assistant" });
+  await assistant.getByRole("textbox", { name: "Ask Magonia" }).fill("What does drought do to olive NDVI?");
+  await assistant.getByRole("button", { name: "Send" }).click();
+
+  await expect(assistant.getByText("Drought lowers olive NDVI")).toBeVisible();
+  await expect(assistant.locator(".turn.assistant a.cite")).toHaveText(["1"]);
+  await expect(assistant.getByRole("link", { name: "Drought stress in arid olive groves" })).toHaveAttribute(
+    "href",
+    "https://doi.org/10.1/1",
+  );
+  await expect(assistant.getByText("Also found, not cited (1)")).toBeVisible();
+  await expect(assistant.getByText("Removed a citation ([7]) that matched no paper found.")).toBeVisible();
+
+  const results = await new AxeBuilder({ page }).include(".assistant").analyze();
+  const serious = results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? ""));
+  expect(serious.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
 });
 
 for (const theme of ["light", "dark"]) {

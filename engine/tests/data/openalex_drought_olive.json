@@ -1,0 +1,2825 @@
+{
+ "meta": {
+  "count": 2874
+ },
+ "results": [
+  {
+   "id": "https://openalex.org/W4221127179",
+   "doi": "https://doi.org/10.4081/jae.2022.1264",
+   "title": "Assessment of drought stress in arid olive groves using HidroMORE model",
+   "publication_year": 2022,
+   "authorships": [
+    {
+     "author": {
+      "display_name": "Abderrahman Sghaier"
+     },
+     "countries": [
+      "TN"
+     ]
+    },
+    {
+     "author": {
+      "display_name": "Hanen Dhaou"
+     },
+     "countries": [
+      "TN"
+     ]
+    },
+    {
+     "author": {
+      "display_name": "Lassaad Jarray"
+     },
+     "countries": [
+      "TN"
+     ]
+    },
+    {
+     "author": {
+      "display_name": "Zouhair Abaab"
+     },
+     "countries": [
+      "TN"
+     ]
+    },
+    {
+     "author": {
+      "display_name": "Ahmed Sekrafi"
+     },
+     "countries": [
+      "TN"
+     ]
+    },
+    {
+     "author": {
+      "display_name": "Mohamed Ouessar"
+     },
+     "countries": [
+      "TN"
+     ]
+    }
+   ],
+   "primary_location": {
+    "source": {
+     "display_name": "Journal of Agricultural Engineering"
+    }
+   },
+   "abstract_inverted_index": {
+    "The": [
+     0,
+     93,
+     133,
+     148
+    ],
+    "olive": [
+     1,
+     50
+    ],
+    "tree": [
+     2
+    ],
+    "is": [
+     3,
+     162,
+     219
+    ],
+    "well": [
+     4,
+     138
+    ],
+    "known": [
+     5
+    ],
+    "for": [
+     6,
+     231,
+     236,
+     243
+    ],
+    "being": [
+     7
+    ],
+    "adapted": [
+     8
+    ],
+    "to": [
+     9,
+     24,
+     40,
+     66,
+     84,
+     97,
+     130,
+     192
+    ],
+    "the": [
+     10,
+     14,
+     42,
+     49,
+     53,
+     67,
+     86,
+     109,
+     120,
+     124,
+     159,
+     165,
+     172,
+     178,
+     188,
+     193,
+     201,
+     204,
+     208,
+     217,
+     222
+    ],
+    "arid": [
+     11,
+     54
+    ],
+    "conditions": [
+     12
+    ],
+    "of": [
+     13,
+     29,
+     45,
+     56,
+     60,
+     119,
+     145,
+     171,
+     214,
+     234
+    ],
+    "Mediterranean": [
+     15
+    ],
+    "basin.": [
+     16
+    ],
+    "However,": [
+     17
+    ],
+    "prolonged": [
+     18
+    ],
+    "drought": [
+     19,
+     46,
+     237
+    ],
+    "periods": [
+     20
+    ],
+    "which": [
+     21
+    ],
+    "are": [
+     22,
+     207
+    ],
+    "expected": [
+     23
+    ],
+    "become": [
+     25
+    ],
+    "more": [
+     26
+    ],
+    "frequent": [
+     27
+    ],
+    "because": [
+     28,
+     170
+    ],
+    "climate": [
+     30
+    ],
+    "change": [
+     31
+    ],
+    "could": [
+     32,
+     224
+    ],
+    "result": [
+     33
+    ],
+    "in": [
+     34,
+     48,
+     52,
+     89,
+     98,
+     104,
+     164,
+     187,
+     203,
+     212
+    ],
+    "severe": [
+     35,
+     215
+    ],
+    "water": [
+     36,
+     87,
+     101,
+     160,
+     175,
+     180
+    ],
+    "stress.": [
+     37
+    ],
+    "In": [
+     38,
+     199
+    ],
+    "order": [
+     39
+    ],
+    "map": [
+     41
+    ],
+    "spatial": [
+     43
+    ],
+    "distribution": [
+     44
+    ],
+    "stress": [
+     47,
+     161,
+     218
+    ],
+    "groves": [
+     51
+    ],
+    "regions": [
+     55
+    ],
+    "southeastern": [
+     57
+    ],
+    "Tunisia": [
+     58
+    ],
+    "(governorate": [
+     59
+    ],
+    "M": [
+     61
+    ],
+    "denine),": [
+     62
+    ],
+    "we": [
+     63
+    ],
+    "made": [
+     64
+    ],
+    "recourse": [
+     65
+    ],
+    "HidroMORE": [
+     68
+    ],
+    "model": [
+     69,
+     134,
+     223
+    ],
+    "(based": [
+     70
+    ],
+    "mainly": [
+     71
+    ],
+    "on": [
+     72
+    ],
+    "FAO56": [
+     73
+    ],
+    "ET,": [
+     74
+    ],
+    "NDVI": [
+     75
+    ],
+    "from": [
+     76,
+     127
+    ],
+    "Sentinel": [
+     77
+    ],
+    "2": [
+     78
+    ],
+    "images": [
+     79
+    ],
+    "and": [
+     80,
+     117,
+     167,
+     184,
+     186,
+     197,
+     239
+    ],
+    "other": [
+     81
+    ],
+    "physical": [
+     82
+    ],
+    "parameters)": [
+     83
+    ],
+    "compute": [
+     85
+    ],
+    "balance": [
+     88
+    ],
+    "a": [
+     90,
+     228
+    ],
+    "GIS": [
+     91
+    ],
+    "environment.": [
+     92
+    ],
+    "outputs": [
+     94,
+     135
+    ],
+    "were": [
+     95
+    ],
+    "compared": [
+     96
+    ],
+    "situ": [
+     99
+    ],
+    "soil": [
+     100
+    ],
+    "content": [
+     102
+    ],
+    "measurements": [
+     103
+    ],
+    "four": [
+     105
+    ],
+    "selected": [
+     106
+    ],
+    "sites": [
+     107
+    ],
+    "representing": [
+     108
+    ],
+    "various": [
+     110
+    ],
+    "agro-ecological": [
+     111
+    ],
+    "zones": [
+     112,
+     169
+    ],
+    "(mountains,": [
+     113
+    ],
+    "piedmont,": [
+     114
+    ],
+    "inner": [
+     115,
+     205
+    ],
+    "plain": [
+     116
+    ],
+    "coast)": [
+     118
+    ],
+    "study": [
+     121
+    ],
+    "site": [
+     122
+    ],
+    "during": [
+     123,
+     153
+    ],
+    "observation": [
+     125
+    ],
+    "period": [
+     126
+    ],
+    "January": [
+     128
+    ],
+    "2016": [
+     129
+    ],
+    "December": [
+     131
+    ],
+    "2019.": [
+     132
+    ],
+    "performed": [
+     136
+    ],
+    "relatively": [
+     137
+    ],
+    "(the": [
+     139
+    ],
+    "overall": [
+     140
+    ],
+    "correlation": [
+     141
+    ],
+    "coefficient": [
+     142
+    ],
+    "R2=0.72;": [
+     143
+    ],
+    "index": [
+     144
+    ],
+    "agreement": [
+     146
+    ],
+    "IA=0.76).": [
+     147
+    ],
+    "simulation": [
+     149
+    ],
+    "results": [
+     150
+    ],
+    "show": [
+     151
+    ],
+    "that": [
+     152
+    ],
+    "normal": [
+     154
+    ],
+    "years": [
+     155
+    ],
+    "or": [
+     156
+    ],
+    "average": [
+     157
+    ],
+    "droughts,": [
+     158,
+     216
+    ],
+    "least": [
+     163
+    ],
+    "mountain": [
+     166
+    ],
+    "piedmont": [
+     168
+    ],
+    "additional": [
+     173
+    ],
+    "runoff": [
+     174
+    ],
+    "supplied": [
+     176
+    ],
+    "by": [
+     177
+    ],
+    "traditional": [
+     179
+    ],
+    "harvesting": [
+     181
+    ],
+    "structures": [
+     182
+    ],
+    "(Jessour": [
+     183
+    ],
+    "Tabias)": [
+     185
+    ],
+    "coastal": [
+     189
+    ],
+    "zone,": [
+     190
+    ],
+    "thanks": [
+     191
+    ],
+    "higher": [
+     194
+    ],
+    "air": [
+     195
+    ],
+    "humidity": [
+     196
+    ],
+    "rainfall.": [
+     198
+    ],
+    "contrast,": [
+     200
+    ],
+    "olives": [
+     202
+    ],
+    "plains": [
+     206
+    ],
+    "most": [
+     209
+    ],
+    "affected.": [
+     210
+    ],
+    "Nevertheless,": [
+     211
+    ],
+    "case": [
+     213
+    ],
+    "generalised.": [
+     220
+    ],
+    "Thus,": [
+     221
+    ],
+    "be": [
+     225
+    ],
+    "used": [
+     226
+    ],
+    "as": [
+     227
+    ],
+    "decision": [
+     229
+    ],
+    "tool": [
+     230
+    ],
+    "prioritizing": [
+     232
+    ],
+    "areas": [
+     233
+    ],
+    "intervention": [
+     235
+    ],
+    "control": [
+     238
+    ],
+    "mitigation": [
+     240
+    ],
+    "(supplemental": [
+     241
+    ],
+    "irrigation": [
+     242
+    ],
+    "trees": [
+     244
+    ],
+    "safeguard,": [
+     245
+    ],
+    "etc.)": [
+     246
+    ]
+   },
+   "open_access": {
+    "is_oa": true,
+    "oa_status": "gold",
+    "oa_url": "https://www.agroengineering.org/index.php/jae/article/download/1264/938",
+    "any_repository_has_fulltext": false
+   },
+   "cited_by_count": 6
+  },
+  {
+   "id": "https://openalex.org/W3088065451",
+   "doi": "https://doi.org/10.1002/agj2.20475",
+   "title": "Evaluating the sensitivity of vegetation and water indices to monitor drought for three Mediterranean crops",
+   "publication_year": 2020,
+   "authorships": [
+    {
+     "author": {
+      "display_name": "Tuğba Yıldırım"
+     },
+     "countries": [
+      "US"
+     ]
+    },
+    {
+     "author": {
+      "display_name": "Yuting Zhou"
+     },
+     "countries": [
+      "US"
+     ]
+    },
+    {
+     "author": {
+      "display_name": "K. Colton Flynn"
+     },
+     "countries": [
+      "US"
+     ]
+    },
+    {
+     "author": {
+      "display_name": "Prasanna H. Gowda"
+     },
+     "countries": [
+      "US"
+     ]
+    },
+    {
+     "author": {
+      "display_name": "Shengfang Ma"
+     },
+     "countries": []
+    },
+    {
+     "author": {
+      "display_name": "Daniel N. Moriasi"
+     },
+     "countries": [
+      "US"
+     ]
+    }
+   ],
+   "primary_location": {
+    "source": {
+     "display_name": "Agronomy Journal"
+    }
+   },
+   "abstract_inverted_index": {
+    "Abstract": [
+     0
+    ],
+    "Understanding": [
+     1
+    ],
+    "drought": [
+     2,
+     84,
+     100,
+     138,
+     211,
+     239
+    ],
+    "effects": [
+     3
+    ],
+    "on": [
+     4
+    ],
+    "vegetative": [
+     5
+    ],
+    "health": [
+     6
+    ],
+    "for": [
+     7,
+     21,
+     57,
+     156,
+     176,
+     192
+    ],
+    "crop": [
+     8,
+     24,
+     214
+    ],
+    "producing": [
+     9
+    ],
+    "locations,": [
+     10
+    ],
+    "such": [
+     11
+    ],
+    "as": [
+     12
+    ],
+    "the": [
+     13,
+     197,
+     225,
+     237,
+     243
+    ],
+    "Seferihisar‐Kavakdere": [
+     14
+    ],
+    "region": [
+     15
+    ],
+    "in": [
+     16,
+     127,
+     228
+    ],
+    "western": [
+     17
+    ],
+    "Turkey,": [
+     18
+    ],
+    "is": [
+     19,
+     119
+    ],
+    "vital": [
+     20
+    ],
+    "water": [
+     22,
+     46
+    ],
+    "and": [
+     23,
+     43,
+     51,
+     55,
+     63,
+     70,
+     88,
+     94,
+     109,
+     116,
+     136,
+     159,
+     163,
+     178,
+     194,
+     245
+    ],
+    "management.": [
+     25
+    ],
+    "This": [
+     26
+    ],
+    "study": [
+     27,
+     132
+    ],
+    "used": [
+     28
+    ],
+    "Landsat‐derived": [
+     29,
+     141
+    ],
+    "spectral": [
+     30,
+     142
+    ],
+    "vegetation": [
+     31,
+     36,
+     40,
+     143,
+     205
+    ],
+    "indices,": [
+     32
+    ],
+    "specifically": [
+     33
+    ],
+    "normalized": [
+     34
+    ],
+    "difference": [
+     35
+    ],
+    "index": [
+     37,
+     41,
+     47
+    ],
+    "(NDVI),": [
+     38
+    ],
+    "enhanced": [
+     39
+    ],
+    "(EVI),": [
+     42
+    ],
+    "land": [
+     44
+    ],
+    "surface": [
+     45
+    ],
+    "(LSWI)": [
+     48
+    ],
+    "to": [
+     49,
+     134,
+     209,
+     215,
+     235
+    ],
+    "evaluate": [
+     50
+    ],
+    "compare": [
+     52,
+     137
+    ],
+    "their": [
+     53
+    ],
+    "performance": [
+     54
+    ],
+    "sensitivity": [
+     56
+    ],
+    "three": [
+     58,
+     79
+    ],
+    "major": [
+     59
+    ],
+    "crops": [
+     60,
+     80
+    ],
+    "(citrus,": [
+     61
+    ],
+    "grape,": [
+     62,
+     158
+    ],
+    "olive)": [
+     64
+    ],
+    "under": [
+     65,
+     217
+    ],
+    "dry": [
+     66
+    ],
+    "(2008),": [
+     67
+    ],
+    "wet": [
+     68,
+     198
+    ],
+    "(2010),": [
+     69
+    ],
+    "normal": [
+     71
+    ],
+    "(2015)": [
+     72
+    ],
+    "climatic": [
+     73,
+     219
+    ],
+    "conditions.": [
+     74,
+     220
+    ],
+    "Results": [
+     75
+    ],
+    "showed": [
+     76,
+     202
+    ],
+    "that": [
+     77,
+     203,
+     224
+    ],
+    "all": [
+     78
+    ],
+    "were": [
+     81,
+     96,
+     105,
+     148,
+     165,
+     172,
+     181,
+     188,
+     232
+    ],
+    "affected": [
+     82,
+     98
+    ],
+    "by": [
+     83,
+     99
+    ],
+    "despite": [
+     85
+    ],
+    "two": [
+     86
+    ],
+    "(citrus": [
+     87
+    ],
+    "grape)": [
+     89
+    ],
+    "being": [
+     90
+    ],
+    "irrigated.": [
+     91
+    ],
+    "However,": [
+     92
+    ],
+    "grape": [
+     93,
+     193
+    ],
+    "olive": [
+     95,
+     195
+    ],
+    "more": [
+     97
+    ],
+    "than": [
+     101,
+     167,
+     174,
+     183,
+     190
+    ],
+    "citrus.": [
+     102
+    ],
+    "Drought": [
+     103
+    ],
+    "conditions": [
+     104
+    ],
+    "exacerbated": [
+     106
+    ],
+    "during": [
+     107,
+     124,
+     196
+    ],
+    "September": [
+     108
+    ],
+    "October": [
+     110
+    ],
+    "because": [
+     111,
+     117
+    ],
+    "of": [
+     112,
+     114,
+     140
+    ],
+    "lack": [
+     113
+    ],
+    "precipitation": [
+     115
+    ],
+    "irrigation": [
+     118,
+     226
+    ],
+    "not": [
+     120,
+     233
+    ],
+    "a": [
+     121
+    ],
+    "common": [
+     122
+    ],
+    "practice": [
+     123
+    ],
+    "these": [
+     125
+    ],
+    "months": [
+     126
+    ],
+    "this": [
+     128,
+     131
+    ],
+    "region.": [
+     129
+    ],
+    "Therefore,": [
+     130
+    ],
+    "aimed": [
+     133
+    ],
+    "use": [
+     135
+    ],
+    "sensitivities": [
+     139
+    ],
+    "indices.": [
+     144
+    ],
+    "All": [
+     145
+    ],
+    "studied": [
+     146
+    ],
+    "indices": [
+     147,
+     206
+    ],
+    "closely": [
+     149
+    ],
+    "related": [
+     150
+    ],
+    "(.48": [
+     151
+    ],
+    "≤": [
+     152,
+     154
+    ],
+    "R2": [
+     153
+    ],
+    ".98)": [
+     155
+    ],
+    "citrus,": [
+     157,
+     177
+    ],
+    "olive.": [
+     160
+    ],
+    "The": [
+     161,
+     200
+    ],
+    "EVI": [
+     162
+    ],
+    "LSWI": [
+     164,
+     179
+    ],
+    "greater": [
+     166,
+     173,
+     189
+    ],
+    "NDVI": [
+     168,
+     170,
+     184,
+     186
+    ],
+    "when": [
+     169,
+     185
+    ],
+    "values": [
+     171,
+     180,
+     187
+    ],
+    "0.65": [
+     175
+    ],
+    "larger": [
+     182
+    ],
+    "0.6": [
+     191
+    ],
+    "year.": [
+     199
+    ],
+    "results": [
+     201
+    ],
+    "different": [
+     204,
+     218
+    ],
+    "are": [
+     207
+    ],
+    "needed": [
+     208
+    ],
+    "detect": [
+     210
+    ],
+    "from": [
+     212
+    ],
+    "one": [
+     213
+    ],
+    "another": [
+     216
+    ],
+    "Our": [
+     221
+    ],
+    "findings": [
+     222
+    ],
+    "indicate": [
+     223
+    ],
+    "applications": [
+     227
+    ],
+    "2008": [
+     229
+    ],
+    "(drought": [
+     230
+    ],
+    "year)": [
+     231
+    ],
+    "sufficient": [
+     234
+    ],
+    "alleviate": [
+     236
+    ],
+    "severe": [
+     238
+    ],
+    "stress": [
+     240
+    ],
+    "experienced": [
+     241
+    ],
+    "throughout": [
+     242
+    ],
+    "winter": [
+     244
+    ],
+    "growing": [
+     246
+    ],
+    "seasons.": [
+     247
+    ]
+   },
+   "open_access": {
+    "is_oa": false,
+    "oa_status": "closed",
+    "oa_url": null,
+    "any_repository_has_fulltext": false
+   },
+   "cited_by_count": 9
+  },
+  {
+   "id": "https://openalex.org/W7166201499",
+   "doi": "https://doi.org/10.21203/rs.3.rs-9981564/v1",
+   "title": "Integrated assessment of drought-driven vegetation declines in Olive and Citrus Orchards of Semi-Arid Morocco: A Multi-Index Remote Sensing Framework",
+   "publication_year": 2026,
+   "authorships": [
+    {
+     "author": {
+      "display_name": "Rachida Guendour"
+     },
+     "countries": [
+      "MA"
+     ]
+    },
+    {
+     "author": {
+      "display_name": "Said El Goumi"
+     },
+     "countries": [
+      "MA"
+     ]
+    },
+    {
+     "author": {
+      "display_name": "Oussama Nait-taleb"
+     },
+     "countries": [
+      "MA"
+     ]
+    },
+    {
+     "author": {
+      "display_name": "Maryem Ismaili"
+     },
+     "countries": [
+      "MA"
+     ]
+    },
+    {
+     "author": {
+      "display_name": "Fatimazahra Tarchi"
+     },
+     "countries": [
+      "MA"
+     ]
+    },
+    {
+     "author": {
+      "display_name": "Mohamed Chikh Essbiti"
+     },
+     "countries": [
+      "MA"
+     ]
+    },
+    {
+     "author": {
+      "display_name": "Hasnaa Chouidda"
+     },
+     "countries": [
+      "MA"
+     ]
+    },
+    {
+     "author": {
+      "display_name": "Khadija Yamani"
+     },
+     "countries": [
+      "MA"
+     ]
+    },
+    {
+     "author": {
+      "display_name": "Aicha Mouncif"
+     },
+     "countries": [
+      "MA"
+     ]
+    },
+    {
+     "author": {
+      "display_name": "Samira Krimissa"
+     },
+     "countries": [
+      "MA"
+     ]
+    },
+    {
+     "author": {
+      "display_name": "Mustapha Namous"
+     },
+     "countries": [
+      "MA"
+     ]
+    },
+    {
+     "author": {
+      "display_name": "Abdelghani Boudhar"
+     },
+     "countries": [
+      "MA"
+     ]
+    },
+    {
+     "author": {
+      "display_name": "Ismail Karoui"
+     },
+     "countries": [
+      "MA"
+     ]
+    },
+    {
+     "author": {
+      "display_name": "Abdenbi Elaloui"
+     },
+     "countries": [
+      "MA"
+     ]
+    }
+   ],
+   "primary_location": {
+    "source": {
+     "display_name": "Research Square"
+    }
+   },
+   "abstract_inverted_index": null,
+   "open_access": {
+    "is_oa": true,
+    "oa_status": "green",
+    "oa_url": "https://www.researchsquare.com/article/rs-9981564/latest.pdf",
+    "any_repository_has_fulltext": true
+   },
+   "cited_by_count": 0
+  },
+  {
+   "id": "https://openalex.org/W4412751323",
+   "doi": "https://doi.org/10.3390/land14081564",
+   "title": "Mapping Drought Incidents in the Mediterranean Region with Remote Sensing: A Step Toward Climate Adaptation",
+   "publication_year": 2025,
+   "authorships": [
+    {
+     "author": {
+      "display_name": "Aikaterini Stamou"
+     },
+     "countries": [
+      "GR"
+     ]
+    },
+    {
+     "author": {
+      "display_name": "Aikaterini Bakousi"
+     },
+     "countries": [
+      "GR"
+     ]
+    },
+    {
+     "author": {
+      "display_name": "Anna Dosiou"
+     },
+     "countries": [
+      "GR"
+     ]
+    },
+    {
+     "author": {
+      "display_name": "Zoi-Eirini Tsifodimou"
+     },
+     "countries": [
+      "GR"
+     ]
+    },
+    {
+     "author": {
+      "display_name": "Eleni Karachaliou"
+     },
+     "countries": [
+      "GR"
+     ]
+    },
+    {
+     "author": {
+      "display_name": "Ioannis Tavantzis"
+     },
+     "countries": [
+      "GR"
+     ]
+    },
+    {
+     "author": {
+      "display_name": "Efstratios Stylianidis"
+     },
+     "countries": [
+      "GR"
+     ]
+    }
+   ],
+   "primary_location": {
+    "source": {
+     "display_name": "Land"
+    }
+   },
+   "abstract_inverted_index": {
+    "The": [
+     0,
+     36,
+     248
+    ],
+    "Mediterranean": [
+     1,
+     111,
+     322
+    ],
+    "region,": [
+     2
+    ],
+    "identified": [
+     3
+    ],
+    "by": [
+     4
+    ],
+    "scientists": [
+     5
+    ],
+    "as": [
+     6,
+     74,
+     211,
+     255
+    ],
+    "a": [
+     7,
+     43,
+     60,
+     91,
+     142,
+     275,
+     292
+    ],
+    "‘climate": [
+     8
+    ],
+    "hot": [
+     9
+    ],
+    "spot’,": [
+     10
+    ],
+    "is": [
+     11,
+     34
+    ],
+    "experiencing": [
+     12
+    ],
+    "warmer": [
+     13
+    ],
+    "and": [
+     14,
+     24,
+     53,
+     69,
+     76,
+     81,
+     100,
+     116,
+     158,
+     173,
+     193,
+     240,
+     262,
+     265,
+     282,
+     315
+    ],
+    "drier": [
+     15
+    ],
+    "conditions,": [
+     16,
+     210
+    ],
+    "along": [
+     17
+    ],
+    "with": [
+     18
+    ],
+    "an": [
+     19
+    ],
+    "increase": [
+     20
+    ],
+    "in": [
+     21,
+     39,
+     109,
+     126,
+     203,
+     213,
+     219,
+     320
+    ],
+    "the": [
+     22,
+     64,
+     79,
+     86,
+     101,
+     147,
+     162,
+     184,
+     191,
+     220,
+     230,
+     297
+    ],
+    "intensity": [
+     23
+    ],
+    "frequency": [
+     25
+    ],
+    "of": [
+     26,
+     46,
+     83,
+     119,
+     149,
+     196,
+     232,
+     244,
+     250,
+     260,
+     278,
+     299
+    ],
+    "extreme": [
+     27,
+     32,
+     286
+    ],
+    "weather": [
+     28
+    ],
+    "events.": [
+     29
+    ],
+    "One": [
+     30
+    ],
+    "such": [
+     31,
+     73,
+     304
+    ],
+    "phenomena": [
+     33
+    ],
+    "droughts.": [
+     35,
+     84
+    ],
+    "recent": [
+     37,
+     127
+    ],
+    "wildfires": [
+     38
+    ],
+    "this": [
+     40,
+     47,
+     154
+    ],
+    "region": [
+     41
+    ],
+    "are": [
+     42,
+     306
+    ],
+    "concerning": [
+     44
+    ],
+    "consequence": [
+     45
+    ],
+    "phenomenon,": [
+     48
+    ],
+    "causing": [
+     49
+    ],
+    "severe": [
+     50,
+     123
+    ],
+    "environmental": [
+     51
+    ],
+    "damage": [
+     52
+    ],
+    "transforming": [
+     54
+    ],
+    "natural": [
+     55
+    ],
+    "landscapes.": [
+     56,
+     323
+    ],
+    "However,": [
+     57
+    ],
+    "droughts": [
+     58,
+     89
+    ],
+    "involve": [
+     59
+    ],
+    "two-way": [
+     61
+    ],
+    "interaction:": [
+     62
+    ],
+    "On": [
+     63,
+     85
+    ],
+    "one": [
+     65
+    ],
+    "hand,": [
+     66,
+     88
+    ],
+    "climate": [
+     67
+    ],
+    "change": [
+     68
+    ],
+    "various": [
+     70,
+     95
+    ],
+    "human": [
+     71
+    ],
+    "activities,": [
+     72
+    ],
+    "urbanization": [
+     75
+    ],
+    "deforestation,": [
+     77
+    ],
+    "influence": [
+     78
+    ],
+    "development": [
+     80,
+     298
+    ],
+    "severity": [
+     82
+    ],
+    "other": [
+     87
+    ],
+    "have": [
+     90
+    ],
+    "significant": [
+     92,
+     253
+    ],
+    "impact": [
+     93
+    ],
+    "on": [
+     94
+    ],
+    "sectors,": [
+     96
+    ],
+    "including": [
+     97
+    ],
+    "ecology,": [
+     98
+    ],
+    "agriculture,": [
+     99
+    ],
+    "local": [
+     102
+    ],
+    "economy.": [
+     103
+    ],
+    "This": [
+     104,
+     227
+    ],
+    "study": [
+     105,
+     206
+    ],
+    "investigates": [
+     106
+    ],
+    "drought": [
+     107,
+     136,
+     209,
+     238,
+     280
+    ],
+    "dynamics": [
+     108
+    ],
+    "four": [
+     110,
+     205
+    ],
+    "countries,": [
+     112
+    ],
+    "Greece,": [
+     113
+    ],
+    "France,": [
+     114
+    ],
+    "Italy,": [
+     115
+    ],
+    "Spain,": [
+     117
+    ],
+    "each": [
+     118
+    ],
+    "which": [
+     120
+    ],
+    "has": [
+     121
+    ],
+    "experienced": [
+     122
+    ],
+    "wildfire": [
+     124,
+     225
+    ],
+    "events": [
+     125
+    ],
+    "years.": [
+     128
+    ],
+    "Using": [
+     129
+    ],
+    "satellite-based": [
+     130
+    ],
+    "Earth": [
+     131,
+     186
+    ],
+    "observation": [
+     132
+    ],
+    "data,": [
+     133
+    ],
+    "we": [
+     134,
+     156
+    ],
+    "monitored": [
+     135
+    ],
+    "conditions": [
+     137
+    ],
+    "across": [
+     138
+    ],
+    "these": [
+     139,
+     197
+    ],
+    "regions": [
+     140
+    ],
+    "over": [
+     141
+    ],
+    "five-year": [
+     143
+    ],
+    "period": [
+     144
+    ],
+    "that": [
+     145
+    ],
+    "includes": [
+     146
+    ],
+    "dates": [
+     148
+    ],
+    "major": [
+     150
+    ],
+    "wildfires.": [
+     151
+    ],
+    "To": [
+     152
+    ],
+    "support": [
+     153
+    ],
+    "analysis,": [
+     155
+    ],
+    "derived": [
+     157
+    ],
+    "assessed": [
+     159
+    ],
+    "key": [
+     160
+    ],
+    "indices:": [
+     161
+    ],
+    "Normalized": [
+     163,
+     168,
+     174
+    ],
+    "Difference": [
+     164,
+     169,
+     175
+    ],
+    "Vegetation": [
+     165
+    ],
+    "Index": [
+     166,
+     171,
+     177
+    ],
+    "(NDVI),": [
+     167
+    ],
+    "Water": [
+     170
+    ],
+    "(NDWI),": [
+     172
+    ],
+    "Drought": [
+     176
+    ],
+    "(NDDI).": [
+     178
+    ],
+    "High-resolution": [
+     179
+    ],
+    "satellite": [
+     180
+    ],
+    "imagery": [
+     181
+    ],
+    "processed": [
+     182
+    ],
+    "within": [
+     183
+    ],
+    "Google": [
+     185
+    ],
+    "Engine": [
+     187
+    ],
+    "(GEE)": [
+     188
+    ],
+    "platform": [
+     189
+    ],
+    "enabled": [
+     190
+    ],
+    "spatial": [
+     192,
+     268
+    ],
+    "temporal": [
+     194
+    ],
+    "analysis": [
+     195
+    ],
+    "indicators.": [
+     198
+    ],
+    "Our": [
+     199,
+     270
+    ],
+    "findings": [
+     200
+    ],
+    "reveal": [
+     201
+    ],
+    "that,": [
+     202
+    ],
+    "all": [
+     204
+    ],
+    "areas,": [
+     207
+    ],
+    "peak": [
+     208
+    ],
+    "reflected": [
+     212
+    ],
+    "elevated": [
+     214
+    ],
+    "NDDI": [
+     215
+    ],
+    "values,": [
+     216
+    ],
+    "were": [
+     217
+    ],
+    "observed": [
+     218
+    ],
+    "months": [
+     221
+    ],
+    "leading": [
+     222
+    ],
+    "up": [
+     223
+    ],
+    "to": [
+     224,
+     274,
+     285
+    ],
+    "outbreaks.": [
+     226
+    ],
+    "pattern": [
+     228
+    ],
+    "underscores": [
+     229
+    ],
+    "potential": [
+     231
+    ],
+    "satellite-derived": [
+     233
+    ],
+    "indices": [
+     234
+    ],
+    "for": [
+     235,
+     295,
+     308
+    ],
+    "identifying": [
+     236
+    ],
+    "regional": [
+     237,
+     279
+    ],
+    "patterns": [
+     239
+    ],
+    "providing": [
+     241
+    ],
+    "early": [
+     242,
+     317
+    ],
+    "signals": [
+     243
+    ],
+    "heightened": [
+     245
+    ],
+    "fire": [
+     246
+    ],
+    "risk.": [
+     247
+    ],
+    "application": [
+     249
+    ],
+    "GEE": [
+     251
+    ],
+    "offered": [
+     252
+    ],
+    "advantages,": [
+     254
+    ],
+    "it": [
+     256,
+     289
+    ],
+    "allows": [
+     257
+    ],
+    "efficient": [
+     258
+    ],
+    "handling": [
+     259
+    ],
+    "long-term": [
+     261
+    ],
+    "large-scale": [
+     263
+    ],
+    "datasets": [
+     264
+    ],
+    "facilitates": [
+     266
+    ],
+    "comprehensive": [
+     267
+    ],
+    "analysis.": [
+     269
+    ],
+    "methodological": [
+     271
+    ],
+    "framework": [
+     272
+    ],
+    "contributes": [
+     273
+    ],
+    "deeper": [
+     276
+    ],
+    "understanding": [
+     277
+    ],
+    "variability": [
+     281
+    ],
+    "its": [
+     283
+    ],
+    "links": [
+     284
+    ],
+    "events;": [
+     287
+    ],
+    "thus,": [
+     288
+    ],
+    "could": [
+     290
+    ],
+    "be": [
+     291
+    ],
+    "valuable": [
+     293
+    ],
+    "tool": [
+     294
+    ],
+    "supporting": [
+     296
+    ],
+    "adaptive": [
+     300
+    ],
+    "management": [
+     301
+    ],
+    "strategies.": [
+     302
+    ],
+    "Ultimately,": [
+     303
+    ],
+    "approaches": [
+     305
+    ],
+    "vital": [
+     307
+    ],
+    "enhancing": [
+     309
+    ],
+    "resilience,": [
+     310
+    ],
+    "guiding": [
+     311
+    ],
+    "water": [
+     312
+    ],
+    "resource": [
+     313
+    ],
+    "planning,": [
+     314
+    ],
+    "implementing": [
+     316
+    ],
+    "warning": [
+     318
+    ],
+    "systems": [
+     319
+    ],
+    "fire-prone": [
+     321
+    ]
+   },
+   "open_access": {
+    "is_oa": true,
+    "oa_status": "gold",
+    "oa_url": "https://www.mdpi.com/2073-445X/14/8/1564/pdf?version=1753956706",
+    "any_repository_has_fulltext": true
+   },
+   "cited_by_count": 8
+  },
+  {
+   "id": "https://openalex.org/W7143277824",
+   "doi": "https://doi.org/10.3390/agronomy16070722",
+   "title": "Climate-Smart Framework for Olive Yield Estimation: Integrating Soil Properties, Thermal Time, and Remote Sensing NDVI Time Series",
+   "publication_year": 2026,
+   "authorships": [
+    {
+     "author": {
+      "display_name": "Rosa Gutiérrez-Cabrera"
+     },
+     "countries": [
+      "ES"
+     ]
+    },
+    {
+     "author": {
+      "display_name": "J. Borondo"
+     },
+     "countries": [
+      "ES"
+     ]
+    },
+    {
+     "author": {
+      "display_name": "Ana Maria Tarquis"
+     },
+     "countries": [
+      "ES"
+     ]
+    }
+   ],
+   "primary_location": {
+    "source": {
+     "display_name": "Agronomy"
+    }
+   },
+   "abstract_inverted_index": {
+    "Olive": [
+     0
+    ],
+    "groves": [
+     1
+    ],
+    "in": [
+     2,
+     49,
+     82,
+     148,
+     186,
+     210
+    ],
+    "Mediterranean": [
+     3,
+     211
+    ],
+    "regions": [
+     4
+    ],
+    "are": [
+     5
+    ],
+    "being": [
+     6
+    ],
+    "increasingly": [
+     7
+    ],
+    "exposed": [
+     8
+    ],
+    "to": [
+     9,
+     36,
+     104,
+     163
+    ],
+    "drought": [
+     10,
+     187
+    ],
+    "and": [
+     11,
+     32,
+     40,
+     56,
+     116,
+     125,
+     132,
+     160,
+     175,
+     181,
+     189,
+     207
+    ],
+    "heat": [
+     12,
+     190
+    ],
+    "extremes,": [
+     13,
+     191
+    ],
+    "intensifying": [
+     14
+    ],
+    "the": [
+     15,
+     38,
+     46,
+     57,
+     62,
+     100,
+     114,
+     117,
+     134,
+     146,
+     149,
+     168,
+     177
+    ],
+    "interannual": [
+     16
+    ],
+    "yield": [
+     17,
+     43,
+     147,
+     202
+    ],
+    "variability.": [
+     18
+    ],
+    "This": [
+     19
+    ],
+    "study": [
+     20
+    ],
+    "presents": [
+     21
+    ],
+    "an": [
+     22,
+     121
+    ],
+    "integrated": [
+     23
+    ],
+    "smart-farming": [
+     24
+    ],
+    "framework": [
+     25,
+     170
+    ],
+    "that": [
+     26
+    ],
+    "links": [
+     27
+    ],
+    "soil": [
+     28,
+     154
+    ],
+    "context,": [
+     29
+    ],
+    "climate": [
+     30
+    ],
+    "forcing": [
+     31
+    ],
+    "satellite-observed": [
+     33
+    ],
+    "canopy": [
+     34,
+     77
+    ],
+    "dynamics": [
+     35
+    ],
+    "enhance": [
+     37
+    ],
+    "interpretability": [
+     39
+    ],
+    "transferability": [
+     41
+    ],
+    "of": [
+     42,
+     61,
+     129
+    ],
+    "indicators": [
+     44,
+     162
+    ],
+    "at": [
+     45
+    ],
+    "parcel": [
+     47
+    ],
+    "scale": [
+     48
+    ],
+    "southern": [
+     50
+    ],
+    "Spain.": [
+     51
+    ],
+    "Using": [
+     52
+    ],
+    "SoilGrids": [
+     53
+    ],
+    "root-zone": [
+     54
+    ],
+    "properties": [
+     55
+    ],
+    "Sentinel-2": [
+     58
+    ],
+    "time": [
+     59,
+     84
+    ],
+    "series": [
+     60
+    ],
+    "normalized": [
+     63
+    ],
+    "difference": [
+     64
+    ],
+    "vegetation": [
+     65,
+     123,
+     159
+    ],
+    "index": [
+     66
+    ],
+    "(NDVI),": [
+     67
+    ],
+    "we": [
+     68
+    ],
+    "first": [
+     69
+    ],
+    "classified": [
+     70
+    ],
+    "parcels": [
+     71
+    ],
+    "into": [
+     72
+    ],
+    "three": [
+     73
+    ],
+    "edaphic": [
+     74
+    ],
+    "clusters.": [
+     75
+    ],
+    "The": [
+     76
+    ],
+    "development": [
+     78
+    ],
+    "was": [
+     79
+    ],
+    "then": [
+     80
+    ],
+    "expressed": [
+     81
+    ],
+    "thermal": [
+     83,
+     166
+    ],
+    "using": [
+     85
+    ],
+    "growing": [
+     86
+    ],
+    "degree": [
+     87
+    ],
+    "days": [
+     88
+    ],
+    "(GDD),": [
+     89
+    ],
+    "enabling": [
+     90
+    ],
+    "phenology-aligned": [
+     91
+    ],
+    "comparisons": [
+     92
+    ],
+    "across": [
+     93,
+     153
+    ],
+    "campaigns.": [
+     94
+    ],
+    "Two": [
+     95
+    ],
+    "robust": [
+     96,
+     198
+    ],
+    "patterns": [
+     97
+    ],
+    "emerged:": [
+     98
+    ],
+    "(i)": [
+     99
+    ],
+    "cumulative": [
+     101
+    ],
+    "NDVI": [
+     102
+    ],
+    "up": [
+     103
+    ],
+    "520": [
+     105
+    ],
+    "GDD": [
+     106
+    ],
+    "showed": [
+     107
+    ],
+    "a": [
+     108,
+     138,
+     197
+    ],
+    "consistent": [
+     109
+    ],
+    "negative": [
+     110
+    ],
+    "association": [
+     111
+    ],
+    "with": [
+     112
+    ],
+    "both": [
+     113,
+     158
+    ],
+    "biomass": [
+     115
+    ],
+    "oil": [
+     118
+    ],
+    "yield,": [
+     119
+    ],
+    "suggesting": [
+     120
+    ],
+    "early-season": [
+     122
+    ],
+    "trade-off": [
+     124
+    ],
+    "carry-over": [
+     126
+    ],
+    "effects": [
+     127
+    ],
+    "typical": [
+     128
+    ],
+    "perennial": [
+     130
+    ],
+    "systems,": [
+     131
+    ],
+    "(ii)": [
+     133
+    ],
+    "rainfall": [
+     135
+    ],
+    "accumulated": [
+     136
+    ],
+    "during": [
+     137
+    ],
+    "thermally": [
+     139
+    ],
+    "defined": [
+     140
+    ],
+    "window": [
+     141
+    ],
+    "(120–480": [
+     142
+    ],
+    "GDD)": [
+     143
+    ],
+    "strongly": [
+     144
+    ],
+    "estimated": [
+     145
+    ],
+    "subsequent": [
+     150
+    ],
+    "year": [
+     151
+    ],
+    "(R2=0.83–0.97": [
+     152
+    ],
+    "clusters).": [
+     155
+    ],
+    "By": [
+     156
+    ],
+    "anchoring": [
+     157
+    ],
+    "precipitation": [
+     161
+    ],
+    "physiologically": [
+     164
+    ],
+    "meaningful": [
+     165
+    ],
+    "milestones,": [
+     167
+    ],
+    "proposed": [
+     169
+    ],
+    "avoids": [
+     171
+    ],
+    "arbitrary": [
+     172
+    ],
+    "calendar": [
+     173
+    ],
+    "windows": [
+     174
+    ],
+    "enhances": [
+     176
+    ],
+    "interpretability,": [
+     178
+    ],
+    "cross-year": [
+     179
+    ],
+    "comparability,": [
+     180
+    ],
+    "scalability.": [
+     182
+    ],
+    "Under": [
+     183
+    ],
+    "projected": [
+     184
+    ],
+    "increases": [
+     185
+    ],
+    "frequency": [
+     188
+    ],
+    "such": [
+     192
+    ],
+    "hydro-thermal": [
+     193
+    ],
+    "scaling": [
+     194
+    ],
+    "approaches": [
+     195
+    ],
+    "offer": [
+     196
+    ],
+    "basis": [
+     199
+    ],
+    "for": [
+     200
+    ],
+    "early": [
+     201
+    ],
+    "forecasting,": [
+     203
+    ],
+    "cooperative-level": [
+     204
+    ],
+    "production": [
+     205
+    ],
+    "planning,": [
+     206
+    ],
+    "adaptive": [
+     208
+    ],
+    "management": [
+     209
+    ],
+    "olive": [
+     212
+    ],
+    "systems.": [
+     213
+    ]
+   },
+   "open_access": {
+    "is_oa": true,
+    "oa_status": "gold",
+    "oa_url": "https://www.mdpi.com/2073-4395/16/7/722/pdf?version=1774878988",
+    "any_repository_has_fulltext": true
+   },
+   "cited_by_count": 2
+  }
+ ]
+}

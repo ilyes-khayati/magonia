@@ -123,15 +123,48 @@ export async function fetchSeries(options: SeriesOptions): Promise<SeriesRespons
 
 // The assistant
 
-export type ChatMessage = { id: number; role: "user" | "assistant"; content: string; created: string };
+export type PaperCard = {
+  n: number;
+  id: string;
+  short: string; // "Sghaier et al., 2022"
+  title: string;
+  authors: string[];
+  year: number | null;
+  venue: string | null;
+  doi: string | null;
+  abstract: string | null;
+  open_access_url: string | null;
+  cited_by: number;
+  countries: string[];
+};
+
+export type CitationCheck = { cited: number[]; removed: number[]; unverified: string[] };
+
+export type AnswerDetails = { searches?: string[]; papers?: PaperCard[]; check?: CitationCheck };
+
+export type ChatMessage = {
+  id: number;
+  role: "user" | "assistant";
+  content: string;
+  details: AnswerDetails;
+  created: string;
+};
+
+export type ChatEvent =
+  | { type: "text"; text: string }
+  | { type: "search"; query: string }
+  | { type: "search_failed"; query: string; error: string }
+  | { type: "papers"; papers: PaperCard[] }
+  | ({ type: "check"; text: string } & CitationCheck)
+  | { type: "error"; message: string };
 
 export const assistantInfo = () => call<{ name: string; model: string }>("/assistant");
 export const listMessages = (workspaceId: number) => call<ChatMessage[]>(`/workspaces/${workspaceId}/messages`);
 export const clearMessages = (workspaceId: number) =>
   call<void>(`/workspaces/${workspaceId}/messages`, send("DELETE"));
 
-// Sends a question and hands each piece of the answer to onPiece as it arrives
-export async function ask(workspaceId: number, content: string, onPiece: (text: string) => void) {
+// Sends a question and hands each event to onEvent as it arrives (one JSON object per line)
+export async function ask(workspaceId: number, content: string, onEvent: (event: ChatEvent) => void) {
   const response = await fetch(`/api/workspaces/${workspaceId}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -142,9 +175,14 @@ export async function ask(workspaceId: number, content: string, onPiece: (text: 
     throw new Error(typeof body.detail === "string" ? body.detail : `status ${response.status}`);
   }
   const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+  let pending = "";
   for (;;) {
     const { done, value } = await reader.read();
-    if (done) return;
-    onPiece(value);
+    if (done) break;
+    pending += value;
+    const lines = pending.split("\n");
+    pending = lines.pop() ?? "";
+    for (const line of lines) if (line.trim()) onEvent(JSON.parse(line));
   }
+  if (pending.trim()) onEvent(JSON.parse(pending));
 }
