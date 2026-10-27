@@ -789,6 +789,83 @@ button:disabled {
   color: var(--muted);
 }
 
+.turn.assistant {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cites {
+  white-space: nowrap;
+}
+
+.cite {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  margin-left: 2px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--card);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  vertical-align: 2px;
+}
+
+.sources {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  white-space: normal;
+}
+
+.sources ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.paper {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.paper .cite {
+  flex-shrink: 0;
+  margin: 2px 0 0;
+}
+
+.paper a {
+  color: inherit;
+}
+
+.paper details p {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+.sources summary {
+  cursor: pointer;
+}
+
+.removed {
+  margin: 0;
+  font-size: 12px;
+  color: var(--warning);
+}
+
 .assistant .error {
   margin: 0;
   color: var(--danger);

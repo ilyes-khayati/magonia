@@ -441,6 +441,7 @@ name = "engine"
 version = "0.0.1"
 source = { editable = "../engine" }
 dependencies = [
+    { name = "certifi" },
     { name = "earthengine-api" },
     { name = "numpy" },
     { name = "pandas" },
@@ -451,6 +452,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "certifi", specifier = ">=2024.0" },
     { name = "earthengine-api", specifier = ">=1.0" },
     { name = "numpy", specifier = ">=2.0" },
     { name = "pandas", specifier = ">=2.2" },
