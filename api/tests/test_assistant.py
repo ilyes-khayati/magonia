@@ -218,6 +218,8 @@ def test_the_model_reads_the_open_workspace_from_the_cache(client, model, store)
     saved = client.get(f"/workspaces/{ws}/messages").json()
     assert saved[0]["content"] == "When does it peak?"  # the facts are not stored as the question
     assert saved[1]["details"]["cards"] == ["NDVI chart"]
+    # the scripted answer has no numbers about the data, so the check is empty but saved
+    assert saved[1]["details"]["numbers"] == []
 
 
 def test_a_view_naming_another_workspaces_area_is_ignored(client, model):
