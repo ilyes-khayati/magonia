@@ -140,7 +140,24 @@ export type PaperCard = {
 
 export type CitationCheck = { cited: number[]; removed: number[]; unverified: string[] };
 
-export type AnswerDetails = { searches?: string[]; papers?: PaperCard[]; check?: CitationCheck };
+// A closer look the assistant took at the researcher's data
+export type Read = { area: string; variable: string; year: number | null };
+
+export type AnswerDetails = {
+  searches?: string[];
+  papers?: PaperCard[];
+  check?: CitationCheck;
+  cards?: string[]; // the charts and analyses it was given facts about
+  reads?: Read[];
+};
+
+// What is open when a question is asked, so the assistant can discuss it
+export type View = {
+  page: string;
+  charts: VariableKey[];
+  analyses: unknown[];
+  series: SeriesOptions[];
+};
 
 export type ChatMessage = {
   id: number;
@@ -156,7 +173,9 @@ export type ChatEvent =
   | { type: "search_failed"; query: string; error: string }
   | { type: "papers"; papers: PaperCard[] }
   | ({ type: "check"; text: string } & CitationCheck)
-  | { type: "error"; message: string };
+  | { type: "error"; message: string }
+  | { type: "view"; cards: string[] }
+  | ({ type: "read" } & Read);
 
 export const assistantInfo = () => call<{ name: string; model: string }>("/assistant");
 export const listMessages = (workspaceId: number) => call<ChatMessage[]>(`/workspaces/${workspaceId}/messages`);
@@ -164,11 +183,16 @@ export const clearMessages = (workspaceId: number) =>
   call<void>(`/workspaces/${workspaceId}/messages`, send("DELETE"));
 
 // Sends a question and hands each event to onEvent as it arrives (one JSON object per line)
-export async function ask(workspaceId: number, content: string, onEvent: (event: ChatEvent) => void) {
+export async function ask(
+  workspaceId: number,
+  content: string,
+  onEvent: (event: ChatEvent) => void,
+  view?: View,
+) {
   const response = await fetch(`/api/workspaces/${workspaceId}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content }),
+    body: JSON.stringify({ content, view }),
   });
   if (!response.ok || !response.body) {
     const body = await response.json().catch(() => ({}));

@@ -40,6 +40,16 @@ export function applyEvent(turn: Turn, event: ChatEvent): Turn {
       };
     case "error":
       return { ...turn, status: undefined, error: event.message };
+    case "view":
+      return { ...turn, status: "Reading your workspace…", details: { ...details, cards: event.cards } };
+    case "read": {
+      const { area, variable, year } = event;
+      return {
+        ...turn,
+        status: `Looking closer at ${area} ${variable.toUpperCase()}${year ? ` in ${year}` : ""}…`,
+        details: { ...details, reads: [...(details.reads ?? []), { area, variable, year }] },
+      };
+    }
   }
 }
 

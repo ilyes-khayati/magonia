@@ -158,3 +158,75 @@ def test_database_from_version_1_2_is_upgraded(tmp_path):
     assert store.add_message(1, "assistant", "hello", {"searches": ["q"]})["details"] == {
         "searches": ["q"]
     }
+
+
+def series_options(area_id, variable="ndvi"):
+    return {
+        "area_id": area_id,
+        "variable": variable,
+        "start": "2020-01-01",
+        "end": "2022-01-01",
+        "masking": "pixel",
+        "resolution": "monthly",
+        "max_gap": 2,
+    }
+
+
+def test_the_model_reads_the_open_workspace_from_the_cache(client, model, store):
+    from conftest import SQUARE
+    from engine.pipeline import Request
+
+    from api.jobs import cache_key
+
+    ws = workspace(client)
+    area = client.post(
+        f"/workspaces/{ws}/areas", json={"name": "Orchard", "geometry": SQUARE}
+    ).json()
+    ndvi, lst = series_options(area["id"]), series_options(area["id"], "lst")
+    points = [
+        {"date": f"{2020 + i // 12}-{i % 12 + 1:02d}-01", "value": 0.3 + 0.02 * (i % 12)}
+        | {"sd": 0.01, "n_pixels": 10, "masked": False, "filled": False, "n_obs": 2, "n_valid": 2}
+        for i in range(24)
+    ]
+    request = Request("ndvi", SQUARE, "2020-01-01", "2022-01-01", "pixel", None, "monthly", 2)
+    store.save_result(
+        cache_key(request),
+        {
+            "variable": "ndvi",
+            "name": "NDVI",
+            "units": "",
+            "points": points,
+            "warnings": [],
+            "provenance": {},
+        },
+    )
+    view = {"page": "charts", "charts": ["ndvi", "lst"], "analyses": [], "series": [ndvi, lst]}
+
+    got = events(
+        client.post(f"/workspaces/{ws}/chat", json={"content": "When does it peak?", "view": view})
+    )
+
+    assert got[0] == {"type": "view", "cards": ["NDVI chart"]}
+    question = model.seen[-1]["content"]
+    assert question.endswith("The researcher asks: When does it peak?")
+    assert "The researcher is on the charts page." in question
+    assert (
+        "Areas: Orchard (" in question and "Period 2020-01 to 2021-12, monthly values" in question
+    )
+    assert "Still loading, so not described: Orchard LST." in question
+    assert "peaks in Dec (0.52)" in question
+    saved = client.get(f"/workspaces/{ws}/messages").json()
+    assert saved[0]["content"] == "When does it peak?"  # the facts are not stored as the question
+    assert saved[1]["details"]["cards"] == ["NDVI chart"]
+
+
+def test_a_view_naming_another_workspaces_area_is_ignored(client, model):
+    from conftest import SQUARE
+
+    first, second = workspace(client), workspace(client)
+    area = client.post(
+        f"/workspaces/{first}/areas", json={"name": "Orchard", "geometry": SQUARE}
+    ).json()
+    view = {"series": [series_options(area["id"])]}
+    client.post(f"/workspaces/{second}/chat", json={"content": "Hi", "view": view})
+    assert "Orchard" not in model.seen[-1]["content"]

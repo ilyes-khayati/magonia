@@ -2,12 +2,12 @@ import itertools
 import json
 import sqlite3
 from collections.abc import Iterator
-from datetime import date
+from datetime import date, timedelta
 from functools import cache
 from typing import Annotated, Literal
 
 import engine
-from engine import assistant
+from engine import assistant, facts
 from engine.areas import AreaError, make_area
 from engine.catalogue import CATALOGUE, get_variable
 from engine.earth_engine import EarthEngineError, check
@@ -152,8 +152,18 @@ class ChatMessage(BaseModel):
     created: str
 
 
+class View(BaseModel):
+    """What is open in the interface when a question is asked."""
+
+    page: str = "map"
+    charts: list[str] = []  # the variables charted
+    analyses: list[dict] = []  # as the interface saves them
+    series: list[SeriesRequest] = []  # every series shown or used, each with its area_id
+
+
 class Question(BaseModel):
     content: str = Field(min_length=1, max_length=4000)
+    view: View | None = None
 
 
 class WorkspaceSummary(BaseModel):
@@ -385,18 +395,74 @@ def clear_messages(workspace_id: int, store: StoreDep) -> Response:
     return Response(status_code=204)
 
 
+MASKING = {
+    "pixel": "cloudy pixels removed",
+    "date": "cloudy dates removed",
+    "none": "no cloud filter",
+}
+
+
+def workspace_view(store: Store, workspace_id: int, view: View) -> facts.View:
+    """The series the interface shows, read from the result cache, with their context."""
+    areas = {a["id"]: a for a in store.areas(workspace_id)}
+    series, loading, used = [], [], {}
+    for s in view.series:
+        area = areas.get(s.area_id)
+        if area is None:
+            continue
+        used[area["name"]] = area["area_km2"]
+        request = Request(
+            variable=s.variable,
+            geometry=area["geometry"],
+            start=s.start.isoformat(),
+            end=s.end.isoformat(),
+            masking=s.masking,
+            scale=s.scale,
+            resolution=s.resolution,
+            max_gap=s.max_gap,
+        )
+        result = store.result(cache_key(request))
+        if result is None:
+            loading.append(f"{area['name']} {s.variable.upper()}")
+            continue
+        series.append(
+            facts.Series(
+                area["name"], s.variable, result["name"], result["units"], result["points"]
+            )
+        )
+    context = [f"The researcher is on the {view.page} page."]
+    if used:
+        context.append(
+            "Areas: " + ", ".join(f"{n} ({km2:.2f} km²)" for n, km2 in used.items()) + "."
+        )
+    if view.series:
+        first = view.series[0]
+        last_month = (first.end - timedelta(days=1)).isoformat()[:7]
+        context.append(
+            f"Period {first.start.isoformat()[:7]} to {last_month}, {first.resolution} values, "
+            f"{MASKING[first.masking]}, gaps of up to {first.max_gap} filled."
+        )
+    if loading:
+        context.append("Still loading, so not described: " + ", ".join(loading) + ".")
+    return facts.View(context, series, view.charts, view.analyses)
+
+
 @app.post("/workspaces/{workspace_id}/chat")
 def chat(
     workspace_id: int, body: Question, store: StoreDep, provider: ProviderDep
 ) -> StreamingResponse:
     """Ask the assistant. Events stream back as JSON lines and the answer is saved at the end.
 
-    Events: text (a piece of the answer), search, search_failed, papers, check (the final
-    answer after its citations were checked) and error.
+    With a view of what is open, the assistant is given facts computed from the researcher's
+    cached results. Events: view (the cards it was given), read (a closer look at a series),
+    text (a piece of the answer), search, search_failed, papers, check (the final answer after
+    its citations were checked) and error.
     """
     existing_workspace(store, workspace_id)
     history = [{"role": m["role"], "content": m["content"]} for m in store.messages(workspace_id)]
-    events = assistant.answer(provider, [*history, {"role": "user", "content": body.content}])
+    view = workspace_view(store, workspace_id, body.view) if body.view else None
+    question = {"role": "user", "content": body.content}
+    events = assistant.answer(provider, [*history, question], view=view)
     try:  # fail with a clear status before streaming starts, if the model cannot be reached
         first = next(events)
     except assistant.ProviderError as exc:
@@ -404,7 +470,7 @@ def chat(
     store.add_message(workspace_id, "user", body.content)
 
     def stream() -> Iterator[str]:
-        said, searches, papers, verdict = [], [], [], None
+        said, searches, papers, verdict, cards, reads = [], [], [], None, [], []
         try:
             for event in itertools.chain([first], events):
                 match event["type"]:
@@ -416,11 +482,15 @@ def chat(
                         papers.extend(event["papers"])
                     case "check":
                         verdict = event
+                    case "view":
+                        cards = event["cards"]
+                    case "read":
+                        reads.append({k: event[k] for k in ("area", "variable", "year")})
                 yield json.dumps(event) + "\n"
         except assistant.ProviderError as exc:
             yield json.dumps({"type": "error", "message": f"The model stopped: {exc}"}) + "\n"
         finally:  # keep what was said, even if the reader left early
-            details = {"searches": searches, "papers": papers}
+            details = {"searches": searches, "papers": papers, "cards": cards, "reads": reads}
             if verdict:
                 details["check"] = {k: verdict[k] for k in ("cited", "removed", "unverified")}
             text = verdict["text"] if verdict else "".join(said)
