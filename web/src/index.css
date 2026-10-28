@@ -207,6 +207,22 @@ button:disabled {
   align-items: start;
 }
 
+.drivers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 0;
+  padding: 6px 0 0;
+  border: none;
+}
+
+.drivers legend {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 0;
+  margin-bottom: 4px;
+}
+
 .add-analysis {
   position: relative;
 }

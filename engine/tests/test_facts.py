@@ -172,7 +172,9 @@ def test_a_decomposition_reports_the_trend_and_the_seasonal_share():
     facts = [f for f in view.facts() if f.card == "Decomposition 1: SPEI-3"]
     text = texts(facts)
     # a rise of 0.024 a year, softened at the ends by the mirrored padding
-    assert text.startswith("Field, SPEI-3: the trend went from 0.36 (2020 mean) to 0.39 (2025 mean)")
+    assert text.startswith(
+        "Field, SPEI-3: the trend went from 0.36 (2020 mean) to 0.39 (2025 mean)"
+    )
     assert "the seasonal part carries" in text and "not a forecast" in text
     # the charts keep reading the series at their own step
     assert view.read("Field", "spei", 2020).endswith("Dec 0.00.")
@@ -182,3 +184,13 @@ def test_a_decomposition_of_too_short_a_series_says_why():
     short = Series("Field", "spei", "SPEI-3", "", points([0.1] * 24), "native")
     view = View([], [short], [], [{"id": 1, "kind": "decomposition", "variable": "spei"}])
     assert "three years" in texts(view.facts())
+
+
+def test_a_lag_analysis_gives_magonia_the_explorers_sentences():
+    view = correlated_view()
+    view.analyses = [
+        {"id": 1, "kind": "lags", "response": "ndvi", "drivers": ["lst"], "deseasonalise": True}
+    ]
+    facts = [f for f in view.facts() if f.card == "Lags 1: NDVI"]
+    assert facts[0].text.startswith("Orchard: NDVI anomalies")
+    assert facts[1].text.startswith("Orchard: LST ")
