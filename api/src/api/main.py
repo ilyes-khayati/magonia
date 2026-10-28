@@ -13,6 +13,7 @@ from engine.areas import AreaError, make_area
 from engine.catalogue import CATALOGUE, get_variable
 from engine.decompose import DecompositionError, decompose
 from engine.earth_engine import EarthEngineError, check
+from engine.lags import explore
 from engine.pipeline import Request
 from engine.prepare import Resolution
 from engine.series import Masking, band_name
@@ -417,6 +418,40 @@ def decomposition(body: SeriesRequest, store: StoreDep) -> dict:
     series = facts.Series(area["name"], body.variable, result["name"], result["units"], points)
     summary = [f.text for f in facts.decomposition_facts("", series)]
     return {**parts.to_dict(), "area_id": area["id"], "summary": summary}
+
+
+class LagsRequest(BaseModel):
+    response: SeriesRequest
+    drivers: list[SeriesRequest] = []
+    deseasonalise: bool = True
+
+
+def cached_series(body: SeriesRequest, store: Store) -> facts.Series:
+    """A series already extracted, as the facts read it, or 409 if it is not there yet."""
+    area, request = series_request(body, store)
+    result = store.result(cache_key(request))
+    if result is None:
+        raise HTTPException(409, "this series has not been extracted yet")
+    return facts.Series(
+        area["name"], body.variable, result["name"], result["units"], result["points"]
+    )
+
+
+@app.post("/lags")
+def lags(body: LagsRequest, store: StoreDep) -> dict:
+    """How a series remembers itself and which past months of its drivers stand out,
+    with the sentences the assistant is given about them."""
+    if body.response.resolution == "seasonal":
+        raise HTTPException(422, "lags are in months; use native or monthly values")
+    response = cached_series(body.response, store)
+    drivers = [cached_series(d, store) for d in body.drivers]
+    found = explore(
+        response.area,
+        (response.title, response.key, facts.monthly_series(response)),
+        [(d.title, d.key, facts.monthly_series(d)) for d in drivers],
+        body.deseasonalise,
+    )
+    return {"area_id": body.response.area_id, **found.to_dict()}
 
 
 # The assistant

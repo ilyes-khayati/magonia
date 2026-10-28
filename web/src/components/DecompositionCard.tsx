@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { Decomposition } from "../analyses";
-import type { SeriesOptions, Variable, VariableKey } from "../api";
-import { useDecomposition } from "../useDecomposition";
+import { decomposeSeries, type SeriesOptions, type Variable, type VariableKey } from "../api";
+import { useAnalysis } from "../useAnalysis";
 import type { Entry } from "./ChartCard";
 import { CloseIcon } from "./Icons";
 
@@ -29,10 +29,10 @@ export default function DecompositionCard({ analysis, onChange, onRemove, variab
   // a decomposition is asked for once the series behind it has been extracted
   const signature = JSON.stringify(entries.filter((e) => e.state?.status === "done").map((e) => options(e.area.id)));
   const requests = useMemo(
-    () => (JSON.parse(signature) as SeriesOptions[]).map((o) => ({ key: JSON.stringify(o), options: o })),
+    () => (JSON.parse(signature) as SeriesOptions[]).map((o) => ({ key: JSON.stringify(o), body: o })),
     [signature],
   );
-  const results = useDecomposition(requests);
+  const results = useAnalysis(requests, decomposeSeries);
   const parts = entries.map((e) => ({ ...e, result: results.get(JSON.stringify(options(e.area.id))) }));
   const done = parts.flatMap((p) => (p.result?.status === "done" ? [{ ...p, data: p.result.data }] : []));
 

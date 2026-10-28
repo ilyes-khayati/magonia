@@ -15,7 +15,14 @@ export type Decomposition = {
   variable: VariableKey;
 };
 
-export type AnalysisBody = Correlation | Decomposition;
+export type Lags = {
+  kind: "lags";
+  response: VariableKey;
+  drivers: VariableKey[];
+  deseasonalise: boolean;
+};
+
+export type AnalysisBody = Correlation | Decomposition | Lags;
 
 export type Analysis = { id: number } & AnalysisBody;
 
@@ -28,6 +35,8 @@ type KindInfo = {
   // a new analysis of this kind, starting from the variables chosen for the charts
   create: (chosen: VariableKey[]) => AnalysisBody;
 };
+
+const ALL: VariableKey[] = ["ndvi", "lst", "spei"];
 
 const other = (key: VariableKey, chosen: VariableKey[]): VariableKey =>
   chosen.find((k) => k !== key) ?? (key === "ndvi" ? "lst" : "ndvi");
@@ -48,6 +57,17 @@ export const KINDS: KindInfo[] = [
     description: "Splits a variable into its slow trend and its seasonal cycle with a wavelet, as in the paper.",
     create: (chosen) => ({ kind: "decomposition", variable: chosen[0] ?? "ndvi" }),
   },
+  {
+    kind: "lags",
+    label: "Memory and lags",
+    description: "Which past months of a variable, and of its drivers, stand out, tested as in the paper.",
+    create: (chosen) => {
+      const response = chosen[0] ?? "ndvi";
+      const others = ALL.filter((k) => k !== response);
+      const charted = others.filter((k) => chosen.includes(k));
+      return { kind: "lags", response, drivers: charted.length ? charted : others, deseasonalise: true };
+    },
+  },
 ];
 
 // The series an analysis needs; a decomposition works at the product's own time step
@@ -59,6 +79,8 @@ export function needsOf(analysis: Analysis): Need[] {
       return [analysis.response, analysis.driver].map((variable) => ({ variable, native: false }));
     case "decomposition":
       return [{ variable: analysis.variable, native: true }];
+    case "lags":
+      return [analysis.response, ...analysis.drivers].map((variable) => ({ variable, native: false }));
   }
 }
 

@@ -8,10 +8,12 @@ let asked: { content: string; view?: { page: string; charts: string[]; series: {
 
 // The series the interface asked to extract
 let jobs: { variable: string; resolution: string }[] = [];
+let lagged: { response: { variable: string }; drivers: { variable: string }[]; deseasonalise: boolean }[] = [];
 
 async function fakeApi(page: Page, connected = true) {
   asked = [];
   jobs = [];
+  lagged = [];
   const areas: { id: number; workspace_id: number; name: string; geometry: unknown; area_km2: number }[] = [];
   let settings = {}; // what the interface saved, returned when the workspace is opened again
   await page.route("**/api/catalogue", (route) => route.fulfill({ json: CATALOGUE }));
@@ -29,6 +31,10 @@ async function fakeApi(page: Page, connected = true) {
     return route.fulfill({ status: 202, json: { id: 1, status: "done", error: null, result: RESULT } });
   });
   await page.route("**/api/decomposition", (route) => route.fulfill({ json: DECOMPOSITION }));
+  await page.route("**/api/lags", (route) => {
+    lagged.push(route.request().postDataJSON());
+    return route.fulfill({ json: LAGS });
+  });
   await page.route("**/api/workspaces", (route) =>
     route.request().method() === "POST"
       ? route.fulfill({ status: 201, json: { id: 1, name: "My workspace", created: "", updated: "" } })
@@ -102,6 +108,27 @@ const DECOMPOSITION = {
   summary: [
     "Orchard, NDVI: the trend went from 0.45 (2023 mean) to 0.47 (2024 mean); lowest 0.45 in 2023-01, highest 0.47 in 2024-12.",
     "Orchard, NDVI: the seasonal part carries 96% of the variation and the trend 4%; the seasonal part swings by 0.40 within a year on average.",
+  ],
+};
+
+const LAGS = {
+  area_id: 1,
+  acf: Array.from({ length: 24 }, (_, i) => 0.7 * 0.8 ** i),
+  acf_band: 0.11,
+  drivers: [
+    {
+      driver: "LST",
+      r: Array.from({ length: 12 }, (_, i) => (i === 0 ? -0.42 : -0.05)),
+      bound: 0.22,
+      lag: 1,
+      best: -0.42,
+      expected: -1,
+      decision: "stands out",
+    },
+  ],
+  summary: [
+    "Orchard: NDVI anomalies remember themselves at 12 of 24 lags beyond chance (±0.11); at 1 month r = 0.70.",
+    "Orchard: LST 1 month earlier is the strongest of lags 1 to 12 (r = -0.42, bound ±0.22); it stands out with the expected sign.",
   ],
 };
 
@@ -272,6 +299,31 @@ test("a decomposition asks for the series at its own time step and shows trend a
   expect(jobs.some((j) => j.variable === "ndvi" && j.resolution === "native")).toBe(true);
 
   const results = await new AxeBuilder({ page }).include("[aria-label='Decomposition chart']").analyze();
+  const serious = results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? ""));
+  expect(serious.map((v) => v.id)).toEqual([]);
+});
+
+test("the lag explorer tests drivers and says which stand out", async ({ page }) => {
+  await page.getByTestId("upload").setInputFiles({
+    name: "fields.geojson",
+    mimeType: "application/geo+json",
+    buffer: Buffer.from(JSON.stringify(SQUARE)),
+  });
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Analyses" }).click();
+  await page.getByRole("button", { name: "Add analysis" }).click();
+  await page.getByRole("button", { name: /Memory and lags/ }).click();
+
+  const card = page.getByRole("region", { name: "Lags chart" });
+  await expect(card.getByText("LST: stands out")).toBeVisible();
+  await expect(card.getByText(/it stands out with the expected sign/)).toBeVisible();
+  await expect(card.locator(".recharts-bar-rectangle")).toHaveCount(24);
+  expect(lagged.at(-1)?.response.variable).toBe("ndvi");
+  expect(lagged.at(-1)?.drivers.map((d) => d.variable)).toEqual(["lst", "spei"]);
+
+  await card.getByRole("checkbox", { name: "Remove seasonal cycle" }).uncheck();
+  await expect.poll(() => lagged.at(-1)?.deseasonalise).toBe(false);
+
+  const results = await new AxeBuilder({ page }).include("[aria-label='Lags chart']").analyze();
   const serious = results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? ""));
   expect(serious.map((v) => v.id)).toEqual([]);
 });
