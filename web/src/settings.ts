@@ -1,4 +1,4 @@
-import type { Masking, Resolution, SeriesOptions, VariableKey } from "./api";
+import type { Masking, Resolution, SeriesOptions, Variable, VariableKey } from "./api";
 
 // Everything the researcher chooses in the data panel. Saved with the workspace.
 export type Settings = {
@@ -61,3 +61,7 @@ export function seriesOptions(
 // key: an area id alone could later name a different shape.
 export const seriesKey = (options: SeriesOptions, geometry: unknown) =>
   JSON.stringify({ ...options, workspace_id: undefined, geometry });
+
+// A variable's name as charts show it; SPEI carries its time scale
+export const variableTitle = (v: Variable, settings: Settings) =>
+  v.key === "spei" ? `SPEI-${settings.scale}` : v.name;

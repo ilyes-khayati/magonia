@@ -20,11 +20,12 @@ type Props = {
   onDrawn: (geometry: GeoJSON.Polygon) => void;
   focus: boolean;
   onFocus: () => void;
+  visible: boolean; // the map stays loaded while another page is open
 };
 
 const JENDOUBA: [number, number] = [8.561, 36.508];
 
-export default function MapView({ areas, tool, target, onDrawn, focus, onFocus }: Props) {
+export default function MapView({ areas, tool, target, onDrawn, focus, onFocus, visible }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibre | null>(null);
   const draw = useRef<TerraDraw | null>(null);
@@ -32,6 +33,7 @@ export default function MapView({ areas, tool, target, onDrawn, focus, onFocus }
   const [ready, setReady] = useState(false);
   const [basemap, setBasemap] = useState<Basemap>("satellite");
   const [choosing, setChoosing] = useState(false);
+  const moved = useRef<number | null>(null);
 
   // The draw handler is registered once, so it calls the latest onDrawn through a ref
   useEffect(() => {
@@ -96,17 +98,20 @@ export default function MapView({ areas, tool, target, onDrawn, focus, onFocus }
     draw.current!.setMode(tool ?? "static");
   }, [tool, ready]);
 
-  // The map must re-measure itself when the side panels open or close
+  // The map must re-measure itself when the side panels open or close, or its page comes back
   useEffect(() => {
     const timer = window.setTimeout(() => map.current?.resize(), 50);
     return () => window.clearTimeout(timer);
-  }, [focus]);
+  }, [focus, visible]);
 
+  // A hidden map has no size, so a move waits until the map is shown, and is made only once
   useEffect(() => {
-    if (!ready || !target) return;
+    if (!ready || !target || !visible || moved.current === target.key) return;
+    moved.current = target.key;
+    map.current!.resize();
     if (target.bounds) map.current!.fitBounds(target.bounds, { padding: 80, maxZoom: 16 });
     else if (target.center) map.current!.flyTo({ center: target.center, zoom: 14 });
-  }, [target, ready]);
+  }, [target, ready, visible]);
 
   function chooseBasemap(next: Basemap) {
     for (const key of Object.keys(BASEMAPS)) {

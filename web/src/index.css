@@ -79,32 +79,46 @@ button:disabled {
   white-space: nowrap;
 }
 
-/* Layout: data | map | results */
+/* Layout: pages | data | the open page | Magonia beside it */
 .workbench {
   height: 100vh;
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr) 400px;
+  grid-template-columns: 76px 280px minmax(0, 1fr) 0;
+  grid-template-areas: "rail data content dock";
   overflow: hidden;
 }
 
-.workbench.wide {
-  grid-template-columns: 260px minmax(0, 1fr) minmax(560px, 46%);
+.workbench.docked {
+  grid-template-columns: 76px 280px minmax(0, 1fr) 420px;
+}
+
+.workbench.page-assistant {
+  grid-template-columns: 76px 280px 0 minmax(0, 1fr);
+}
+
+/* Hidden, not removed: the map and the conversation keep their state */
+.workbench.page-assistant > .content,
+.workbench:not(.docked):not(.page-assistant) > .dock {
+  display: none;
 }
 
 /* Focus mode (VIS-07): only the map */
 .workbench.focus {
-  grid-template-columns: 0 minmax(0, 1fr) 0;
+  grid-template-columns: 76px 0 minmax(0, 1fr) 0;
 }
 
-.workbench.focus > .sidebar,
-.workbench.focus > .results {
+.workbench.focus > .sidebar {
   visibility: hidden;
   padding: 0;
   border: none;
 }
 
-.sidebar,
-.results {
+.workbench.focus > .dock {
+  display: none;
+}
+
+.sidebar {
+  grid-area: data;
   background: var(--panel);
   overflow-y: auto;
   padding: 18px;
@@ -112,15 +126,115 @@ button:disabled {
   flex-direction: column;
   gap: 20px;
   min-width: 0;
-}
-
-.sidebar {
   border-right: 1px solid var(--line);
 }
 
-.results {
-  border-left: 1px solid var(--line);
+.rail {
+  grid-area: rail;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 8px;
+}
+
+.rail-link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 9px 4px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  text-decoration: none;
+}
+
+.rail-link:hover {
+  background: var(--ground);
+  color: var(--ink);
+}
+
+.rail-link[aria-current="page"],
+.rail-link[aria-pressed="true"] {
+  background: var(--selected);
+  color: var(--on-selected);
+}
+
+.rail .dock-toggle {
+  margin-top: auto;
+}
+
+.content {
+  grid-area: content;
+  position: relative;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.page {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
   gap: 14px;
+}
+
+.page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.page-head h1 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.page-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 460px), 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+.dock {
+  grid-area: dock;
+  background: var(--panel);
+  border-left: 1px solid var(--line);
+  padding: 14px;
+  min-width: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+.dock > .assistant {
+  flex: 1;
+  min-height: 0;
+}
+
+.dock .assistant .conversation {
+  max-height: none;
+  flex: 1;
+  min-height: 0;
+}
+
+.page-assistant .dock {
+  padding: 20px 24px;
+}
+
+.page-assistant .dock > .assistant {
+  max-width: 880px;
+  margin: 0 auto;
 }
 
 .brand {
@@ -275,6 +389,7 @@ button:disabled {
 
 /* Map */
 .map-area {
+  flex: 1;
   position: relative;
   min-width: 0;
   overflow: hidden;
