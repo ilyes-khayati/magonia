@@ -40,3 +40,18 @@ describe("lags", () => {
     expect(needsOf(alone).map((n) => n.variable)).toEqual(["ndvi", "lst", "spei"]);
   });
 });
+
+describe("forecast models", () => {
+  it("start with every other variable as a driver and lags left to the code", () => {
+    const [added] = addAnalysis([], "models", ["ndvi"]);
+    expect(added).toEqual({
+      id: 1,
+      kind: "models",
+      response: "ndvi",
+      drivers: ["lst", "spei"],
+      own_lags: null,
+      driver_lags: null,
+      test_years: 3,
+    });
+  });
+});

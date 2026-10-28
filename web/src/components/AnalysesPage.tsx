@@ -6,6 +6,7 @@ import type { Entry } from "./ChartCard";
 import CorrelationCard from "./CorrelationCard";
 import DecompositionCard from "./DecompositionCard";
 import LagsCard from "./LagsCard";
+import ModelsCard from "./ModelsCard";
 import { PlusIcon } from "./Icons";
 
 type Props = {
@@ -58,7 +59,7 @@ function AddAnalysis({ onAdd }: { onAdd: (kind: Kind) => void }) {
               <span className="meta">{description}</span>
             </button>
           ))}
-          <p className="meta">Models and explanations are coming.</p>
+          <p className="meta">Explanations of the models are coming.</p>
         </div>
       )}
     </div>
@@ -113,6 +114,20 @@ export default function AnalysesPage(props: Props) {
               case "lags":
                 return (
                   <LagsCard
+                    key={analysis.id}
+                    analysis={analysis}
+                    onChange={(change) => onChange(analysis.id, change)}
+                    onRemove={() => onRemove(analysis.id)}
+                    variables={catalogue}
+                    title={title}
+                    entries={(variable) => entries(variable)}
+                    options={(areaId, variable) => options(areaId, variable)}
+                    seasonal={settings.resolution === "seasonal"}
+                  />
+                );
+              case "models":
+                return (
+                  <ModelsCard
                     key={analysis.id}
                     analysis={analysis}
                     onChange={(change) => onChange(analysis.id, change)}
