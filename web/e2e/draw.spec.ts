@@ -152,6 +152,7 @@ test("an area with NDVI chosen shows its chart, statistics, provenance and summa
     mimeType: "application/geo+json",
     buffer: Buffer.from(JSON.stringify(SQUARE)),
   });
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Charts" }).click();
   const chart = page.getByRole("region", { name: "NDVI chart" });
   await expect(chart.locator(".recharts-line")).toBeVisible();
   await expect(chart.getByRole("rowheader", { name: "Orchard" })).toBeVisible();
@@ -168,6 +169,7 @@ test("choosing a second variable shows how the two are correlated over lags", as
     mimeType: "application/geo+json",
     buffer: Buffer.from(JSON.stringify(SQUARE)),
   });
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Analyses" }).click();
   await expect(page.getByRole("region", { name: "Correlation chart" })).toHaveCount(0);
   await page.getByRole("checkbox", { name: /LST/ }).check();
   const card = page.getByRole("region", { name: "Correlation chart" });
@@ -187,12 +189,59 @@ test("when Earth Engine is not connected, the setup explains how and saves the p
 
 test("focus mode hides the panels", async ({ page }) => {
   await page.getByRole("button", { name: "Focus map" }).click();
-  await expect(page.getByRole("complementary", { name: "Results" })).toBeHidden();
+  await expect(page.getByRole("complementary", { name: "Data" })).toBeHidden();
   await page.getByRole("button", { name: "Show panels" }).click();
-  await expect(page.getByRole("complementary", { name: "Results" })).toBeVisible();
+  await expect(page.getByRole("complementary", { name: "Data" })).toBeVisible();
+});
+
+test("each page has its own address, and back and reload keep it", async ({ page }) => {
+  await expect(page).toHaveURL(/\/workspaces\/1\/map$/);
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Charts" }).click();
+  await expect(page).toHaveURL(/\/workspaces\/1\/charts$/);
+  await expect(page.getByRole("heading", { name: "Charts" })).toBeVisible();
+  await expect(page.locator(".map")).toBeHidden();
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Analyses" }).click();
+  await expect(page.getByRole("heading", { name: "Analyses" })).toBeVisible();
+  await page.goBack();
+  await expect(page).toHaveURL(/\/charts$/);
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Charts" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Charts" })).toHaveAttribute("aria-current", "page");
+});
+
+test("areas and data choices survive a change of page", async ({ page }) => {
+  await page.getByTestId("upload").setInputFiles({
+    name: "fields.geojson",
+    mimeType: "application/geo+json",
+    buffer: Buffer.from(JSON.stringify(SQUARE)),
+  });
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Charts" }).click();
+  await page.getByRole("checkbox", { name: /LST/ }).check();
+  await expect(page.getByRole("region", { name: "LST chart" })).toBeVisible();
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Map" }).click();
+  await expect(page.locator(".map")).toBeVisible();
+  await expect(page.getByRole("toolbar").getByRole("button", { name: /^Orchard/ })).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: /LST/ })).toBeChecked();
+});
+
+test("Magonia opens beside a page, and the conversation carries over to its own page", async ({ page }) => {
+  const assistant = page.getByRole("region", { name: "Magonia assistant" });
+  await expect(assistant).toBeHidden();
+  await page.getByRole("button", { name: "Beside" }).click();
+  await expect(assistant).toBeVisible();
+  await assistant.getByRole("textbox", { name: "Ask Magonia" }).fill("What does drought do to olive NDVI?");
+  await assistant.getByRole("button", { name: "Send" }).click();
+  await expect(assistant.getByText("Drought lowers olive NDVI")).toBeVisible();
+  await assistant.getByRole("button", { name: "Open Magonia on its own page" }).click();
+  await expect(page).toHaveURL(/\/assistant$/);
+  await expect(assistant.getByText("Drought lowers olive NDVI")).toBeVisible();
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Map" }).click();
+  await assistant.getByRole("button", { name: "Close Magonia" }).click();
+  await expect(assistant).toBeHidden();
 });
 
 test("an answer shows its checked sources and what the check removed", async ({ page }) => {
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Magonia" }).click();
   const assistant = page.getByRole("region", { name: "Magonia assistant" });
   await assistant.getByRole("textbox", { name: "Ask Magonia" }).fill("What does drought do to olive NDVI?");
   await assistant.getByRole("button", { name: "Send" }).click();
@@ -219,7 +268,15 @@ for (const theme of ["light", "dark"]) {
       mimeType: "application/geo+json",
       buffer: Buffer.from(JSON.stringify(SQUARE)),
     });
-    await expect(page.locator(".recharts-line")).toBeVisible();
+    await page.getByRole("button", { name: "Beside" }).click();
+    for (const name of ["Charts", "Analyses", "Map"]) {
+      await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name }).click();
+      if (name === "Charts") await expect(page.locator(".recharts-line")).toBeVisible();
+      const results = await new AxeBuilder({ page }).exclude(".maplibregl-canvas").analyze();
+      const serious = results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? ""));
+      expect(serious.map((v) => `${name}: ${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
+    }
+    await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Magonia" }).click();
     const results = await new AxeBuilder({ page }).exclude(".maplibregl-canvas").analyze();
     const serious = results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? ""));
     expect(serious.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);

@@ -104,7 +104,12 @@ function Sources({ turn, anchor }: { turn: Turn; anchor: string }) {
   );
 }
 
-export default function AssistantCard({ workspaceId }: { workspaceId: number | null }) {
+type Props = {
+  workspaceId: number | null;
+  actions?: React.ReactNode; // controls for where the card is shown, next to its own
+};
+
+export default function AssistantCard({ workspaceId, actions }: Props) {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -170,11 +175,14 @@ export default function AssistantCard({ workspaceId }: { workspaceId: number | n
           <h3>Ask Magonia</h3>
           <span className="meta">{model ? `Answers by ${model} · literature from OpenAlex` : "Research assistant"}</span>
         </div>
-        {turns.length > 0 && (
-          <button className="link" onClick={clear} disabled={busy}>
-            New conversation
-          </button>
-        )}
+        <div className="row">
+          {turns.length > 0 && (
+            <button className="link" onClick={clear} disabled={busy}>
+              New conversation
+            </button>
+          )}
+          {actions}
+        </div>
       </div>
 
       {turns.length > 0 && (
