@@ -207,6 +207,41 @@ button:disabled {
   align-items: start;
 }
 
+.add-analysis {
+  position: relative;
+}
+
+.kinds {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 5;
+  width: 300px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.kinds button {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: none;
+  background: transparent;
+  padding: 8px 10px;
+  border-radius: 8px;
+  text-align: left;
+}
+
+.kinds button:hover {
+  background: var(--ground);
+}
+
+.kinds p {
+  margin: 4px 10px 6px;
+}
+
 .dock {
   grid-area: dock;
   background: var(--panel);

@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   CartesianGrid,
   Line,
@@ -10,26 +9,28 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import type { Correlation } from "../analyses";
 import type { Variable, VariableKey } from "../api";
 import { describeLink, lagCorrelation, type Lag } from "../correlation";
 import type { Entry } from "./ChartCard";
+import { CloseIcon } from "./Icons";
 
 type Props = {
-  variables: Variable[]; // the chosen variables, at least two
+  analysis: Correlation;
+  onChange: (change: Partial<Correlation>) => void;
+  onRemove: () => void;
+  variables: Variable[]; // the whole catalogue: an analysis fetches what it needs
   title: (v: Variable) => string;
   entries: (variable: VariableKey) => Entry[];
   seasonal: boolean; // seasonal means cannot be lagged by month
 };
 
-export default function CorrelationCard({ variables, title, entries, seasonal }: Props) {
-  const [picked, setPicked] = useState<[VariableKey, VariableKey]>([variables[0].key, variables[1].key]);
-  const [deseasonalise, setDeseasonalise] = useState(true);
-
-  // A choice may no longer be among the chosen variables
-  const keys = variables.map((v) => v.key);
-  const response = keys.includes(picked[0]) ? picked[0] : keys[0];
-  const driver = keys.includes(picked[1]) && picked[1] !== response ? picked[1] : keys.find((k) => k !== response)!;
-  const name = (key: VariableKey) => title(variables.find((v) => v.key === key)!);
+export default function CorrelationCard({ analysis, onChange, onRemove, variables, title, entries, seasonal }: Props) {
+  const { response, driver, deseasonalise } = analysis;
+  const name = (key: VariableKey) => {
+    const variable = variables.find((v) => v.key === key);
+    return variable ? title(variable) : key;
+  };
 
   const drivers = entries(driver);
   const areas = entries(response).flatMap(({ area, colour, state }) => {
@@ -56,6 +57,9 @@ export default function CorrelationCard({ variables, title, entries, seasonal }:
           <h3>Correlation</h3>
           <span className="meta">Monthly means · {name(driver)} leading {name(response)} by 0–12 months</span>
         </div>
+        <button className="icon-button" aria-label="Remove this analysis" title="Remove this analysis" onClick={onRemove}>
+          <CloseIcon size={14} />
+        </button>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
@@ -65,7 +69,11 @@ export default function CorrelationCard({ variables, title, entries, seasonal }:
             className="select"
             style={{ width: "100%" }}
             value={response}
-            onChange={(e) => setPicked([e.target.value as VariableKey, driver])}
+            onChange={(e) => {
+              const next = e.target.value as VariableKey;
+              // the driver must stay a different variable
+              onChange({ response: next, driver: next === driver ? response : driver });
+            }}
           >
             {variables.map((v) => (
               <option key={v.key} value={v.key}>
@@ -80,7 +88,7 @@ export default function CorrelationCard({ variables, title, entries, seasonal }:
             className="select"
             style={{ width: "100%" }}
             value={driver}
-            onChange={(e) => setPicked([response, e.target.value as VariableKey])}
+            onChange={(e) => onChange({ driver: e.target.value as VariableKey })}
           >
             {variables
               .filter((v) => v.key !== response)
@@ -92,7 +100,11 @@ export default function CorrelationCard({ variables, title, entries, seasonal }:
           </select>
         </label>
         <label className="row" style={{ gap: 6, fontSize: 12, gridColumn: "1 / -1" }}>
-          <input type="checkbox" checked={deseasonalise} onChange={(e) => setDeseasonalise(e.target.checked)} />
+          <input
+            type="checkbox"
+            checked={deseasonalise}
+            onChange={(e) => onChange({ deseasonalise: e.target.checked })}
+          />
           Remove seasonal cycle
         </label>
       </div>
