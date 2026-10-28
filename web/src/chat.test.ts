@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PaperCard } from "./api";
-import { applyEvent, citationParts, type Turn } from "./chat";
+import { answerParts, applyEvent, citationParts, type Turn } from "./chat";
 
 const empty: Turn = { role: "assistant", content: "", details: {} };
 const card = (n: number): PaperCard => ({
@@ -69,5 +69,37 @@ describe("reading the workspace", () => {
     expect(turn.status).toBeUndefined();
     expect(turn.details.cards).toEqual(["NDVI chart", "Correlation 1: NDVI and LST"]);
     expect(turn.details.reads).toEqual([{ area: "Orchard", variable: "ndvi", year: 2022 }]);
+  });
+});
+
+describe("checked numbers", () => {
+  const n = (start: number, text: string, status: "verified" | "unverified" = "verified") => ({
+    start,
+    end: start + text.length,
+    text,
+    status,
+    source: status === "verified" ? "NDVI chart" : null,
+  });
+
+  it("places each number between the text and citations around it", () => {
+    const text = "Peak 0.89 in Aug [1]; −0.15 is odd.";
+    expect(answerParts(text, [n(5, "0.89"), n(22, "−0.15", "unverified")])).toEqual([
+      { text: "Peak " },
+      { number: n(5, "0.89") },
+      { text: " in Aug " },
+      { cites: [1] },
+      { text: "; " },
+      { number: n(22, "−0.15", "unverified") },
+      { text: " is odd." },
+    ]);
+  });
+
+  it("counts characters as the engine does, past characters JavaScript stores as two", () => {
+    const text = "🌿 NDVI 0.89";
+    expect(answerParts(text, [n(7, "0.89")]).at(-1)).toEqual({ number: n(7, "0.89") });
+  });
+
+  it("ignores numbers that do not match the text", () => {
+    expect(answerParts("Peak 0.89.", [n(0, "0.89")])).toEqual([{ text: "Peak 0.89." }]);
   });
 });

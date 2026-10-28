@@ -115,8 +115,19 @@ const ANSWER = [
 const DATA_ANSWER = [
   { type: "view", cards: ["NDVI chart"] },
   { type: "read", area: "Orchard", variable: "ndvi", year: 2024 },
-  { type: "text", text: "Orchard NDVI peaks in Aug (0.70) (NDVI chart)." },
-  { type: "check", text: "Orchard NDVI peaks in Aug (0.70) (NDVI chart).", cited: [], removed: [], unverified: [] },
+  { type: "text", text: "Orchard NDVI peaks in Aug (0.70) (NDVI chart), and was 0.95 in 2024." },
+  {
+    type: "check",
+    text: "Orchard NDVI peaks in Aug (0.70) (NDVI chart), and was 0.95 in 2024.",
+    cited: [],
+    removed: [],
+    unverified: [],
+    numbers: [
+      { start: 27, end: 31, text: "0.70", status: "verified", source: "NDVI chart" },
+      { start: 55, end: 59, text: "0.95", status: "unverified", source: null },
+      { start: 63, end: 67, text: "2024", status: "verified", source: "reading Orchard NDVI 2024" },
+    ],
+  },
 ];
 
 const SQUARE = {
@@ -297,7 +308,13 @@ test("Magonia is sent what is open and says which cards it read", async ({ page 
   await assistant.getByRole("textbox", { name: "Ask Magonia" }).fill("When does it peak?");
   await assistant.getByRole("button", { name: "Send" }).click();
 
-  await expect(assistant.getByText("Orchard NDVI peaks in Aug (0.70) (NDVI chart).")).toBeVisible();
+  await expect(assistant.locator(".num.verified").first()).toHaveAttribute("title", "From NDVI chart");
+  await expect(assistant.locator("mark.num.flagged")).toHaveText("0.95 (not found in what Magonia was given)");
+  await expect(assistant.getByText("2 of 3 numbers checked against what Magonia was given")).toBeVisible();
+  await expect(assistant.getByText("1 number was not confirmed: 0.95 (not found in what Magonia was given).")).toBeVisible();
+  const results = await new AxeBuilder({ page }).include(".assistant").analyze();
+  const serious = results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? ""));
+  expect(serious.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
   await expect(assistant.getByText("From your workspace: NDVI chart · looked closer at Orchard NDVI 2024")).toBeVisible();
   const { view } = asked.at(-1)!;
   expect(view?.page).toBe("charts");

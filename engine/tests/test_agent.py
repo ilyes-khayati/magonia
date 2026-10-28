@@ -190,3 +190,36 @@ def test_without_a_workspace_the_read_tool_is_not_offered():
     list(answer(Recorder("Hi."), [{"role": "user", "content": "Hello"}]))
     list(answer(Recorder("Hi."), [{"role": "user", "content": "Hello"}], view=orchard_view()))
     assert seen_tools == [["search_papers"], ["search_papers", "read_series"]]
+
+
+def test_numbers_in_a_data_answer_are_checked_against_facts_and_readings():
+    model = Scripted(
+        ToolCall("read_series", {"area": "Orchard", "variable": "ndvi", "year": 2021}),
+        "It peaks in Dec (0.41); in Jan 2021 it was 0.30, in Feb 0.77.",
+    )
+    events = list(answer(model, [{"role": "user", "content": "And 2021?"}], view=orchard_view()))
+
+    numbers = {n["text"]: (n["status"], n["source"]) for n in events[-1]["numbers"]}
+    # a number also in the reading taken for this answer is credited to that reading
+    assert numbers == {
+        "0.41": ("verified", "reading Orchard NDVI 2021"),
+        "2021": ("verified", "reading Orchard NDVI 2021"),
+        "0.30": ("verified", "reading Orchard NDVI 2021"),
+        "0.77": ("unverified", None),
+    }
+
+
+def test_a_plain_chat_answer_has_no_number_check():
+    events = list(
+        answer(Scripted("NDVI ranges from -1 to 1."), [{"role": "user", "content": "NDVI?"}])
+    )
+    assert "numbers" not in events[-1]
+
+
+def test_rules_for_the_data_go_with_the_facts_not_with_every_question():
+    from engine.assistant import DATA_RULES, RULES
+
+    assert "read_series" not in RULES and "read_series" in DATA_RULES
+    model = Scripted("Fine.")
+    list(answer(model, [{"role": "user", "content": "Peak?"}], view=orchard_view()))
+    assert DATA_RULES in model.seen[-1]["content"]

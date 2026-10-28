@@ -140,6 +140,16 @@ export type PaperCard = {
 
 export type CitationCheck = { cited: number[]; removed: number[]; unverified: string[] };
 
+// A number in an answer, checked against what the assistant was given. Positions count
+// characters (code points), as the engine does.
+export type CheckedNumber = {
+  start: number;
+  end: number;
+  text: string;
+  status: "verified" | "sign" | "unverified";
+  source: string | null;
+};
+
 // A closer look the assistant took at the researcher's data
 export type Read = { area: string; variable: string; year: number | null };
 
@@ -149,6 +159,7 @@ export type AnswerDetails = {
   check?: CitationCheck;
   cards?: string[]; // the charts and analyses it was given facts about
   reads?: Read[];
+  numbers?: CheckedNumber[];
 };
 
 // What is open when a question is asked, so the assistant can discuss it
@@ -172,7 +183,7 @@ export type ChatEvent =
   | { type: "search"; query: string }
   | { type: "search_failed"; query: string; error: string }
   | { type: "papers"; papers: PaperCard[] }
-  | ({ type: "check"; text: string } & CitationCheck)
+  | ({ type: "check"; text: string; numbers?: CheckedNumber[] } & CitationCheck)
   | { type: "error"; message: string }
   | { type: "view"; cards: string[] }
   | ({ type: "read" } & Read);
