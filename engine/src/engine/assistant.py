@@ -11,6 +11,7 @@ from urllib.request import Request, urlopen
 from dotenv import load_dotenv
 
 from engine.citations import check
+from engine.facts import View
 from engine.literature import LiteratureError, Paper, search_papers
 
 NAME = "Magonia"
@@ -23,6 +24,20 @@ methods around it. Politely decline anything else.
 - Never invent a reference, a number or a result. If you do not know, say so.
 - Say how sure you are, and say when evidence is thin or studies disagree.
 - Be concise and plain. Researchers are busy.
+
+The researcher's data:
+- With a question, you may be given what is open in Magonia: the areas, the period, and \
+facts computed by code for each chart and analysis, under headings in square brackets.
+- When a question is about their areas or results, answer from those facts. Copy numbers \
+exactly as written, never compute new ones, and name the chart or analysis each number comes \
+from, for example "(NDVI chart)".
+- The facts do not contain the values of single months or years. When asked for them, you \
+must call read_series (one area and variable, a year or every year) and quote what it \
+returns. Never write a value you were not given.
+- Interpret only what the facts state. A positive r means the two rise together; do not \
+explain a link the facts call weak or due to chance, and say so instead.
+- Answer only the question asked, with the few facts it needs; no long lists of every fact.
+- Keep the researcher's data and published research apart: say which is which.
 
 The literature:
 - When a question is about what research has found, call search_papers first, with short \
@@ -37,9 +52,9 @@ Facts about yourself (state only these; do not guess beyond them):
 - This conversation is saved in the researcher's current workspace and continues when they \
 come back. Earlier messages in it are shown to you.
 - You can search the literature through OpenAlex. You cannot yet read full papers, only \
-titles and abstracts, and you cannot yet see the areas, variables or results open in \
-Magonia. Both are coming. Until then, ask the researcher to share the numbers they want to \
-discuss."""
+titles and abstracts.
+- You can see the areas, variables and analyses open in Magonia, as facts computed by code. \
+You cannot see the map or the charts as pictures, and you cannot run new analyses yet."""
 
 SEARCH_TOOL = {
     "type": "function",
@@ -55,6 +70,26 @@ SEARCH_TOOL = {
                 "query": {"type": "string", "description": "Short English keywords"},
             },
             "required": ["query"],
+        },
+    },
+}
+
+READ_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "read_series",
+        "description": (
+            "Read the researcher's own data for one area and variable: the monthly values of "
+            "one year, or the annual means of every year when no year is given."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "area": {"type": "string", "description": "Area name, as in the facts"},
+                "variable": {"type": "string", "description": "ndvi, lst or spei"},
+                "year": {"type": "integer", "description": "A year, or leave out"},
+            },
+            "required": ["area", "variable"],
         },
     },
 }
@@ -180,28 +215,40 @@ def answer(
     conversation: list[Message],
     search: Callable[[str], list[Paper]] | None = None,
     max_searches: int = 2,
+    view: View | None = None,
+    max_reads: int = 3,
 ) -> Iterator[dict]:
-    """Answer the last message of the conversation, searching the literature when the model asks.
+    """Answer the last message of the conversation, using tools when the model asks.
 
-    Yields events for the interface: text pieces, searches, the papers found, and at the end
-    the citation check, whose text replaces the streamed answer.
+    With a view, the facts about the researcher's open workspace go with the question and the
+    model may read their series more closely. Yields events for the interface: what was read,
+    text pieces, searches, the papers found, and at the end the citation check, whose text
+    replaces the streamed answer.
     """
     search = search or search_papers
     messages = list(conversation)
+    if view is not None:
+        yield {"type": "view", "cards": view.cards()}
+        last = messages[-1]
+        # the question comes last, where a small model attends to it best
+        question = f"{view.sheet()}\n\n---\nThe researcher asks: {last['content']}"
+        messages[-1] = {**last, "content": question}
     papers: list[Paper] = []
     said: list[str] = []
-    searches = 0
+    searches = reads = 0
     while True:
-        tools = [SEARCH_TOOL] if searches < max_searches else None
+        tools = [SEARCH_TOOL] if searches < max_searches else []
+        if view is not None and reads < max_reads:
+            tools.append(READ_TOOL)
         calls = []
-        for piece in provider.stream(messages, tools):
+        for piece in provider.stream(messages, tools or None):
             if isinstance(piece, ToolCall):
                 calls.append(piece)
             else:
                 said.append(piece)
                 yield {"type": "text", "text": piece}
         # Done when the model answered, or asked for a tool it was no longer offered
-        if not calls or tools is None:
+        if not calls or not tools:
             break
         messages.append(
             {
@@ -213,10 +260,21 @@ def answer(
             }
         )
         for call in calls:
+            if call.name == "read_series" and view is not None and reads < max_reads:
+                reads += 1
+                area = str(call.arguments.get("area", ""))
+                variable = str(call.arguments.get("variable", ""))
+                year = call.arguments.get("year")
+                year = int(year) if str(year or "").isdigit() else None
+                yield {"type": "read", "area": area, "variable": variable, "year": year}
+                messages.append({"role": "tool", "content": view.read(area, variable, year)})
+                continue
             searches += 1
             query = str(call.arguments.get("query", "")).strip()
-            if call.name != "search_papers" or not query:
-                messages.append({"role": "tool", "content": "Unknown tool or empty query."})
+            if call.name != "search_papers" or not query or searches > max_searches:
+                messages.append(
+                    {"role": "tool", "content": "Unknown tool, empty query or no more calls."}
+                )
                 continue
             yield {"type": "search", "query": query}
             try:

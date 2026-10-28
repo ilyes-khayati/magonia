@@ -280,6 +280,12 @@ export default function App() {
     [settings, needed, workspaceId, shown, earthEngine],
   );
   const results = useSeries(requests);
+
+  // What is open, sent with each question so that Magonia can discuss it
+  const view = useMemo(
+    () => ({ page, charts: settings.variables, analyses, series: requests.map((r) => r.options) }),
+    [page, settings.variables, analyses, requests],
+  );
   const states = requests.map((r) => results.get(r.key));
   const progress = {
     total: requests.length,
@@ -380,6 +386,7 @@ export default function App() {
         <AssistantCard
           key={workspaceId}
           workspaceId={workspaceId}
+          view={view}
           actions={
             page !== "assistant" && (
               <>
