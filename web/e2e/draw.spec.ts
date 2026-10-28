@@ -5,6 +5,7 @@ import { expect, test, type Page } from "@playwright/test";
 // API nor Earth Engine
 async function fakeApi(page: Page, connected = true) {
   const areas: { id: number; workspace_id: number; name: string; geometry: unknown; area_km2: number }[] = [];
+  let settings = {}; // what the interface saved, returned when the workspace is opened again
   await page.route("**/api/catalogue", (route) => route.fulfill({ json: CATALOGUE }));
   await page.route("**/api/earth-engine", (route) =>
     route.request().method() === "PUT"
@@ -24,9 +25,11 @@ async function fakeApi(page: Page, connected = true) {
       : route.fulfill({ json: [] }),
   );
   await page.route("**/api/workspaces/1", (route) =>
-    route.request().method() === "PATCH" ? route.fulfill({ json: {} }) : route.fulfill({
-      json: { id: 1, name: "My workspace", created: "", updated: "", settings: {}, areas, jobs: [] },
-    }),
+    route.request().method() === "PATCH"
+      ? ((settings = route.request().postDataJSON().settings ?? settings), route.fulfill({ json: {} }))
+      : route.fulfill({
+          json: { id: 1, name: "My workspace", created: "", updated: "", settings, areas, jobs: [] },
+        }),
   );
   await page.route("**/api/assistant", (route) => route.fulfill({ json: { name: "Magonia", model: "test model" } }));
   await page.route("**/api/workspaces/1/messages", (route) => route.fulfill({ json: [] }));
@@ -163,19 +166,47 @@ test("an area with NDVI chosen shows its chart, statistics, provenance and summa
   await expect(chart.getByText("Average year", { exact: false })).toBeVisible();
 });
 
-test("choosing a second variable shows how the two are correlated over lags", async ({ page }) => {
+test("a correlation is shown only once added, and is saved with the workspace", async ({ page }) => {
+  await page.getByTestId("upload").setInputFiles({
+    name: "fields.geojson",
+    mimeType: "application/geo+json",
+    buffer: Buffer.from(JSON.stringify(SQUARE)),
+  });
+  await page.getByRole("checkbox", { name: /LST/ }).check();
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Analyses" }).click();
+  await expect(page.getByText("No analyses yet.")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Correlation chart" })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Add analysis" }).click();
+  await page.getByRole("group", { name: "Analysis types" }).getByRole("button", { name: /Correlation and lag/ }).click();
+  const card = page.getByRole("region", { name: "Correlation chart" });
+  await expect(card.locator(".recharts-line")).toBeVisible();
+  // the fake API returns the same series for both variables, so they match in the same month
+  await expect(card.getByText(/Orchard: NDVI anomalies are most closely linked to LST anomalies from the same month \(r = 1\.00\)/)).toBeVisible();
+
+  await card.getByRole("checkbox", { name: "Remove seasonal cycle" }).uncheck();
+  await page.waitForTimeout(700); // saving waits half a second after the last change
+  await page.reload();
+  await expect(card.locator(".recharts-line")).toBeVisible();
+  await expect(card.getByRole("checkbox", { name: "Remove seasonal cycle" })).not.toBeChecked();
+
+  await card.getByRole("button", { name: "Remove this analysis" }).click();
+  await expect(page.getByText("No analyses yet.")).toBeVisible();
+});
+
+test("an analysis fetches its variables even when they are not charted", async ({ page }) => {
   await page.getByTestId("upload").setInputFiles({
     name: "fields.geojson",
     mimeType: "application/geo+json",
     buffer: Buffer.from(JSON.stringify(SQUARE)),
   });
   await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Analyses" }).click();
-  await expect(page.getByRole("region", { name: "Correlation chart" })).toHaveCount(0);
-  await page.getByRole("checkbox", { name: /LST/ }).check();
+  await page.getByRole("button", { name: "Add analysis" }).click();
+  await page.getByRole("button", { name: /Correlation and lag/ }).click();
   const card = page.getByRole("region", { name: "Correlation chart" });
+  await expect(card.getByRole("combobox", { name: "Driver" })).toHaveValue("lst");
   await expect(card.locator(".recharts-line")).toBeVisible();
-  // the fake API returns the same series for both variables, so they match in the same month
-  await expect(card.getByText(/Orchard: NDVI anomalies are most closely linked to LST anomalies from the same month \(r = 1\.00\)/)).toBeVisible();
+  await expect(page.getByRole("checkbox", { name: /LST/ })).not.toBeChecked();
 });
 
 test("when Earth Engine is not connected, the setup explains how and saves the project", async ({ page }) => {
@@ -272,6 +303,11 @@ for (const theme of ["light", "dark"]) {
     for (const name of ["Charts", "Analyses", "Map"]) {
       await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name }).click();
       if (name === "Charts") await expect(page.locator(".recharts-line")).toBeVisible();
+      if (name === "Analyses") {
+        await page.getByRole("button", { name: "Add analysis" }).click();
+        await page.getByRole("button", { name: /Correlation and lag/ }).click();
+        await expect(page.locator(".recharts-line").first()).toBeVisible();
+      }
       const results = await new AxeBuilder({ page }).exclude(".maplibregl-canvas").analyze();
       const serious = results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? ""));
       expect(serious.map((v) => `${name}: ${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);

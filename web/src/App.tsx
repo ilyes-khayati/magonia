@@ -17,6 +17,7 @@ import {
   type Workspace,
   type WorkspaceSummary,
 } from "./api";
+import { addAnalysis, readAnalyses, variablesOf, type Analysis, type Kind } from "./analyses";
 import { readAreaFile } from "./areaFiles";
 import AnalysesPage from "./components/AnalysesPage";
 import AssistantCard from "./components/AssistantCard";
@@ -73,6 +74,7 @@ export default function App() {
   const [workspaceId, setWorkspaceId] = useState<number | null>(null);
   const [areas, setAreas] = useState<Area[]>([]);
   const [hidden, setHidden] = useState<Set<number>>(new Set());
+  const [analyses, setAnalyses] = useState<Analysis[]>([]);
   const [tool, setTool] = useState<Tool>(null);
   const [target, setTarget] = useState<Target | null>(null);
   const [message, setMessage] = useState<Message>(null);
@@ -107,6 +109,7 @@ export default function App() {
     setAreas(workspace.areas);
     setSettings(readSettings(workspace.settings));
     setHidden(new Set((workspace.settings.hidden as number[] | undefined) ?? []));
+    setAnalyses(readAnalyses(workspace.settings.analyses));
     remember(id);
     const box = bounds(workspace.areas.map((a) => a.geometry));
     if (box) setTarget({ key: Date.now(), bounds: box });
@@ -217,20 +220,26 @@ export default function App() {
     }
   }
 
-  // Settings and hidden areas are saved with the workspace, half a second after the last change
-  function save(nextSettings: Settings, nextHidden: Set<number>) {
+  // Settings, hidden areas and analyses are saved with the workspace, half a second after the
+  // last change
+  function save(next: { settings?: Settings; hidden?: Set<number>; analyses?: Analysis[] }) {
     window.clearTimeout(saving.current);
     const id = workspaceId;
     if (id === null) return;
+    const saved = {
+      ...(next.settings ?? settings),
+      hidden: [...(next.hidden ?? hidden)],
+      analyses: next.analyses ?? analyses,
+    };
     saving.current = window.setTimeout(() => {
-      updateWorkspace(id, { settings: { ...nextSettings, hidden: [...nextHidden] } }).catch(fail);
+      updateWorkspace(id, { settings: saved }).catch(fail);
     }, 500);
   }
 
   function change(update: Partial<Settings>) {
     const next = { ...settings, ...update };
     setSettings(next);
-    save(next, hidden);
+    save({ settings: next });
   }
 
   function toggle(area: Area) {
@@ -238,7 +247,12 @@ export default function App() {
     if (next.has(area.id)) next.delete(area.id);
     else next.add(area.id);
     setHidden(next);
-    save(settings, next);
+    save({ hidden: next });
+  }
+
+  function changeAnalyses(next: Analysis[]) {
+    setAnalyses(next);
+    save({ analyses: next });
   }
 
   const colours = useMemo(
@@ -247,19 +261,23 @@ export default function App() {
   );
   const shown = useMemo(() => areas.filter((area) => !hidden.has(area.id)), [areas, hidden]);
 
-  // One request per visible area and chosen variable
+  // One request per visible area and variable, charted or needed by an analysis
+  const needed = useMemo(
+    () => [...new Set([...settings.variables, ...analyses.flatMap(variablesOf)])],
+    [settings.variables, analyses],
+  );
   const requests = useMemo(
     () =>
       // nothing is asked of Earth Engine until it is connected
       workspaceId === null || !earthEngine?.connected
         ? []
-        : settings.variables.flatMap((variable) =>
+        : needed.flatMap((variable) =>
             shown.map((area) => {
               const options = seriesOptions(settings, workspaceId, area.id, variable);
               return { key: seriesKey(options, area.geometry), options };
             }),
           ),
-    [settings, workspaceId, shown, earthEngine],
+    [settings, needed, workspaceId, shown, earthEngine],
   );
   const results = useSeries(requests);
   const states = requests.map((r) => results.get(r.key));
@@ -332,7 +350,18 @@ export default function App() {
           <ChartsPage catalogue={catalogue} settings={settings} onChange={change} areas={shown} entries={entries} />
         )}
         {page === "analyses" && (
-          <AnalysesPage catalogue={catalogue} settings={settings} areas={shown} entries={entries} />
+          <AnalysesPage
+            catalogue={catalogue}
+            settings={settings}
+            areas={shown}
+            entries={entries}
+            analyses={analyses}
+            onAdd={(kind: Kind) => changeAnalyses(addAnalysis(analyses, kind, settings.variables))}
+            onChange={(id, update) =>
+              changeAnalyses(analyses.map((a) => (a.id === id ? ({ ...a, ...update } as Analysis) : a)))
+            }
+            onRemove={(id) => changeAnalyses(analyses.filter((a) => a.id !== id))}
+          />
         )}
 
         {(hint || message) && (
