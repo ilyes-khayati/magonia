@@ -17,7 +17,7 @@ import {
   type Workspace,
   type WorkspaceSummary,
 } from "./api";
-import { addAnalysis, readAnalyses, variablesOf, type Analysis, type Kind } from "./analyses";
+import { addAnalysis, needsOf, readAnalyses, type Analysis, type Kind, type Need } from "./analyses";
 import { readAreaFile } from "./areaFiles";
 import AnalysesPage from "./components/AnalysesPage";
 import AssistantCard from "./components/AssistantCard";
@@ -261,20 +261,28 @@ export default function App() {
   );
   const shown = useMemo(() => areas.filter((area) => !hidden.has(area.id)), [areas, hidden]);
 
-  // One request per visible area and variable, charted or needed by an analysis
-  const needed = useMemo(
-    () => [...new Set([...settings.variables, ...analyses.flatMap(variablesOf)])],
-    [settings.variables, analyses],
-  );
+  // A series as the charts show it, or at the product's own time step for an analysis
+  // that needs it (a decomposition)
+  const optionsFor = (areaId: number, variable: VariableKey, native = false) => {
+    const options = seriesOptions(settings, workspaceId!, areaId, variable);
+    return native ? { ...options, resolution: "native" as const } : options;
+  };
+
+  // One request per visible area and series, charted or needed by an analysis
+  const needed = useMemo(() => {
+    const all: Need[] = [...settings.variables.map((variable) => ({ variable, native: false })), ...analyses.flatMap(needsOf)];
+    return all.filter((n, i) => all.findIndex((m) => m.variable === n.variable && m.native === n.native) === i);
+  }, [settings.variables, analyses]);
   const requests = useMemo(
     () =>
       // nothing is asked of Earth Engine until it is connected
       workspaceId === null || !earthEngine?.connected
         ? []
-        : needed.flatMap((variable) =>
+        : needed.flatMap(({ variable, native }) =>
             shown.map((area) => {
               const options = seriesOptions(settings, workspaceId, area.id, variable);
-              return { key: seriesKey(options, area.geometry), options };
+              const wanted = native ? { ...options, resolution: "native" as const } : options;
+              return { key: seriesKey(wanted, area.geometry), options: wanted };
             }),
           ),
     [settings, needed, workspaceId, shown, earthEngine],
@@ -283,8 +291,14 @@ export default function App() {
 
   // What is open, sent with each question so that Magonia can discuss it
   const view = useMemo(
-    () => ({ page, charts: settings.variables, analyses, series: requests.map((r) => r.options) }),
-    [page, settings.variables, analyses, requests],
+    () => ({
+      page,
+      charts: settings.variables,
+      resolution: settings.resolution,
+      analyses,
+      series: requests.map((r) => r.options),
+    }),
+    [page, settings.variables, settings.resolution, analyses, requests],
   );
   const states = requests.map((r) => results.get(r.key));
   const progress = {
@@ -292,13 +306,11 @@ export default function App() {
     done: states.filter((s) => s?.status === "done").length,
     failed: states.filter((s) => s?.status === "failed").length,
   };
-  const entries = (variable: VariableKey) =>
+  const entries = (variable: VariableKey, native = false) =>
     shown.map((area) => ({
       area,
       colour: colours.get(area.id)!,
-      state: results.get(
-        seriesKey(seriesOptions(settings, workspaceId!, area.id, variable), area.geometry),
-      ),
+      state: results.get(seriesKey(optionsFor(area.id, variable, native), area.geometry)),
     }));
 
   const hint =
@@ -361,6 +373,7 @@ export default function App() {
             settings={settings}
             areas={shown}
             entries={entries}
+            options={optionsFor}
             analyses={analyses}
             onAdd={(kind: Kind) => changeAnalyses(addAnalysis(analyses, kind, settings.variables))}
             onChange={(id, update) =>

@@ -1,16 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import { KINDS, type Analysis, type Kind } from "../analyses";
-import type { Area, Variable, VariableKey } from "../api";
+import type { Area, SeriesOptions, Variable, VariableKey } from "../api";
 import { variableTitle, type Settings } from "../settings";
 import type { Entry } from "./ChartCard";
 import CorrelationCard from "./CorrelationCard";
+import DecompositionCard from "./DecompositionCard";
 import { PlusIcon } from "./Icons";
 
 type Props = {
   catalogue: Variable[];
   settings: Settings;
   areas: Area[];
-  entries: (variable: VariableKey) => Entry[];
+  entries: (variable: VariableKey, native?: boolean) => Entry[];
+  options: (areaId: number, variable: VariableKey, native?: boolean) => SeriesOptions;
   analyses: Analysis[];
   onAdd: (kind: Kind) => void;
   onChange: (id: number, change: Partial<Analysis>) => void;
@@ -55,7 +57,7 @@ function AddAnalysis({ onAdd }: { onAdd: (kind: Kind) => void }) {
               <span className="meta">{description}</span>
             </button>
           ))}
-          <p className="meta">Decomposition, lags, models and explanations are coming.</p>
+          <p className="meta">Lags, models and explanations are coming.</p>
         </div>
       )}
     </div>
@@ -63,7 +65,7 @@ function AddAnalysis({ onAdd }: { onAdd: (kind: Kind) => void }) {
 }
 
 export default function AnalysesPage(props: Props) {
-  const { catalogue, settings, areas, entries, analyses, onAdd, onChange, onRemove } = props;
+  const { catalogue, settings, areas, entries, options, analyses, onAdd, onChange, onRemove } = props;
   const title = (v: Variable) => variableTitle(v, settings);
 
   return (
@@ -92,6 +94,19 @@ export default function AnalysesPage(props: Props) {
                     title={title}
                     entries={entries}
                     seasonal={settings.resolution === "seasonal"}
+                  />
+                );
+              case "decomposition":
+                return (
+                  <DecompositionCard
+                    key={analysis.id}
+                    analysis={analysis}
+                    onChange={(change) => onChange(analysis.id, change)}
+                    onRemove={() => onRemove(analysis.id)}
+                    variables={catalogue}
+                    title={title}
+                    entries={entries(analysis.variable, true)}
+                    options={(areaId) => options(areaId, analysis.variable, true)}
                   />
                 );
             }

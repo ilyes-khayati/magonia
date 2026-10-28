@@ -6,8 +6,12 @@ import { expect, test, type Page } from "@playwright/test";
 // What the interface sent with each question, for tests to inspect
 let asked: { content: string; view?: { page: string; charts: string[]; series: { area_id: number; variable: string }[] } }[] = [];
 
+// The series the interface asked to extract
+let jobs: { variable: string; resolution: string }[] = [];
+
 async function fakeApi(page: Page, connected = true) {
   asked = [];
+  jobs = [];
   const areas: { id: number; workspace_id: number; name: string; geometry: unknown; area_km2: number }[] = [];
   let settings = {}; // what the interface saved, returned when the workspace is opened again
   await page.route("**/api/catalogue", (route) => route.fulfill({ json: CATALOGUE }));
@@ -20,9 +24,11 @@ async function fakeApi(page: Page, connected = true) {
             : { connected: false, project: null, error: "No Earth Engine project set." },
         }),
   );
-  await page.route("**/api/jobs", (route) =>
-    route.fulfill({ status: 202, json: { id: 1, status: "done", error: null, result: RESULT } }),
-  );
+  await page.route("**/api/jobs", (route) => {
+    jobs.push(route.request().postDataJSON());
+    return route.fulfill({ status: 202, json: { id: 1, status: "done", error: null, result: RESULT } });
+  });
+  await page.route("**/api/decomposition", (route) => route.fulfill({ json: DECOMPOSITION }));
   await page.route("**/api/workspaces", (route) =>
     route.request().method() === "POST"
       ? route.fulfill({ status: 201, json: { id: 1, name: "My workspace", created: "", updated: "" } })
@@ -83,6 +89,20 @@ const RESULT = {
     window: { start: "2023-01-01", end: "2025-01-01" },
     steps: [{ step: "fill gaps", method: "linear interpolation in time", filled: 1 }],
   },
+};
+
+const DECOMPOSITION = {
+  wavelet: "dmey",
+  level: 5,
+  cadence_days: 16,
+  semi_period_days: 381,
+  interpolated: 3,
+  area_id: 1,
+  points: POINTS.map((p, i) => ({ date: p.date, value: p.value, trend: 0.45 + i * 0.001, seasonal: p.value - 0.45 - i * 0.001 })),
+  summary: [
+    "Orchard, NDVI: the trend went from 0.45 (2023 mean) to 0.47 (2024 mean); lowest 0.45 in 2023-01, highest 0.47 in 2024-12.",
+    "Orchard, NDVI: the seasonal part carries 96% of the variation and the trend 4%; the seasonal part swings by 0.40 within a year on average.",
+  ],
 };
 
 const paper = (n: number, short: string, title: string) => ({
@@ -232,6 +252,28 @@ test("an analysis fetches its variables even when they are not charted", async (
   await expect(card.getByRole("combobox", { name: "Driver" })).toHaveValue("lst");
   await expect(card.locator(".recharts-line")).toBeVisible();
   await expect(page.getByRole("checkbox", { name: /LST/ })).not.toBeChecked();
+});
+
+test("a decomposition asks for the series at its own time step and shows trend and season", async ({ page }) => {
+  await page.getByTestId("upload").setInputFiles({
+    name: "fields.geojson",
+    mimeType: "application/geo+json",
+    buffer: Buffer.from(JSON.stringify(SQUARE)),
+  });
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Analyses" }).click();
+  await page.getByRole("button", { name: "Add analysis" }).click();
+  await page.getByRole("button", { name: /Trend and season/ }).click();
+
+  const card = page.getByRole("region", { name: "Decomposition chart" });
+  await expect(card.getByText("Discrete Meyer wavelet, level 5 on 16-day steps")).toBeVisible();
+  await expect(card.locator(".recharts-line")).toHaveCount(3); // value and trend above, season below
+  await expect(card.getByText(/the trend went from 0.45 \(2023 mean\)/)).toBeVisible();
+  await expect(card.getByText(/not a forecast\. 3 empty dates were filled/)).toBeVisible();
+  expect(jobs.some((j) => j.variable === "ndvi" && j.resolution === "native")).toBe(true);
+
+  const results = await new AxeBuilder({ page }).include("[aria-label='Decomposition chart']").analyze();
+  const serious = results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? ""));
+  expect(serious.map((v) => v.id)).toEqual([]);
 });
 
 test("when Earth Engine is not connected, the setup explains how and saves the project", async ({ page }) => {

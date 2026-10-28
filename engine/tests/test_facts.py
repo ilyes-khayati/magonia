@@ -162,3 +162,23 @@ def test_years_are_compared_over_their_usual_months_when_winter_is_always_missin
         in text
     )
     assert "+0.100 per decade" in text
+
+
+def test_a_decomposition_reports_the_trend_and_the_seasonal_share():
+    rise = [0.3 + 0.002 * i + 0.3 * math.sin(i * 2 * math.pi / 12) for i in range(72)]
+    native = Series("Field", "spei", "SPEI-3", "", points(rise), "native")
+    monthly = Series("Field", "spei", "SPEI-3", "", points([0.0] * 72))
+    view = View([], [monthly, native], [], [{"id": 1, "kind": "decomposition", "variable": "spei"}])
+    facts = [f for f in view.facts() if f.card == "Decomposition 1: SPEI-3"]
+    text = texts(facts)
+    # a rise of 0.024 a year, softened at the ends by the mirrored padding
+    assert text.startswith("Field, SPEI-3: the trend went from 0.36 (2020 mean) to 0.39 (2025 mean)")
+    assert "the seasonal part carries" in text and "not a forecast" in text
+    # the charts keep reading the series at their own step
+    assert view.read("Field", "spei", 2020).endswith("Dec 0.00.")
+
+
+def test_a_decomposition_of_too_short_a_series_says_why():
+    short = Series("Field", "spei", "SPEI-3", "", points([0.1] * 24), "native")
+    view = View([], [short], [], [{"id": 1, "kind": "decomposition", "variable": "spei"}])
+    assert "three years" in texts(view.facts())
