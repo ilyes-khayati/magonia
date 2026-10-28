@@ -1010,6 +1010,20 @@ button:disabled {
   cursor: pointer;
 }
 
+.num.verified {
+  text-decoration: underline dotted var(--accent);
+  text-underline-offset: 3px;
+  cursor: help;
+}
+
+.num.flagged {
+  color: inherit;
+  background: color-mix(in srgb, var(--warning) 24%, transparent);
+  border-radius: 3px;
+  padding: 0 2px;
+  cursor: help;
+}
+
 .removed {
   margin: 0;
   font-size: 12px;

@@ -1,15 +1,50 @@
 import { useEffect, useRef, useState } from "react";
-import { ask, assistantInfo, clearMessages, listMessages, type PaperCard, type View } from "../api";
-import { applyEvent, citationParts, fromSaved, type Turn } from "../chat";
+import {
+  ask,
+  assistantInfo,
+  clearMessages,
+  listMessages,
+  type CheckedNumber,
+  type PaperCard,
+  type View,
+} from "../api";
+import { answerParts, applyEvent, fromSaved, type Turn } from "../chat";
 import { SendIcon } from "./Icons";
 
+const FLAG = {
+  sign: "found only with the opposite sign",
+  unverified: "not found in what Magonia was given",
+};
+
+// A number from the answer: underlined with its source when checked, highlighted when not
+function Num({ n }: { n: CheckedNumber }) {
+  if (n.status === "verified") {
+    return (
+      <span className="num verified" title={`From ${n.source}`}>
+        {n.text}
+      </span>
+    );
+  }
+  const why = n.status === "sign" ? `${FLAG.sign} (${n.source})` : FLAG.unverified;
+  return (
+    <mark className="num flagged" title={`Check this number: ${why}`}>
+      {n.text}
+      <span className="visually-hidden"> ({why})</span>
+    </mark>
+  );
+}
+
 // The answer text, with each citation shown as a numbered badge that points to its paper card
-function AnswerText({ text, papers, anchor }: { text: string; papers: PaperCard[]; anchor: string }) {
+// and each checked number marked
+function AnswerText(props: { text: string; papers: PaperCard[]; numbers?: CheckedNumber[]; anchor: string }) {
+  const { text, papers, numbers, anchor } = props;
   return (
     <>
-      {citationParts(text).map((part, i) =>
+      {answerParts(text, numbers).map((part, i) =>
         "text" in part ? (
           <span key={i}>{part.text}</span>
+        ) : "number" in part ? (
+          <Num key={i} n={part.number} />
         ) : (
           <span key={i} className="cites">
             {part.cites.map((n) => {
@@ -66,9 +101,13 @@ function Sources({ turn, anchor }: { turn: Turn; anchor: string }) {
   const check = turn.details.check;
   const cards = turn.details.cards ?? [];
   const reads = turn.details.reads ?? [];
+  const numbers = turn.details.numbers ?? [];
+  const verified = numbers.filter((n) => n.status === "verified");
+  const flagged = numbers.filter((n) => n.status !== "verified");
   const cited = check ? check.cited.flatMap((n) => papers.filter((p) => p.n === n)) : [];
   const others = papers.filter((p) => !cited.includes(p));
-  if (!papers.length && !check?.removed.length && !check?.unverified.length && !cards.length) return null;
+  if (!papers.length && !check?.removed.length && !check?.unverified.length && !cards.length && !numbers.length)
+    return null;
   return (
     <div className="sources">
       {cards.length > 0 && (
@@ -106,6 +145,18 @@ function Sources({ turn, anchor }: { turn: Turn; anchor: string }) {
         <p className="removed">
           Removed {check.removed.length === 1 ? "a citation" : `${check.removed.length} citations`} (
           {check.removed.map((n) => `[${n}]`).join(", ")}) that matched no paper found.
+        </p>
+      )}
+      {numbers.length > 0 && (
+        <span className="meta">
+          {verified.length} of {numbers.length} {numbers.length === 1 ? "number" : "numbers"} checked against what
+          Magonia was given{verified.length ? "; hover one to see where it comes from" : ""}.
+        </span>
+      )}
+      {flagged.length > 0 && (
+        <p className="removed">
+          {flagged.length === 1 ? "1 number was" : `${flagged.length} numbers were`} not confirmed:{" "}
+          {flagged.map((n) => `${n.text} (${FLAG[n.status as "sign" | "unverified"]})`).join(", ")}.
         </p>
       )}
       {check && check.unverified.length > 0 && (
@@ -213,7 +264,12 @@ export default function AssistantCard({ workspaceId, view, actions }: Props) {
                 {!turn.status && !turn.content && last && <span className="thinking">Thinking…</span>}
                 {turn.content && (
                   <div>
-                    <AnswerText text={turn.content} papers={turn.details.papers ?? []} anchor={anchor} />
+                    <AnswerText
+                      text={turn.content}
+                      papers={turn.details.papers ?? []}
+                      numbers={turn.details.numbers}
+                      anchor={anchor}
+                    />
                   </div>
                 )}
                 {turn.error && <p className="error">{turn.error}</p>}

@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from engine.citations import check
 from engine.facts import View
 from engine.literature import LiteratureError, Paper, search_papers
+from engine.numbers import check_numbers
 
 NAME = "Magonia"
 
@@ -24,20 +25,6 @@ methods around it. Politely decline anything else.
 - Never invent a reference, a number or a result. If you do not know, say so.
 - Say how sure you are, and say when evidence is thin or studies disagree.
 - Be concise and plain. Researchers are busy.
-
-The researcher's data:
-- With a question, you may be given what is open in Magonia: the areas, the period, and \
-facts computed by code for each chart and analysis, under headings in square brackets.
-- When a question is about their areas or results, answer from those facts. Copy numbers \
-exactly as written, never compute new ones, and name the chart or analysis each number comes \
-from, for example "(NDVI chart)".
-- The facts do not contain the values of single months or years. When asked for them, you \
-must call read_series (one area and variable, a year or every year) and quote what it \
-returns. Never write a value you were not given.
-- Interpret only what the facts state. A positive r means the two rise together; do not \
-explain a link the facts call weak or due to chance, and say so instead.
-- Answer only the question asked, with the few facts it needs; no long lists of every fact.
-- Keep the researcher's data and published research apart: say which is which.
 
 The literature:
 - When a question is about what research has found, call search_papers first, with short \
@@ -53,8 +40,25 @@ Facts about yourself (state only these; do not guess beyond them):
 come back. Earlier messages in it are shown to you.
 - You can search the literature through OpenAlex. You cannot yet read full papers, only \
 titles and abstracts.
-- You can see the areas, variables and analyses open in Magonia, as facts computed by code. \
-You cannot see the map or the charts as pictures, and you cannot run new analyses yet."""
+- You can see the areas, variables and analyses open in Magonia, as facts computed by code, \
+when the researcher has some open. You cannot see the map or the charts as pictures, and \
+you cannot run new analyses yet."""
+
+# Sent with the facts only, so that questions asked without a workspace are not steered by them
+DATA_RULES = """How to use these facts:
+- If the question is about the researcher's areas or results, answer from the facts. Copy \
+numbers exactly as written, never compute new ones, and name the chart or analysis each \
+number comes from, for example "(NDVI chart)".
+- The facts do not contain the values of single months or years. When asked for them, call \
+read_series (one area and variable, a year or every year) and quote what it returns. Never \
+write a value you were not given.
+- Interpret only what the facts state. A positive r means the two rise together. A trend \
+that is not statistically significant is not evidence of a trend. A correlation beyond its \
+chance band is unlikely to be chance.
+- Answer only the question asked, with the few facts it needs.
+- Keep the researcher's data and published research apart: say which is which.
+- If the question is about published research rather than these data, search the \
+literature as usual."""
 
 SEARCH_TOOL = {
     "type": "function",
@@ -222,16 +226,21 @@ def answer(
 
     With a view, the facts about the researcher's open workspace go with the question and the
     model may read their series more closely. Yields events for the interface: what was read,
-    text pieces, searches, the papers found, and at the end the citation check, whose text
-    replaces the streamed answer.
+    text pieces, searches, the papers found, and at the end the check, whose text replaces the
+    streamed answer: citations checked against the papers found and, when there was a
+    workspace or papers, every number checked against what the model was given.
     """
     search = search or search_papers
     messages = list(conversation)
+    # what the model is given, against which every number in its answer is checked
+    sources = [("your question", str(conversation[-1]["content"]))]
     if view is not None:
+        sources += [(fact.card, fact.text) for fact in view.facts()]
+        sources += [("your workspace", line) for line in view.context]
         yield {"type": "view", "cards": view.cards()}
         last = messages[-1]
         # the question comes last, where a small model attends to it best
-        question = f"{view.sheet()}\n\n---\nThe researcher asks: {last['content']}"
+        question = f"{view.sheet()}\n\n{DATA_RULES}\n\n---\nThe researcher asks: {last['content']}"
         messages[-1] = {**last, "content": question}
     papers: list[Paper] = []
     said: list[str] = []
@@ -267,7 +276,11 @@ def answer(
                 year = call.arguments.get("year")
                 year = int(year) if str(year or "").isdigit() else None
                 yield {"type": "read", "area": area, "variable": variable, "year": year}
-                messages.append({"role": "tool", "content": view.read(area, variable, year)})
+                reading = view.read(area, variable, year)
+                sources.append(
+                    (f"reading {area} {variable.upper()} {year or 'every year'}", reading)
+                )
+                messages.append({"role": "tool", "content": reading})
                 continue
             searches += 1
             query = str(call.arguments.get("query", "")).strip()
@@ -285,6 +298,13 @@ def answer(
                 continue
             first = len(papers) + 1
             papers.extend(found)
+            sources += [
+                (
+                    f"paper [{first + i}]",
+                    f"{p.short}. {p.title}. {p.venue or ''}. {p.abstract or ''}",
+                )
+                for i, p in enumerate(found)
+            ]
             yield {
                 "type": "papers",
                 "papers": [{"n": first + i, **p.to_dict()} for i, p in enumerate(found)],
@@ -292,4 +312,8 @@ def answer(
             messages.append({"role": "tool", "content": for_the_model(found, first)})
 
     verdict = check("".join(said), papers)
-    yield {"type": "check", "text": verdict.text, **verdict.to_dict()}
+    event = {"type": "check", "text": verdict.text, **verdict.to_dict()}
+    # numbers are checked when there was something to check them against
+    if view is not None or papers:
+        event["numbers"] = [n.to_dict() for n in check_numbers(verdict.text, sources)]
+    yield event

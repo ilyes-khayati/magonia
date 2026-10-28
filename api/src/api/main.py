@@ -493,6 +493,8 @@ def chat(
             details = {"searches": searches, "papers": papers, "cards": cards, "reads": reads}
             if verdict:
                 details["check"] = {k: verdict[k] for k in ("cited", "removed", "unverified")}
+                if "numbers" in verdict:
+                    details["numbers"] = verdict["numbers"]
             text = verdict["text"] if verdict else "".join(said)
             store.add_message(workspace_id, "assistant", text, details)
 
