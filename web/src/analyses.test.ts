@@ -31,3 +31,12 @@ describe("decomposition", () => {
     expect(needsOf(added)).toEqual([{ variable: "lst", native: true }]);
   });
 });
+
+describe("lags", () => {
+  it("tests the charted variables as drivers, or all the others", () => {
+    const [charted] = addAnalysis([], "lags", ["ndvi", "spei"]);
+    expect(charted).toMatchObject({ kind: "lags", response: "ndvi", drivers: ["spei"], deseasonalise: true });
+    const [alone] = addAnalysis([], "lags", ["ndvi"]);
+    expect(needsOf(alone).map((n) => n.variable)).toEqual(["ndvi", "lst", "spei"]);
+  });
+});

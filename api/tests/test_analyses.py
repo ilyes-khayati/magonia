@@ -81,3 +81,62 @@ def test_an_unknown_area_is_not_found(client):
         ).status_code
         == 404
     )
+
+
+def cache_monthly(store, variable, scale, values):
+    points = [
+        {"date": f"{2018 + i // 12}-{i % 12 + 1:02d}-01", "value": v}
+        | {"sd": None, "n_pixels": 1, "masked": False, "filled": False, "n_obs": 1, "n_valid": 1}
+        for i, v in enumerate(values)
+    ]
+    masking = "none" if variable == "spei" else "pixel"
+    request = Request(variable, SQUARE, "2018-01-01", "2024-01-01", masking, scale, "monthly", 2)
+    name = {"ndvi": "NDVI", "spei": f"SPEI-{scale}"}[variable]
+    store.save_result(
+        cache_key(request),
+        {
+            "variable": variable,
+            "name": name,
+            "units": "",
+            "points": points,
+            "warnings": [],
+            "provenance": {},
+        },
+    )
+
+
+def test_lags_describe_memory_and_a_driver_that_leads(client, store):
+    area_id = area(client)
+    wet = [math.sin(i * 1.3) + 0.3 * math.cos(i * 0.7) for i in range(72)]
+    green = [
+        0.5 + 0.1 * math.sin((i - 2) * 1.3) for i in range(72)
+    ]  # follows SPEI two months later
+    cache_monthly(store, "spei", 3, wet)
+    cache_monthly(store, "ndvi", None, green)
+    common = {
+        "area_id": area_id,
+        "start": "2018-01-01",
+        "end": "2024-01-01",
+        "resolution": "monthly",
+    }
+    body = {
+        "response": {**common, "variable": "ndvi", "masking": "pixel"},
+        "drivers": [{**common, "variable": "spei", "scale": 3, "masking": "none"}],
+    }
+    reply = client.post("/lags", json=body)
+    assert reply.status_code == 200
+    found = reply.json()
+    assert len(found["acf"]) == 24
+    assert (found["drivers"][0]["lag"], found["drivers"][0]["decision"]) == (2, "stands out")
+    assert found["summary"][1].startswith("Orchard: SPEI-3 2 months earlier")
+
+
+def test_lags_wait_for_their_series(client):
+    common = {
+        "area_id": area(client),
+        "start": "2018-01-01",
+        "end": "2024-01-01",
+        "resolution": "monthly",
+    }
+    reply = client.post("/lags", json={"response": {**common, "variable": "ndvi"}})
+    assert reply.status_code == 409

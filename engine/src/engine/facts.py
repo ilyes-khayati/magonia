@@ -12,6 +12,7 @@ from statistics import fmean, median, pstdev
 import pandas as pd
 
 from engine.decompose import DecompositionError, decompose
+from engine.lags import explore
 
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 MIN_PAIRS = 12  # fewer months in common and a correlation is not computed
@@ -396,6 +397,25 @@ def decomposition_facts(card: str, s: Series) -> list[Fact]:
     ]
 
 
+def monthly_series(s: Series) -> pd.Series:
+    """The series as monthly means indexed by month start, for lag analyses."""
+    months = monthly(s.points)
+    index = pd.to_datetime([f"{label(m)}-01" for m in months])
+    return pd.Series(list(months.values()), index=index).asfreq("MS")
+
+
+def lag_facts(
+    card: str, response: Series, drivers: list[Series], deseasonalise: bool
+) -> list[Fact]:
+    found = explore(
+        response.area,
+        (response.title, response.key, monthly_series(response)),
+        [(d.title, d.key, monthly_series(d)) for d in drivers],
+        deseasonalise,
+    )
+    return [Fact(card, line) for line in found.summary]
+
+
 @dataclass
 class View:
     """What is open in the researcher's workspace, and the facts computed from it."""
@@ -425,6 +445,16 @@ class View:
                 for area in areas:
                     if s := self.find(area, analysis["variable"], "native"):
                         facts.extend(decomposition_facts(f"Decomposition {n}: {s.title}", s))
+                continue
+            if analysis.get("kind") == "lags":
+                for area in areas:
+                    response = self.find(area, analysis["response"])
+                    drivers = [d for k in analysis.get("drivers", []) if (d := self.find(area, k))]
+                    if response:
+                        card = f"Lags {n}: {response.title}"
+                        facts.extend(
+                            lag_facts(card, response, drivers, analysis.get("deseasonalise", True))
+                        )
                 continue
             if analysis.get("kind") != "correlation":
                 continue

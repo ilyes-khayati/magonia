@@ -126,6 +126,23 @@ export type DecompositionResponse = {
 export const decomposeSeries = (options: SeriesOptions) =>
   call<DecompositionResponse>("/decomposition", send("POST", options));
 
+// How a series remembers itself and which past months of its drivers stand out
+export type LagEvidence = {
+  driver: string;
+  r: number[]; // lags 1 to 12, the driver leading
+  bound: number;
+  lag: number;
+  best: number;
+  expected: number | null;
+  decision: "stands out" | "not significant" | "implausible sign";
+};
+
+export type LagsResponse = { area_id: number; acf: number[]; acf_band: number; drivers: LagEvidence[]; summary: string[] };
+
+export type LagsBody = { response: SeriesOptions; drivers: SeriesOptions[]; deseasonalise: boolean };
+
+export const exploreLags = (body: LagsBody) => call<LagsResponse>("/lags", send("POST", body));
+
 export async function fetchSeries(options: SeriesOptions): Promise<SeriesResponse> {
   let job = await call<Job>("/jobs", send("POST", options));
   while (job.status === "queued" || job.status === "running") {
