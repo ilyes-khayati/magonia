@@ -95,3 +95,41 @@ export const SendIcon = (p: IconProps) => (
     <path d="M4 12l16-8-6 16-2.5-6.5z" />
   </Svg>
 );
+
+export const MapIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z" />
+    <path d="M9 4v14M15 6v14" />
+  </Svg>
+);
+
+export const ChartIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 4v16h16" />
+    <path d="M7 15l4-5 3 3 5-7" />
+  </Svg>
+);
+
+export const AnalysisIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="7" cy="17" r="2" />
+    <circle cx="12" cy="9" r="2" />
+    <circle cx="18" cy="13" r="2" />
+    <circle cx="16" cy="5" r="1.5" />
+    <path d="M4 20l16-16" strokeDasharray="2 3" />
+  </Svg>
+);
+
+export const SparkIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" />
+    <path d="M19 16l.7 1.8 1.8.7-1.8.7L19 21l-.7-1.8-1.8-.7 1.8-.7z" />
+  </Svg>
+);
+
+export const PanelIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <path d="M14 4v16" />
+  </Svg>
+);

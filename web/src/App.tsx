@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useMatch, useNavigate } from "react-router";
 import {
   createArea,
   createWorkspace,
@@ -13,15 +14,21 @@ import {
   type EarthEngineStatus,
   type Variable,
   type VariableKey,
+  type Workspace,
   type WorkspaceSummary,
 } from "./api";
 import { readAreaFile } from "./areaFiles";
+import AnalysesPage from "./components/AnalysesPage";
+import AssistantCard from "./components/AssistantCard";
+import ChartsPage from "./components/ChartsPage";
 import DataPanel from "./components/DataPanel";
 import EarthEngineSetup from "./components/EarthEngineSetup";
+import { CloseIcon, ExpandIcon } from "./components/Icons";
 import MapView, { type Target, type Tool } from "./components/MapView";
-import Results from "./components/Results";
+import Rail from "./components/Rail";
 import Sidebar from "./components/Sidebar";
 import Toolbar from "./components/Toolbar";
+import { PAGES, isPage, pagePath } from "./pages";
 import { DEFAULTS, readSettings, seriesKey, seriesOptions, type Settings } from "./settings";
 import { applyTheme, areaColour, initialTheme, type Theme } from "./theme";
 import { useSeries } from "./useSeries";
@@ -71,11 +78,17 @@ export default function App() {
   const [message, setMessage] = useState<Message>(null);
   const [catalogue, setCatalogue] = useState<Variable[]>([]);
   const [settings, setSettings] = useState<Settings>(DEFAULTS);
-  const [wide, setWide] = useState(false);
+  const [docked, setDocked] = useState(false);
   const [earthEngine, setEarthEngine] = useState<EarthEngineStatus | null>(null);
   const [setupOpen, setSetupOpen] = useState(false);
   const [focus, setFocus] = useState(false);
   const saving = useRef<number | undefined>(undefined);
+
+  // The address names the workspace and the page: /workspaces/<id>/<page>
+  const navigate = useNavigate();
+  const match = useMatch("/workspaces/:workspace/:page");
+  const page = isPage(match?.params.page) ? match.params.page : "map";
+  const routed = Number(match?.params.workspace) || null;
 
   useEffect(() => applyTheme(theme), [theme]);
 
@@ -89,8 +102,7 @@ export default function App() {
   const fail = (error: unknown) =>
     setMessage({ text: error instanceof Error ? error.message : String(error), error: true });
 
-  async function open(id: number) {
-    const workspace = await openWorkspace(id);
+  function show(id: number, workspace: Workspace) {
     setWorkspaceId(id);
     setAreas(workspace.areas);
     setSettings(readSettings(workspace.settings));
@@ -112,18 +124,39 @@ export default function App() {
       let found = await listWorkspaces();
       if (!found.length) found = [await createWorkspace("My workspace")];
       setWorkspaces(found);
-      const last = remembered();
-      await open(found.some((w) => w.id === last) ? last! : found[0].id);
     })().catch(() =>
       setMessage({ text: "Could not reach the Magonia API. Is it running?", error: true }),
     );
   }, []);
 
+  // Opening a workspace is a change of address; the address then decides what is open.
+  // An unknown workspace in the address becomes the last one used, else the first; an unknown
+  // page becomes the map.
+  const valid = isPage(match?.params.page);
+  useEffect(() => {
+    if (!workspaces.length) return;
+    const known = (id: number | null) => id !== null && workspaces.some((w) => w.id === id);
+    if (!known(routed) || !valid) {
+      const last = remembered();
+      const id = known(routed) ? routed! : known(last) ? last! : workspaces[0].id;
+      navigate(pagePath(id, page), { replace: true });
+      return;
+    }
+    if (routed === workspaceId) return;
+    let current = true; // a slower answer for a workspace left meanwhile is ignored
+    openWorkspace(routed!)
+      .then((workspace) => current && show(routed!, workspace))
+      .catch(fail);
+    return () => {
+      current = false;
+    };
+  }, [routed, valid, page, workspaces, workspaceId, navigate]);
+
   async function newWorkspace() {
     try {
       const created = await createWorkspace(`Workspace ${workspaces.length + 1}`);
       setWorkspaces([created, ...workspaces]);
-      await open(created.id);
+      navigate(pagePath(created.id, page));
     } catch (error) {
       fail(error);
     }
@@ -251,14 +284,18 @@ export default function App() {
         ? "Click one corner, then the opposite corner."
         : null;
 
+  const label = PAGES.find((p) => p.key === page)!.label;
+
   return (
-    <div className={`workbench${wide ? " wide" : ""}${focus ? " focus" : ""}`}>
+    <div className={`workbench page-${page}${focus && page === "map" ? " focus" : ""}${docked ? " docked" : ""}`}>
+      <Rail page={page} workspaceId={workspaceId} docked={docked} onDock={() => setDocked(!docked)} />
+
       <Sidebar
         theme={theme}
         onTheme={() => setTheme(theme === "light" ? "dark" : "light")}
         workspaces={workspaces}
         workspaceId={workspaceId}
-        onOpen={(id) => open(id).catch(fail)}
+        onOpen={(id) => navigate(pagePath(id, page))}
         onNew={newWorkspace}
         earthEngine={earthEngine}
         onEarthEngine={() => setSetupOpen(true)}
@@ -266,27 +303,38 @@ export default function App() {
         <DataPanel catalogue={catalogue} settings={settings} onChange={change} progress={progress} />
       </Sidebar>
 
-      <main className="map-area" aria-label="Map">
-        <MapView
-          areas={shown.map((area) => ({ id: area.id, geometry: area.geometry, colour: colours.get(area.id)! }))}
-          tool={tool}
-          target={target}
-          onDrawn={drawn}
-          focus={focus}
-          onFocus={() => setFocus(!focus)}
-        />
-        <Toolbar
-          tool={tool}
-          onTool={setTool}
-          onUpload={upload}
-          onGo={(center) => setTarget({ key: Date.now(), center })}
-          areas={areas}
-          colours={colours}
-          hidden={hidden}
-          onToggle={toggle}
-          onRename={rename}
-          onDelete={remove}
-        />
+      <main className="content" aria-label={label}>
+        <div className="map-area" hidden={page !== "map"}>
+          <MapView
+            areas={shown.map((area) => ({ id: area.id, geometry: area.geometry, colour: colours.get(area.id)! }))}
+            tool={tool}
+            target={target}
+            onDrawn={drawn}
+            focus={focus}
+            onFocus={() => setFocus(!focus)}
+            visible={page === "map"}
+          />
+          <Toolbar
+            tool={tool}
+            onTool={setTool}
+            onUpload={upload}
+            onGo={(center) => setTarget({ key: Date.now(), center })}
+            areas={areas}
+            colours={colours}
+            hidden={hidden}
+            onToggle={toggle}
+            onRename={rename}
+            onDelete={remove}
+          />
+        </div>
+
+        {page === "charts" && (
+          <ChartsPage catalogue={catalogue} settings={settings} onChange={change} areas={shown} entries={entries} />
+        )}
+        {page === "analyses" && (
+          <AnalysesPage catalogue={catalogue} settings={settings} areas={shown} entries={entries} />
+        )}
+
         {(hint || message) && (
           <p
             className={`floating message${message?.error && !hint ? " error" : ""}`}
@@ -297,16 +345,36 @@ export default function App() {
         )}
       </main>
 
-      <Results
-        catalogue={catalogue}
-        settings={settings}
-        onChange={change}
-        areas={shown}
-        entries={entries}
-        wide={wide}
-        onWide={() => setWide(!wide)}
-        workspaceId={workspaceId}
-      />
+      {/* One assistant for every page, so a conversation carries on when the page changes:
+          a full page of its own, or a panel beside the others */}
+      <aside className="dock" aria-label="Magonia">
+        <AssistantCard
+          key={workspaceId}
+          workspaceId={workspaceId}
+          actions={
+            page !== "assistant" && (
+              <>
+                <button
+                  className="icon-button"
+                  aria-label="Open Magonia on its own page"
+                  title="Open Magonia on its own page"
+                  onClick={() => workspaceId !== null && navigate(pagePath(workspaceId, "assistant"))}
+                >
+                  <ExpandIcon size={14} />
+                </button>
+                <button
+                  className="icon-button"
+                  aria-label="Close Magonia"
+                  title="Close Magonia"
+                  onClick={() => setDocked(false)}
+                >
+                  <CloseIcon size={14} />
+                </button>
+              </>
+            )
+          }
+        />
+      </aside>
 
       {setupOpen && earthEngine && (
         <EarthEngineSetup
