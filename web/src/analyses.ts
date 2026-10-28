@@ -10,7 +10,14 @@ export type Correlation = {
   deseasonalise: boolean;
 };
 
-export type Analysis = { id: number } & Correlation;
+export type Decomposition = {
+  kind: "decomposition";
+  variable: VariableKey;
+};
+
+export type AnalysisBody = Correlation | Decomposition;
+
+export type Analysis = { id: number } & AnalysisBody;
 
 export type Kind = Analysis["kind"];
 
@@ -19,7 +26,7 @@ type KindInfo = {
   label: string;
   description: string;
   // a new analysis of this kind, starting from the variables chosen for the charts
-  create: (chosen: VariableKey[]) => Omit<Analysis, "id">;
+  create: (chosen: VariableKey[]) => AnalysisBody;
 };
 
 const other = (key: VariableKey, chosen: VariableKey[]): VariableKey =>
@@ -35,15 +42,28 @@ export const KINDS: KindInfo[] = [
       return { kind: "correlation", response, driver: other(response, chosen), deseasonalise: true };
     },
   },
+  {
+    kind: "decomposition",
+    label: "Trend and season",
+    description: "Splits a variable into its slow trend and its seasonal cycle with a wavelet, as in the paper.",
+    create: (chosen) => ({ kind: "decomposition", variable: chosen[0] ?? "ndvi" }),
+  },
 ];
 
-// The variables an analysis needs, fetched whether or not they are charted
-export function variablesOf(analysis: Analysis): VariableKey[] {
+// The series an analysis needs; a decomposition works at the product's own time step
+export type Need = { variable: VariableKey; native: boolean };
+
+export function needsOf(analysis: Analysis): Need[] {
   switch (analysis.kind) {
     case "correlation":
-      return [analysis.response, analysis.driver];
+      return [analysis.response, analysis.driver].map((variable) => ({ variable, native: false }));
+    case "decomposition":
+      return [{ variable: analysis.variable, native: true }];
   }
 }
+
+// The variables an analysis needs, fetched whether or not they are charted
+export const variablesOf = (analysis: Analysis): VariableKey[] => needsOf(analysis).map((n) => n.variable);
 
 export function addAnalysis(analyses: Analysis[], kind: Kind, chosen: VariableKey[]): Analysis[] {
   const id = Math.max(0, ...analyses.map((a) => a.id)) + 1;

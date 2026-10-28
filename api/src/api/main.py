@@ -7,9 +7,11 @@ from functools import cache
 from typing import Annotated, Literal
 
 import engine
+import pandas as pd
 from engine import assistant, facts
 from engine.areas import AreaError, make_area
 from engine.catalogue import CATALOGUE, get_variable
+from engine.decompose import DecompositionError, decompose
 from engine.earth_engine import EarthEngineError, check
 from engine.pipeline import Request
 from engine.prepare import Resolution
@@ -157,6 +159,7 @@ class View(BaseModel):
 
     page: str = "map"
     charts: list[str] = []  # the variables charted
+    resolution: Resolution = "monthly"  # of the charts
     analyses: list[dict] = []  # as the interface saves them
     series: list[SeriesRequest] = []  # every series shown or used, each with its area_id
 
@@ -373,6 +376,49 @@ def delete_area(area_id: int, store: StoreDep) -> Response:
     return Response(status_code=204)
 
 
+# Analyses
+
+
+def series_request(body: SeriesRequest, store: Store) -> tuple[dict, Request]:
+    """The saved area and the extraction request a series body describes."""
+    area = store.area(body.area_id) if body.area_id is not None else None
+    if area is None:
+        raise HTTPException(404, "area not found")
+    request = Request(
+        variable=body.variable,
+        geometry=area["geometry"],
+        start=body.start.isoformat(),
+        end=body.end.isoformat(),
+        masking=body.masking,
+        scale=body.scale,
+        resolution=body.resolution,
+        max_gap=body.max_gap,
+    )
+    return area, request
+
+
+@app.post("/decomposition")
+def decomposition(body: SeriesRequest, store: StoreDep) -> dict:
+    """Wavelet trend and seasonal parts of a series already extracted at its native step,
+    with the sentences the assistant is given about them."""
+    if body.resolution != "native":
+        raise HTTPException(422, "decompose the series at its native time step")
+    area, request = series_request(body, store)
+    result = store.result(cache_key(request))
+    if result is None:
+        raise HTTPException(409, "this series has not been extracted yet")
+    points = result["points"]
+    dates = [p["date"] for p in points]
+    values = [p["value"] if (not p["masked"] or p["filled"]) else None for p in points]
+    try:
+        parts = decompose(pd.Series(dates), pd.Series(values, dtype=float), body.variable)
+    except DecompositionError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    series = facts.Series(area["name"], body.variable, result["name"], result["units"], points)
+    summary = [f.text for f in facts.decomposition_facts("", series)]
+    return {**parts.to_dict(), "area_id": area["id"], "summary": summary}
+
+
 # The assistant
 
 
@@ -427,7 +473,12 @@ def workspace_view(store: Store, workspace_id: int, view: View) -> facts.View:
             continue
         series.append(
             facts.Series(
-                area["name"], s.variable, result["name"], result["units"], result["points"]
+                area["name"],
+                s.variable,
+                result["name"],
+                result["units"],
+                result["points"],
+                s.resolution,
             )
         )
     context = [f"The researcher is on the {view.page} page."]
@@ -444,7 +495,7 @@ def workspace_view(store: Store, workspace_id: int, view: View) -> facts.View:
         )
     if loading:
         context.append("Still loading, so not described: " + ", ".join(loading) + ".")
-    return facts.View(context, series, view.charts, view.analyses)
+    return facts.View(context, series, view.charts, view.analyses, view.resolution)
 
 
 @app.post("/workspaces/{workspace_id}/chat")

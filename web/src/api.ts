@@ -111,6 +111,21 @@ export type SeriesOptions = {
 };
 
 // Starts a background job on the API, then asks every second until it finishes
+// A series split by a wavelet into its slow trend and seasonal part, averaged by month
+export type DecompositionResponse = {
+  wavelet: string;
+  level: number;
+  cadence_days: number;
+  semi_period_days: number;
+  interpolated: number;
+  area_id: number;
+  points: { date: string; value: number | null; trend: number | null; seasonal: number | null }[];
+  summary: string[]; // the sentences Magonia is given about it
+};
+
+export const decomposeSeries = (options: SeriesOptions) =>
+  call<DecompositionResponse>("/decomposition", send("POST", options));
+
 export async function fetchSeries(options: SeriesOptions): Promise<SeriesResponse> {
   let job = await call<Job>("/jobs", send("POST", options));
   while (job.status === "queued" || job.status === "running") {
@@ -166,6 +181,7 @@ export type AnswerDetails = {
 export type View = {
   page: string;
   charts: VariableKey[];
+  resolution: Resolution;
   analyses: unknown[];
   series: SeriesOptions[];
 };

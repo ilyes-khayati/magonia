@@ -9,6 +9,10 @@ import math
 from dataclasses import dataclass, field
 from statistics import fmean, median, pstdev
 
+import pandas as pd
+
+from engine.decompose import DecompositionError, decompose
+
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 MIN_PAIRS = 12  # fewer months in common and a correlation is not computed
 MIN_TREND_YEARS = 5
@@ -23,6 +27,7 @@ class Series:
     title: str  # as its card shows it, e.g. "SPEI-12"
     units: str
     points: list[dict]  # date, value, masked, filled, ...
+    resolution: str = "monthly"  # native, monthly or seasonal
 
 
 @dataclass
@@ -342,6 +347,55 @@ def correlation_fact(card: str, response: Series, driver: Series, deseasonalise:
     return Fact(card, text, values)
 
 
+def decomposition_facts(card: str, s: Series) -> list[Fact]:
+    """What the decomposition card shows: how the trend moved and how much is seasonal."""
+    who = f"{s.area}, {s.title}"
+    frame = pd.DataFrame(s.points)
+    values = frame["value"].where(~frame["masked"] | frame["filled"])
+    try:
+        result = decompose(frame["date"], values, s.key)
+    except DecompositionError as exc:
+        return [Fact(card, f"{who}: {exc}")]
+    m = result.monthly.dropna()
+    trend = m.set_index("date")["trend"]
+    years = trend.groupby(trend.index.year).mean()
+    first, last = years.index[0], years.index[-1]
+    low, high = trend.idxmin(), trend.idxmax()
+    var_t, var_s = m["trend"].var(), m["seasonal"].var()
+    share = 100 * var_s / (var_t + var_s)
+    swing = m.groupby(m["date"].dt.year)["seasonal"].agg(lambda x: x.max() - x.min()).mean()
+    unit = f" {s.units}" if s.units else ""
+    return [
+        Fact(
+            card,
+            f"{who}: the trend went from {fmt(years.iloc[0], s.key)}{unit} ({first} mean) to "
+            f"{fmt(years.iloc[-1], s.key)}{unit} ({last} mean); lowest {fmt(trend[low], s.key)} in "
+            f"{low:%Y-%m}, highest {fmt(trend[high], s.key)} in {high:%Y-%m}.",
+            [
+                round(years.iloc[0], 4),
+                round(years.iloc[-1], 4),
+                round(trend[low], 4),
+                round(trend[high], 4),
+            ],
+        ),
+        Fact(
+            card,
+            f"{who}: the seasonal part carries {share:.0f}% of the variation and the trend "
+            f"{100 - share:.0f}%; the seasonal part swings by {fmt(swing, s.key)}{unit} within a "
+            "year on average.",
+            [round(share, 4), round(swing, 4)],
+        ),
+        Fact(
+            card,
+            f"{who}: discrete Meyer wavelet at level {result.level} on {s.title}'s "
+            f"{result.cadence_days:.0f}-day steps, so the trend keeps cycles longer than about "
+            f"{result.semi_period_days:.0f} days; {result.interpolated} empty dates were filled by "
+            "straight lines first. The filter uses later data too, so the trend describes the "
+            "past and is not a forecast.",
+        ),
+    ]
+
+
 @dataclass
 class View:
     """What is open in the researcher's workspace, and the facts computed from it."""
@@ -350,9 +404,12 @@ class View:
     series: list[Series]
     charts: list[str]  # the variable keys charted
     analyses: list[dict]  # as the interface saves them
+    resolution: str = "monthly"  # of the charts
 
-    def find(self, area: str, key: str) -> Series | None:
-        return next((s for s in self.series if s.area == area and s.key == key), None)
+    def find(self, area: str, key: str, resolution: str | None = None) -> Series | None:
+        wanted = resolution or self.resolution
+        same = [s for s in self.series if s.area == area and s.key == key]
+        return next((s for s in same if s.resolution == wanted), same[0] if same else None)
 
     def facts(self) -> list[Fact]:
         facts: list[Fact] = []
@@ -364,6 +421,11 @@ class View:
             if len(charted) >= 2 and key != "spei" and (fact := comparison_fact(*charted[:2])):
                 facts.append(fact)
         for n, analysis in enumerate(self.analyses, start=1):
+            if analysis.get("kind") == "decomposition":
+                for area in areas:
+                    if s := self.find(area, analysis["variable"], "native"):
+                        facts.extend(decomposition_facts(f"Decomposition {n}: {s.title}", s))
+                continue
             if analysis.get("kind") != "correlation":
                 continue
             for area in areas:
@@ -398,15 +460,14 @@ class View:
     def read(self, area: str, variable: str, year: int | None = None) -> str:
         """Monthly values of one year, or annual means of every year, for a closer look."""
         wanted = variable.strip().lower()
-        s = next(
-            (
-                s
-                for s in self.series
-                if s.area.lower() == area.strip().lower()
-                and wanted in (s.key, s.title.lower(), s.title.lower().split("-")[0])
-            ),
-            None,
-        )
+        found = [
+            s
+            for s in self.series
+            if s.area.lower() == area.strip().lower()
+            and wanted in (s.key, s.title.lower(), s.title.lower().split("-")[0])
+        ]
+        # the series the charts show, when an analysis fetched the same one at another step
+        s = next((s for s in found if s.resolution == self.resolution), found[0] if found else None)
         if s is None:
             have = "; ".join(f"{x.area} {x.title}" for x in self.series) or "nothing"
             return f"No series for {area} {variable}. Open now: {have}."
