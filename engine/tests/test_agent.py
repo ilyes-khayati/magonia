@@ -114,3 +114,79 @@ def test_failed_search_is_reported_and_the_model_still_answers():
 
 def test_the_search_tool_is_offered_to_the_model():
     assert SEARCH_TOOL["function"]["name"] == "search_papers"
+
+
+def orchard_view():
+    from engine.facts import Series, View
+
+    values = [0.3 + 0.01 * (i % 12) for i in range(24)]
+    series = [
+        {
+            "date": f"{2020 + i // 12}-{i % 12 + 1:02d}-01",
+            "value": v,
+            "masked": False,
+            "filled": False,
+        }
+        for i, v in enumerate(values)
+    ]
+    return View(
+        ["Areas: Orchard (0.64 km²)."],
+        [Series("Orchard", "ndvi", "NDVI", "", series)],
+        ["ndvi"],
+        [],
+    )
+
+
+def test_the_open_workspace_goes_with_the_question_only():
+    model = Scripted("NDVI peaks in Dec (0.41) (NDVI chart).")
+    history = [{"role": "user", "content": "Hello"}, {"role": "assistant", "content": "Hi."}]
+    events = list(
+        answer(
+            model,
+            [*history, {"role": "user", "content": "When does it peak?"}],
+            view=orchard_view(),
+        )
+    )
+
+    assert events[0] == {"type": "view", "cards": ["NDVI chart"]}
+    question = model.seen[-1]["content"]
+    assert question.startswith("What is open in Magonia now")
+    assert question.endswith("\n\n---\nThe researcher asks: When does it peak?")
+    assert "[NDVI chart]" in question and "peaks in Dec (0.41)" in question
+    assert model.seen[0]["content"] == "Hello"  # earlier turns are not repeated with facts
+    assert events[-1]["text"] == "NDVI peaks in Dec (0.41) (NDVI chart)."
+
+
+def test_the_model_can_read_a_year_of_the_researchers_data():
+    model = Scripted(
+        ToolCall("read_series", {"area": "Orchard", "variable": "ndvi", "year": 2021}), "Done."
+    )
+    events = list(answer(model, [{"role": "user", "content": "And 2021?"}], view=orchard_view()))
+
+    assert {"type": "read", "area": "Orchard", "variable": "ndvi", "year": 2021} in events
+    reading = model.seen[-1]
+    assert reading["role"] == "tool" and reading["content"].startswith(
+        "Orchard, NDVI, monthly means in 2021"
+    )
+
+
+def test_reads_are_limited_then_the_model_must_answer():
+    model = Scripted(ToolCall("read_series", {"area": "Orchard", "variable": "ndvi"}))
+    events = list(
+        answer(model, [{"role": "user", "content": "q"}], view=orchard_view(), max_reads=2)
+    )
+    assert sum(e["type"] == "read" for e in events) == 2
+    assert events[-1]["type"] == "check"
+
+
+def test_without_a_workspace_the_read_tool_is_not_offered():
+    seen_tools = []
+
+    class Recorder(Scripted):
+        def stream(self, messages, tools=None):
+            seen_tools.append([t["function"]["name"] for t in tools or []])
+            yield from super().stream(messages, tools)
+
+    list(answer(Recorder("Hi."), [{"role": "user", "content": "Hello"}]))
+    list(answer(Recorder("Hi."), [{"role": "user", "content": "Hello"}], view=orchard_view()))
+    assert seen_tools == [["search_papers"], ["search_papers", "read_series"]]

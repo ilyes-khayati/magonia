@@ -58,3 +58,16 @@ describe("citationParts", () => {
     expect(citationParts("No citations here.")).toEqual([{ text: "No citations here." }]);
   });
 });
+
+describe("reading the workspace", () => {
+  it("remembers which cards the answer was given and shows what it reads", () => {
+    let turn = applyEvent(empty, { type: "view", cards: ["NDVI chart", "Correlation 1: NDVI and LST"] });
+    expect(turn.status).toBe("Reading your workspace…");
+    turn = applyEvent(turn, { type: "read", area: "Orchard", variable: "ndvi", year: 2022 });
+    expect(turn.status).toBe("Looking closer at Orchard NDVI in 2022…");
+    turn = applyEvent(turn, { type: "text", text: "It peaks in August." });
+    expect(turn.status).toBeUndefined();
+    expect(turn.details.cards).toEqual(["NDVI chart", "Correlation 1: NDVI and LST"]);
+    expect(turn.details.reads).toEqual([{ area: "Orchard", variable: "ndvi", year: 2022 }]);
+  });
+});

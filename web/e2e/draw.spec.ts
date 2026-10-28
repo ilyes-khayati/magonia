@@ -3,7 +3,11 @@ import { expect, test, type Page } from "@playwright/test";
 
 // A small in-memory stand-in for the Magonia API, so the tests need neither the
 // API nor Earth Engine
+// What the interface sent with each question, for tests to inspect
+let asked: { content: string; view?: { page: string; charts: string[]; series: { area_id: number; variable: string }[] } }[] = [];
+
 async function fakeApi(page: Page, connected = true) {
+  asked = [];
   const areas: { id: number; workspace_id: number; name: string; geometry: unknown; area_km2: number }[] = [];
   let settings = {}; // what the interface saved, returned when the workspace is opened again
   await page.route("**/api/catalogue", (route) => route.fulfill({ json: CATALOGUE }));
@@ -33,12 +37,14 @@ async function fakeApi(page: Page, connected = true) {
   );
   await page.route("**/api/assistant", (route) => route.fulfill({ json: { name: "Magonia", model: "test model" } }));
   await page.route("**/api/workspaces/1/messages", (route) => route.fulfill({ json: [] }));
-  await page.route("**/api/workspaces/1/chat", (route) =>
-    route.fulfill({
+  await page.route("**/api/workspaces/1/chat", (route) => {
+    asked.push(route.request().postDataJSON());
+    const answer = asked.at(-1).view?.series.length ? DATA_ANSWER : ANSWER;
+    return route.fulfill({
       contentType: "application/x-ndjson",
-      body: ANSWER.map((event) => JSON.stringify(event)).join("\n") + "\n",
-    }),
-  );
+      body: answer.map((event) => JSON.stringify(event)).join("\n") + "\n",
+    });
+  });
   await page.route("**/api/workspaces/1/areas", (route) => {
     const body = route.request().postDataJSON();
     const area = { id: areas.length + 1, workspace_id: 1, area_km2: 0.5, ...body };
@@ -103,6 +109,14 @@ const ANSWER = [
   },
   { type: "text", text: "Drought lowers olive NDVI [1], as also shown in [7]." },
   { type: "check", text: "Drought lowers olive NDVI [1], as also shown in.", cited: [1], removed: [7], unverified: [] },
+];
+
+// An answer about the researcher's own data, after a closer look at one year
+const DATA_ANSWER = [
+  { type: "view", cards: ["NDVI chart"] },
+  { type: "read", area: "Orchard", variable: "ndvi", year: 2024 },
+  { type: "text", text: "Orchard NDVI peaks in Aug (0.70) (NDVI chart)." },
+  { type: "check", text: "Orchard NDVI peaks in Aug (0.70) (NDVI chart).", cited: [], removed: [], unverified: [] },
 ];
 
 const SQUARE = {
@@ -269,6 +283,26 @@ test("Magonia opens beside a page, and the conversation carries over to its own 
   await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Map" }).click();
   await assistant.getByRole("button", { name: "Close Magonia" }).click();
   await expect(assistant).toBeHidden();
+});
+
+test("Magonia is sent what is open and says which cards it read", async ({ page }) => {
+  await page.getByTestId("upload").setInputFiles({
+    name: "fields.geojson",
+    mimeType: "application/geo+json",
+    buffer: Buffer.from(JSON.stringify(SQUARE)),
+  });
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Charts" }).click();
+  await page.getByRole("button", { name: "Beside" }).click();
+  const assistant = page.getByRole("region", { name: "Magonia assistant" });
+  await assistant.getByRole("textbox", { name: "Ask Magonia" }).fill("When does it peak?");
+  await assistant.getByRole("button", { name: "Send" }).click();
+
+  await expect(assistant.getByText("Orchard NDVI peaks in Aug (0.70) (NDVI chart).")).toBeVisible();
+  await expect(assistant.getByText("From your workspace: NDVI chart · looked closer at Orchard NDVI 2024")).toBeVisible();
+  const { view } = asked.at(-1)!;
+  expect(view?.page).toBe("charts");
+  expect(view?.charts).toEqual(["ndvi"]);
+  expect(view?.series.map((s) => [s.area_id, s.variable])).toEqual([[1, "ndvi"]]);
 });
 
 test("an answer shows its checked sources and what the check removed", async ({ page }) => {

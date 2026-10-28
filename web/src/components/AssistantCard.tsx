@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ask, assistantInfo, clearMessages, listMessages, type PaperCard } from "../api";
+import { ask, assistantInfo, clearMessages, listMessages, type PaperCard, type View } from "../api";
 import { applyEvent, citationParts, fromSaved, type Turn } from "../chat";
 import { SendIcon } from "./Icons";
 
@@ -64,11 +64,22 @@ function Paper({ paper, anchor }: { paper: PaperCard; anchor: string }) {
 function Sources({ turn, anchor }: { turn: Turn; anchor: string }) {
   const papers = turn.details.papers ?? [];
   const check = turn.details.check;
+  const cards = turn.details.cards ?? [];
+  const reads = turn.details.reads ?? [];
   const cited = check ? check.cited.flatMap((n) => papers.filter((p) => p.n === n)) : [];
   const others = papers.filter((p) => !cited.includes(p));
-  if (!papers.length && !check?.removed.length && !check?.unverified.length) return null;
+  if (!papers.length && !check?.removed.length && !check?.unverified.length && !cards.length) return null;
   return (
     <div className="sources">
+      {cards.length > 0 && (
+        <span className="meta">
+          From your workspace: {cards.join(" · ")}
+          {reads.length > 0 &&
+            ` · looked closer at ${reads
+              .map((r) => `${r.area} ${r.variable.toUpperCase()}${r.year ? ` ${r.year}` : ""}`)
+              .join(", ")}`}
+        </span>
+      )}
       {cited.length > 0 && (
         <>
           <span className="meta">Sources · each checked against the papers found</span>
@@ -106,10 +117,11 @@ function Sources({ turn, anchor }: { turn: Turn; anchor: string }) {
 
 type Props = {
   workspaceId: number | null;
+  view?: View; // what is open, sent with each question so the assistant can discuss it
   actions?: React.ReactNode; // controls for where the card is shown, next to its own
 };
 
-export default function AssistantCard({ workspaceId, actions }: Props) {
+export default function AssistantCard({ workspaceId, view, actions }: Props) {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -152,6 +164,7 @@ export default function AssistantCard({ workspaceId, actions }: Props) {
     try {
       await ask(workspaceId, question, (event) =>
         setTurns((t) => [...t.slice(0, -1), applyEvent(t[t.length - 1], event)]),
+        view,
       );
     } catch (e) {
       setTurns((t) => t.slice(0, -2));
@@ -227,7 +240,7 @@ export default function AssistantCard({ workspaceId, actions }: Props) {
           rows={2}
           value={draft}
           disabled={workspaceId === null}
-          placeholder="What is known about drought and olive NDVI in the Mediterranean?"
+          placeholder="When does NDVI peak in my areas, and was any year unusual?"
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
