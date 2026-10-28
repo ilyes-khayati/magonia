@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addAnalysis, readAnalyses, variablesOf } from "./analyses";
+import { addAnalysis, needsOf, readAnalyses, variablesOf } from "./analyses";
 
 describe("analyses", () => {
   it("starts a correlation from the charted variables", () => {
@@ -21,5 +21,13 @@ describe("analyses", () => {
     const saved = [{ id: 1, kind: "correlation", response: "ndvi", driver: "lst", deseasonalise: true }, { id: 2, kind: "telepathy" }, null];
     expect(readAnalyses(saved).map((a) => a.id)).toEqual([1]);
     expect(readAnalyses(undefined)).toEqual([]);
+  });
+});
+
+describe("decomposition", () => {
+  it("asks for its variable at the product's own time step", () => {
+    const [added] = addAnalysis([], "decomposition", ["lst", "ndvi"]);
+    expect(added).toEqual({ id: 1, kind: "decomposition", variable: "lst" });
+    expect(needsOf(added)).toEqual([{ variable: "lst", native: true }]);
   });
 });
