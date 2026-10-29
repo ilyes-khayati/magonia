@@ -167,6 +167,7 @@ class View(BaseModel):
     resolution: Resolution = "monthly"  # of the charts
     analyses: list[dict] = []  # as the interface saves them
     series: list[SeriesRequest] = []  # every series shown or used, each with its area_id
+    display: str | None = None  # how the Data page shows the series, if changed
 
 
 class Question(BaseModel):
@@ -768,6 +769,11 @@ def workspace_view(store: Store, workspace_id: int, view: View) -> facts.View:
         context.append(
             f"Period {first.start.isoformat()[:7]} to {last_month}, {first.resolution} values, "
             f"{MASKING[first.masking]}, gaps of up to {first.max_gap} filled."
+        )
+    if view.display:
+        context.append(
+            f"The Data page charts show {view.display}; the facts below describe the series as "
+            "extracted."
         )
     if loading:
         context.append("Still loading, so not described: " + ", ".join(loading) + ".")

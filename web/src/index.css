@@ -1649,3 +1649,35 @@ button:disabled {
   color: var(--muted);
   padding: 6px 0 4px;
 }
+
+.display-options {
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+.display-options legend {
+  padding: 0;
+  margin-bottom: 8px;
+}
+
+.months {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 2px;
+}
+
+.months button {
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--muted);
+  border-radius: 5px;
+  padding: 4px 0;
+  font-size: 11px;
+}
+
+.months button[aria-pressed="true"] {
+  background: var(--selected);
+  color: var(--on-selected);
+  border-color: var(--selected);
+}

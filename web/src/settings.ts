@@ -1,5 +1,6 @@
 import type { Masking, Resolution, SeriesOptions, Variable, VariableKey } from "./api";
 import type { CardLayout } from "./cards";
+import { NO_DISPLAY, type Display } from "./display";
 
 // Everything the researcher chooses in the data panel. Saved with the workspace.
 export type Settings = {
@@ -14,6 +15,7 @@ export type Settings = {
   mode: "series" | "seasonal";
   cards: Record<string, CardLayout>; // by card: "chart:ndvi", "analysis:3"
   chartOrder: VariableKey[];
+  display: Display; // how the Data page shows the series; analyses keep them as extracted
 };
 
 export const DEFAULTS: Settings = {
@@ -28,11 +30,14 @@ export const DEFAULTS: Settings = {
   mode: "series",
   cards: {},
   chartOrder: [],
+  display: NO_DISPLAY,
 };
 
 // A saved workspace may predate a setting, so missing or odd values fall back
 export function readSettings(saved: Record<string, unknown> | undefined): Settings {
   const merged = { ...DEFAULTS, ...(saved ?? {}) } as Settings;
+  const d = merged.display as Partial<Display> | undefined;
+  if (!d || !Array.isArray(d.months)) merged.display = NO_DISPLAY;
   return Array.isArray(merged.variables) ? merged : DEFAULTS;
 }
 

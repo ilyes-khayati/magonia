@@ -18,7 +18,14 @@ import { InfoIcon } from "./Icons";
 
 export type Entry = { area: Area; colour: string; state: SeriesState | undefined };
 
-type Props = { variable: Variable; title: string; entries: Entry[]; mode: "series" | "seasonal" };
+type Props = {
+  variable: Variable;
+  title: string;
+  entries: Entry[];
+  mode: "series" | "seasonal";
+  shown?: string | null; // how the values were changed for display, said under the title
+  anomaly?: boolean; // values centred on zero, so the axis follows the data
+};
 
 type Row = Record<string, string | number | boolean | [number, number] | null>;
 
@@ -68,10 +75,10 @@ function download(title: string, entries: Entry[]) {
   URL.revokeObjectURL(link.href);
 }
 
-export default function ChartCard({ variable, title, entries, mode }: Props) {
+export default function ChartCard({ variable, title, entries, mode, shown: changed, anomaly }: Props) {
   const [provenance, setProvenance] = useState(false);
   const [off, setOff] = useState<Set<number>>(new Set());
-  const axis = AXES[variable.key];
+  const axis = anomaly ? { domain: ["auto", "auto"] as [string, string], digits: variable.key === "lst" ? 0 : 2 } : AXES[variable.key];
   const data = rows(entries, mode);
   const shown = entries.filter((e) => !off.has(e.area.id) && e.state?.status === "done");
   const warnings = [...new Set(entries.flatMap((e) => (e.state?.status === "done" ? e.state.data.warnings : [])))];
@@ -92,7 +99,10 @@ export default function ChartCard({ variable, title, entries, mode }: Props) {
       <div className="card-head">
         <div>
           <h3>{title}</h3>
-          <span className="meta">{subtitle}</span>
+          <span className="meta">
+            {subtitle}
+            {changed && ` · ${changed}`}
+          </span>
         </div>
         <div className="row" style={{ gap: 6 }}>
           <button className="text-button" onClick={() => download(title, entries)} disabled={!shown.length}>

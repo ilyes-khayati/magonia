@@ -8,6 +8,8 @@ type Props = {
   progress: { done: number; total: number; failed: number };
 };
 
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
 const RESOLUTIONS: [Resolution, string][] = [
   ["native", "Native"],
   ["monthly", "Monthly"],
@@ -159,6 +161,86 @@ export default function DataPanel({ catalogue, settings, onChange, progress }: P
         )}
         <span className="reason">{settings.fill ? REASONS.fill : "Gaps stay empty."}</span>
       </div>
+
+      <fieldset className="section display-options">
+        <legend className="label">Show on the charts</legend>
+        <label className="row" style={{ justifyContent: "space-between" }}>
+          <span>Smooth</span>
+          <input
+            type="checkbox"
+            checked={settings.display.smooth}
+            onChange={(e) => onChange({ display: { ...settings.display, smooth: e.target.checked } })}
+          />
+        </label>
+        <span className="reason">Savitzky–Golay over 5 steps: removes noise, keeps peaks in place.</span>
+        <label className="row" style={{ justifyContent: "space-between" }}>
+          <span>Anomalies</span>
+          <input
+            type="checkbox"
+            checked={settings.display.anomaly !== null}
+            onChange={(e) => {
+              const from = Number(settings.start.slice(0, 4));
+              const to = Math.min(from + 9, Number(settings.end.slice(0, 4)));
+              onChange({ display: { ...settings.display, anomaly: e.target.checked ? { from, to } : null } });
+            }}
+          />
+        </label>
+        {settings.display.anomaly && (
+          <div className="row" style={{ gap: 8 }}>
+            <label className="field" style={{ flex: 1 }}>
+              Reference from
+              <input
+                className="input"
+                type="number"
+                min={2000}
+                max={settings.display.anomaly.to}
+                value={settings.display.anomaly.from}
+                onChange={(e) => onChange({ display: { ...settings.display, anomaly: { ...settings.display.anomaly!, from: Number(e.target.value) } } })}
+              />
+            </label>
+            <label className="field" style={{ flex: 1 }}>
+              to
+              <input
+                className="input"
+                type="number"
+                min={settings.display.anomaly.from}
+                max={2100}
+                value={settings.display.anomaly.to}
+                onChange={(e) => onChange({ display: { ...settings.display, anomaly: { ...settings.display.anomaly!, to: Number(e.target.value) } } })}
+              />
+            </label>
+          </div>
+        )}
+        <span className="reason">Each value minus the mean of its month over the reference years.</span>
+        <span className="label" id="months-shown">
+          Months
+        </span>
+        <div className="months" role="group" aria-labelledby="months-shown">
+          {["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"].map((letter, i) => {
+            const m = i + 1;
+            const all = settings.display.months.length === 0;
+            const on = all || settings.display.months.includes(m);
+            return (
+              <button
+                key={m}
+                aria-pressed={on}
+                aria-label={MONTH_NAMES[i]}
+                title={MONTH_NAMES[i]}
+                onClick={() => {
+                  const current = all ? Array.from({ length: 12 }, (_, k) => k + 1) : settings.display.months;
+                  const next = on ? current.filter((x) => x !== m) : [...current, m].sort((a, b) => a - b);
+                  onChange({ display: { ...settings.display, months: next.length === 12 || next.length === 0 ? [] : next } });
+                }}
+              >
+                {letter}
+              </button>
+            );
+          })}
+        </div>
+        <span className="reason">
+          {settings.display.months.length ? "Only the months pressed are shown." : "All months are shown; press one to leave it out."}
+        </span>
+      </fieldset>
 
       <p className="status" role="status" aria-live="polite">
         <span className="dot" data-busy={progress.done + progress.failed < progress.total} />
