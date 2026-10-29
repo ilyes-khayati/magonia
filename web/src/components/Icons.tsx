@@ -179,3 +179,10 @@ export const ImageIcon = (p: IconProps) => (
     <path d="M21 16l-5-5-9 9" />
   </Svg>
 );
+
+export const NotebookIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M6 3h11a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6z" />
+    <path d="M6 3v18M9 8l-2 0M9 12l-2 0M9 16l-2 0M11 8l3 3-3 3" />
+  </Svg>
+);

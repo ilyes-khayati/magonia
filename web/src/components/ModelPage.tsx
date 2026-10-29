@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import type { Area, SeriesOptions, Variable, VariableKey } from "../api";
+import { downloadNotebook, type Area, type SeriesOptions, type Variable, type VariableKey } from "../api";
 import {
   bodyOf,
   newExperiment,
@@ -235,6 +235,23 @@ function ExperimentView(props: ViewProps) {
           <button className="button" onClick={onDuplicate} title="A copy to change one thing and compare">
             Duplicate
           </button>
+          {ran && ready && (
+            <button
+              className="button"
+              title="A Python notebook that reproduces this run from its data"
+              onClick={() => {
+                const body = bodyOf(ran, options);
+                downloadNotebook({
+                  title: e.name,
+                  kind: "experiment",
+                  options: { ...ran, area: undefined },
+                  series: [body.response, ...body.drivers],
+                }).catch(() => undefined);
+              }}
+            >
+              Notebook
+            </button>
+          )}
           <button className="icon-button" aria-label="Delete this experiment" title="Delete this experiment" onClick={onRemove}>
             <CloseIcon size={14} />
           </button>
