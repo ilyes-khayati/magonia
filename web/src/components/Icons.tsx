@@ -171,3 +171,11 @@ export const WidthIcon = (p: IconProps) => (
     <path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4" />
   </Svg>
 );
+
+export const ImageIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <circle cx="9" cy="10" r="1.6" />
+    <path d="M21 16l-5-5-9 9" />
+  </Svg>
+);
