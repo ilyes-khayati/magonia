@@ -22,7 +22,16 @@ export type Lags = {
   deseasonalise: boolean;
 };
 
-export type AnalysisBody = Correlation | Decomposition | Lags;
+export type Models = {
+  kind: "models";
+  response: VariableKey;
+  drivers: VariableKey[];
+  own_lags: number[] | null; // null: recommended by code
+  driver_lags: Partial<Record<VariableKey, number[]>> | null;
+  test_years: number;
+};
+
+export type AnalysisBody = Correlation | Decomposition | Lags | Models;
 
 export type Analysis = { id: number } & AnalysisBody;
 
@@ -68,6 +77,15 @@ export const KINDS: KindInfo[] = [
       return { kind: "lags", response, drivers: charted.length ? charted : others, deseasonalise: true };
     },
   },
+  {
+    kind: "models",
+    label: "Forecast models",
+    description: "Ridge, Random Forest and XGBoost forecast a variable a month ahead, tested against baselines, as in the paper.",
+    create: (chosen) => {
+      const response = chosen[0] ?? "ndvi";
+      return { kind: "models", response, drivers: ALL.filter((k) => k !== response), own_lags: null, driver_lags: null, test_years: 3 };
+    },
+  },
 ];
 
 // The series an analysis needs; a decomposition works at the product's own time step
@@ -80,6 +98,7 @@ export function needsOf(analysis: Analysis): Need[] {
     case "decomposition":
       return [{ variable: analysis.variable, native: true }];
     case "lags":
+    case "models":
       return [analysis.response, ...analysis.drivers].map((variable) => ({ variable, native: false }));
   }
 }

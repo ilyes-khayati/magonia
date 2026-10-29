@@ -207,6 +207,23 @@ button:disabled {
   align-items: start;
 }
 
+.table-scroll {
+  overflow-x: auto;
+}
+
+.stats.models {
+  width: 100%;
+}
+
+.stats.models th[scope="row"] {
+  white-space: nowrap;
+}
+
+.stats .baseline th,
+.stats .baseline td {
+  color: var(--muted);
+}
+
 .drivers {
   display: flex;
   flex-wrap: wrap;

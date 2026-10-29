@@ -1,6 +1,7 @@
 import math
 
 from conftest import SQUARE
+from engine.assistant import Scripted
 from engine.pipeline import Request
 
 from api.jobs import cache_key
@@ -140,3 +141,91 @@ def test_lags_wait_for_their_series(client):
     }
     reply = client.post("/lags", json={"response": {**common, "variable": "ndvi"}})
     assert reply.status_code == 409
+
+
+def cache_years(store, variable, scale, values, start_year=2005):
+    """A cached monthly series of len(values) months from January of start_year."""
+    points = [
+        {"date": f"{start_year + i // 12}-{i % 12 + 1:02d}-01", "value": v}
+        | {"sd": None, "n_pixels": 1, "masked": False, "filled": False, "n_obs": 1, "n_valid": 1}
+        for i, v in enumerate(values)
+    ]
+    end = f"{start_year + len(values) // 12}-01-01"
+    masking = "none" if variable == "spei" else "pixel"
+    request = Request(variable, SQUARE, f"{start_year}-01-01", end, masking, scale, "monthly", 2)
+    name = {"ndvi": "NDVI", "spei": f"SPEI-{scale}"}[variable]
+    response = {"variable": variable, "name": name, "units": "", "points": points}
+    store.save_result(cache_key(request), response | {"warnings": [], "provenance": {}})
+    return {
+        "start": f"{start_year}-01-01",
+        "end": end,
+        "resolution": "monthly",
+        "variable": variable,
+    }
+
+
+def test_models_fit_in_the_background_then_answer_from_the_cache(client, store, monkeypatch):
+    from api import main
+
+    monkeypatch.setattr(main, "forecast", fake_forecast := FakeForecast())
+    area_id = area(client)
+    ndvi = cache_years(store, "ndvi", None, [0.5 + 0.2 * math.sin(i / 1.9) for i in range(180)])
+    body = {"response": {**ndvi, "area_id": area_id, "masking": "pixel"}, "own_lags": [1, 12]}
+
+    first = client.post("/models", json=body)  # the test runner fits at once
+    assert first.status_code == 202 and first.json() == {"status": "running"}
+    second = client.post("/models", json=body)
+    assert second.status_code == 200
+    assert second.json()["status"] == "done" and second.json()["summary"] == ["Orchard: fitted."]
+    assert fake_forecast.calls == 1  # the second answer came from the cache
+
+
+def test_a_forecast_that_cannot_be_made_says_why(client, store, monkeypatch):
+    from engine.models import ForecastError
+
+    from api import main
+
+    def refuse(*args, **kwargs):
+        raise ForecastError("A forecast needs 8 years to train")
+
+    monkeypatch.setattr(main, "forecast", refuse)
+    ndvi = cache_years(store, "ndvi", None, [0.5] * 24)
+    body = {"response": {**ndvi, "area_id": area(client), "masking": "pixel"}}
+    client.post("/models", json=body)
+    assert client.post("/models", json=body).json() == {
+        "status": "failed",
+        "error": "A forecast needs 8 years to train",
+    }
+
+
+class FakeForecast:
+    """Stands in for the engine's forecast, which is tested there, and counts its calls."""
+
+    def __init__(self):
+        self.calls = 0
+
+    def __call__(self, area, *args, **kwargs):
+        self.calls += 1
+
+        class Found:
+            def to_dict(self):
+                return {"summary": [f"{area}: fitted."], "models": []}
+
+        return Found()
+
+
+def test_magonia_reads_a_finished_forecast(client, store, monkeypatch):
+    from api import main
+
+    monkeypatch.setattr(main, "forecast", FakeForecast())
+    model = Scripted("Fine.")
+    main.app.dependency_overrides[main.get_provider] = lambda: model
+    area_id = area(client)
+    ndvi = cache_years(store, "ndvi", None, [0.5] * 180)
+    series = {**ndvi, "area_id": area_id, "masking": "pixel"}
+    client.post("/models", json={"response": series})
+    analysis = {"id": 1, "kind": "models", "response": "ndvi", "drivers": []}
+    view = {"charts": [], "analyses": [analysis], "series": [series]}
+    ws = client.get("/workspaces").json()[0]["id"]
+    client.post(f"/workspaces/{ws}/chat", json={"content": "Which model won?", "view": view})
+    assert "[Models 1: NDVI forecast]\n- Orchard: fitted." in model.seen[-1]["content"]

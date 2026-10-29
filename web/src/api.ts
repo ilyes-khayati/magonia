@@ -143,6 +143,47 @@ export type LagsBody = { response: SeriesOptions; drivers: SeriesOptions[]; dese
 
 export const exploreLags = (body: LagsBody) => call<LagsResponse>("/lags", send("POST", body));
 
+// Models forecasting a series one month ahead, as notebook 04 of the paper fits them
+export type FittedModel = {
+  name: "Ridge" | "RandomForest" | "XGBoost";
+  params: Record<string, unknown>;
+  test: { RMSE: number; R2: number; MAE: number };
+  seeds: { runs: number; RMSE_mean: number; RMSE_sd: number; R2_mean: number; R2_sd: number };
+  rolling: { window: string; RMSE: number; R2: number; MAE: number }[];
+  predictions: number[];
+};
+
+export type ModelsResponse = {
+  features: { name: string; reason: string }[];
+  train: [string, string];
+  test: [string, string];
+  dates: string[];
+  observed: number[];
+  models: FittedModel[];
+  baselines: Record<"persistence" | "climatology", { RMSE: number; R2: number; MAE: number }>;
+  summary: string[];
+};
+
+export type ModelsBody = {
+  response: SeriesOptions;
+  drivers: SeriesOptions[];
+  own_lags: number[] | null;
+  driver_lags: Partial<Record<VariableKey, number[]>> | null;
+  test_years: number;
+};
+
+type Fitting = { status: "running" } | { status: "failed"; error: string } | ({ status: "done" } & ModelsResponse);
+
+// Fitting runs in the background on the API; the same request is repeated until it is done
+export async function fitModels(body: ModelsBody, every = 3000): Promise<ModelsResponse> {
+  for (;;) {
+    const reply = await call<Fitting>("/models", send("POST", body));
+    if (reply.status === "done") return reply;
+    if (reply.status === "failed") throw new Error(reply.error);
+    await new Promise((resolve) => setTimeout(resolve, every));
+  }
+}
+
 export async function fetchSeries(options: SeriesOptions): Promise<SeriesResponse> {
   let job = await call<Job>("/jobs", send("POST", options));
   while (job.status === "queued" || job.status === "running") {

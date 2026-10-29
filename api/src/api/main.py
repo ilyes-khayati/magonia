@@ -14,7 +14,8 @@ from engine.catalogue import CATALOGUE, get_variable
 from engine.decompose import DecompositionError, decompose
 from engine.earth_engine import EarthEngineError, check
 from engine.lags import explore
-from engine.pipeline import Request
+from engine.models import ForecastError, forecast
+from engine.pipeline import Request, fingerprint
 from engine.prepare import Resolution
 from engine.series import Masking, band_name
 from fastapi import Depends, FastAPI, HTTPException, Response
@@ -454,6 +455,66 @@ def lags(body: LagsRequest, store: StoreDep) -> dict:
     return {"area_id": body.response.area_id, **found.to_dict()}
 
 
+class ModelsRequest(BaseModel):
+    response: SeriesRequest
+    drivers: list[SeriesRequest] = []
+    own_lags: list[int] | None = Field(None, max_length=12)  # None: recommended by code
+    driver_lags: dict[str, list[int]] | None = None  # by variable; a driver left out: recommended
+    test_years: int = Field(3, ge=1, le=10)
+
+
+# forecasts being fitted, and the last error of each, by key; results go to the store
+FITTING: set[str] = set()
+FAILED: dict[str, str] = {}
+
+
+def models_key(body: ModelsRequest, store: Store) -> str:
+    """Identical choices on identical series share one forecast."""
+    series = [cache_key(series_request(s, store)[1]) for s in [body.response, *body.drivers]]
+    choices = body.model_dump(include={"own_lags", "driver_lags", "test_years"})
+    return fingerprint({"forecast": series, **choices, "engine": engine.__version__})
+
+
+def fit_forecast(store: Store, key: str, response: facts.Series, drivers: list[facts.Series], body):
+    try:
+        found = forecast(
+            response.area,
+            (response.title, response.key, facts.monthly_series(response)),
+            [(d.title, d.key, facts.monthly_series(d)) for d in drivers],
+            body.own_lags,
+            body.driver_lags,
+            body.test_years,
+        )
+        store.save_result(key, found.to_dict())
+    except ForecastError as exc:
+        FAILED[key] = str(exc)
+    except Exception as exc:  # noqa: BLE001 - any failure must reach the user, not vanish
+        FAILED[key] = f"The models could not be fitted: {exc}"
+    finally:
+        FITTING.discard(key)
+
+
+@app.post("/models")
+def models(body: ModelsRequest, store: StoreDep, runner: RunnerDep, reply: Response) -> dict:
+    """Ridge, Random Forest and XGBoost forecasting a series one month ahead, tested on its
+    last years against two baselines. Fitting runs in the background: ask again with the same
+    body until the status is done."""
+    if body.response.resolution == "seasonal":
+        raise HTTPException(422, "forecasts are monthly; use native or monthly values")
+    response = cached_series(body.response, store)
+    drivers = [cached_series(d, store) for d in body.drivers]
+    key = models_key(body, store)
+    if (result := store.result(key)) is not None:
+        return {"status": "done", **result}
+    if key in FAILED:
+        return {"status": "failed", "error": FAILED.pop(key)}
+    if key not in FITTING:
+        FITTING.add(key)
+        runner.submit(fit_forecast, store, key, response, drivers, body)
+    reply.status_code = 202
+    return {"status": "running"}
+
+
 # The assistant
 
 
@@ -530,7 +591,40 @@ def workspace_view(store: Store, workspace_id: int, view: View) -> facts.View:
         )
     if loading:
         context.append("Still loading, so not described: " + ", ".join(loading) + ".")
-    return facts.View(context, series, view.charts, view.analyses, view.resolution)
+    extra = forecast_facts(store, view, areas)
+    return facts.View(context, series, view.charts, view.analyses, view.resolution, extra)
+
+
+def forecast_facts(store: Store, view: View, areas: dict[int, dict]) -> list[facts.Fact]:
+    """What finished forecasts found, read from the cache; fitting is not started here."""
+    found = []
+    for n, analysis in enumerate(view.analyses, start=1):
+        if analysis.get("kind") != "models":
+            continue
+        for area_id, area in areas.items():
+            mine = {
+                s.variable: s
+                for s in view.series
+                if s.area_id == area_id and s.resolution == view.resolution
+            }
+            if analysis.get("response") not in mine:
+                continue
+            body = ModelsRequest(
+                response=mine[analysis["response"]],
+                drivers=[mine[k] for k in analysis.get("drivers", []) if k in mine],
+                own_lags=analysis.get("own_lags"),
+                driver_lags=analysis.get("driver_lags"),
+                test_years=analysis.get("test_years", 3),
+            )
+            card = f"Models {n}: {analysis['response'].upper()} forecast"
+            key = models_key(body, store)
+            if (result := store.result(key)) is not None:
+                found += [facts.Fact(card, line) for line in result["summary"]]
+            elif key in FITTING:
+                found.append(
+                    facts.Fact(card, f"{area['name']}: the models are still being fitted.")
+                )
+    return found
 
 
 @app.post("/workspaces/{workspace_id}/chat")

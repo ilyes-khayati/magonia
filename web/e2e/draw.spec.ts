@@ -8,10 +8,12 @@ let asked: { content: string; view?: { page: string; charts: string[]; series: {
 
 // The series the interface asked to extract
 let jobs: { variable: string; resolution: string }[] = [];
+let modelled: { response: { variable: string }; own_lags: number[] | null }[] = [];
 let lagged: { response: { variable: string }; drivers: { variable: string }[]; deseasonalise: boolean }[] = [];
 
 async function fakeApi(page: Page, connected = true) {
   asked = [];
+  modelled = [];
   jobs = [];
   lagged = [];
   const areas: { id: number; workspace_id: number; name: string; geometry: unknown; area_km2: number }[] = [];
@@ -31,6 +33,15 @@ async function fakeApi(page: Page, connected = true) {
     return route.fulfill({ status: 202, json: { id: 1, status: "done", error: null, result: RESULT } });
   });
   await page.route("**/api/decomposition", (route) => route.fulfill({ json: DECOMPOSITION }));
+  let fitted = false; // the first request starts fitting, the next one finds the result
+  await page.route("**/api/models", (route) => {
+    modelled.push(route.request().postDataJSON());
+    if (!fitted) {
+      fitted = true;
+      return route.fulfill({ status: 202, json: { status: "running" } });
+    }
+    return route.fulfill({ json: { status: "done", ...MODELS } });
+  });
   await page.route("**/api/lags", (route) => {
     lagged.push(route.request().postDataJSON());
     return route.fulfill({ json: LAGS });
@@ -130,6 +141,29 @@ const LAGS = {
     "Orchard: NDVI anomalies remember themselves at 12 of 24 lags beyond chance (±0.11); at 1 month r = 0.70.",
     "Orchard: LST 1 month earlier is the strongest of lags 1 to 12 (r = -0.42, bound ±0.22); it stands out with the expected sign.",
   ],
+};
+
+const fitted = (name: string, rmse: number, sd: number) => ({
+  name,
+  params: {},
+  test: { RMSE: rmse, R2: 0.86, MAE: rmse * 0.7 },
+  seeds: { runs: name === "Ridge" ? 1 : 20, RMSE_mean: rmse, RMSE_sd: sd, R2_mean: 0.86, R2_sd: 0.002 },
+  rolling: [{ window: "2019-2021", RMSE: rmse - 0.005, R2: 0.9, MAE: 0.03 }, { window: "2022-2024", RMSE: rmse, R2: 0.86, MAE: 0.04 }],
+  predictions: POINTS.slice(12).map((p) => p.value + 0.01),
+});
+
+const MODELS = {
+  features: [
+    { name: "NDVI lag 1", reason: "autocorrelation beyond chance (±0.11), strongest first" },
+    { name: "calendar month", reason: "the seasonal cycle, as sine and cosine" },
+  ],
+  train: ["2002-03", "2023-12"],
+  test: ["2024-01", "2024-12"],
+  dates: POINTS.slice(12).map((p) => p.date),
+  observed: POINTS.slice(12).map((p) => p.value),
+  models: [fitted("Ridge", 0.0584, 0), fitted("RandomForest", 0.0558, 0.0004), fitted("XGBoost", 0.0563, 0.0006)],
+  baselines: { persistence: { RMSE: 0.0972, R2: 0.62, MAE: 0.07 }, climatology: { RMSE: 0.0753, R2: 0.77, MAE: 0.05 } },
+  summary: ["Orchard: lowest test error Random Forest (RMSE 0.0558, R² 0.87), then XGBoost 0.0563, Ridge 0.0584."],
 };
 
 const paper = (n: number, short: string, title: string) => ({
@@ -324,6 +358,41 @@ test("the lag explorer tests drivers and says which stand out", async ({ page })
   await expect.poll(() => lagged.at(-1)?.deseasonalise).toBe(false);
 
   const results = await new AxeBuilder({ page }).include("[aria-label='Lags chart']").analyze();
+  const serious = results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? ""));
+  expect(serious.map((v) => v.id)).toEqual([]);
+});
+
+test("forecast models fit in the background, then show scores against the baselines", async ({ page }) => {
+  await page.getByTestId("upload").setInputFiles({
+    name: "fields.geojson",
+    mimeType: "application/geo+json",
+    buffer: Buffer.from(JSON.stringify(SQUARE)),
+  });
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Analyses" }).click();
+  await page.getByRole("button", { name: "Add analysis" }).click();
+  await page.getByRole("button", { name: /Forecast models/ }).click();
+
+  const card = page.getByRole("region", { name: "Forecast models" });
+  await expect(card.getByRole("status")).toContainText("Tuning three models");
+  const table = card.getByRole("table", { name: "Test scores of each model and baseline" });
+  await expect(table).toBeVisible({ timeout: 10_000 });
+  await expect(table.getByRole("rowheader")).toHaveText([
+    "Random Forest",
+    "XGBoost",
+    "Ridge",
+    "Persistence (last month)",
+    "Climatology (usual month)",
+  ]);
+  await expect(table.getByRole("row", { name: /Random Forest/ })).toContainText("±0.0004");
+  await expect(card.getByText(/lowest test error Random Forest/)).toBeVisible();
+  expect(modelled.at(-1)?.own_lags).toBeNull();
+
+  await card.getByRole("textbox", { name: "Its own lags (months)" }).fill("12, 1, x");
+  await card.getByRole("textbox", { name: "Its own lags (months)" }).press("Enter");
+  await expect(card.getByRole("textbox", { name: "Its own lags (months)" })).toHaveValue("1, 12");
+  await expect.poll(() => modelled.at(-1)?.own_lags).toEqual([1, 12]);
+
+  const results = await new AxeBuilder({ page }).include("[aria-label='Forecast models']").analyze();
   const serious = results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? ""));
   expect(serious.map((v) => v.id)).toEqual([]);
 });
