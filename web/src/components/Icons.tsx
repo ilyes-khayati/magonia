@@ -133,3 +133,15 @@ export const PanelIcon = (p: IconProps) => (
     <path d="M14 4v16" />
   </Svg>
 );
+
+export const ChevronIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M6 9l6 6 6-6" />
+  </Svg>
+);
+
+export const ShrinkIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" />
+  </Svg>
+);

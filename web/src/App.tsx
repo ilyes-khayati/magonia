@@ -21,15 +21,16 @@ import { addAnalysis, needsOf, readAnalyses, type Analysis, type Kind, type Need
 import { readAreaFile } from "./areaFiles";
 import AnalysesPage from "./components/AnalysesPage";
 import AssistantCard from "./components/AssistantCard";
-import ChartsPage from "./components/ChartsPage";
+import DataPage from "./components/DataPage";
 import DataPanel from "./components/DataPanel";
 import EarthEngineSetup from "./components/EarthEngineSetup";
-import { CloseIcon, ExpandIcon } from "./components/Icons";
+import { CloseIcon, ExpandIcon, ShrinkIcon } from "./components/Icons";
 import MapView, { type Target, type Tool } from "./components/MapView";
 import Rail from "./components/Rail";
 import Sidebar from "./components/Sidebar";
 import Toolbar from "./components/Toolbar";
-import { PAGES, isPage, pagePath } from "./pages";
+import TopBar from "./components/TopBar";
+import { PAGES, isPage, pagePath, type Page } from "./pages";
 import { DEFAULTS, readSettings, seriesKey, seriesOptions, type Settings } from "./settings";
 import { applyTheme, areaColour, initialTheme, type Theme } from "./theme";
 import { useSeries } from "./useSeries";
@@ -53,6 +54,30 @@ function remembered(): number | null {
     return null;
   }
 }
+
+// Whether Magonia's panel is open, and how wide, are this browser's own conveniences
+const PANEL = "magonia-panel";
+const PANEL_WIDTH = { min: 320, initial: 420 };
+
+function panelSaved(): { open: boolean; width: number } {
+  try {
+    const saved = JSON.parse(localStorage.getItem(PANEL) ?? "{}");
+    return { open: saved.open === true, width: Number(saved.width) || PANEL_WIDTH.initial };
+  } catch {
+    return { open: false, width: PANEL_WIDTH.initial };
+  }
+}
+
+function panelRemember(panel: { open: boolean; width: number }) {
+  try {
+    localStorage.setItem(PANEL, JSON.stringify(panel));
+  } catch {
+    // not remembered; the panel starts closed next time
+  }
+}
+
+const panelClamp = (width: number) =>
+  Math.round(Math.min(Math.max(width, PANEL_WIDTH.min), window.innerWidth * 0.7));
 
 // The box around some geometries, for fitting the map to them
 function bounds(geometries: GeoJSON.Geometry[]): [[number, number], [number, number]] | null {
@@ -80,7 +105,7 @@ export default function App() {
   const [message, setMessage] = useState<Message>(null);
   const [catalogue, setCatalogue] = useState<Variable[]>([]);
   const [settings, setSettings] = useState<Settings>(DEFAULTS);
-  const [docked, setDocked] = useState(false);
+  const [panel, setPanel] = useState(panelSaved);
   const [earthEngine, setEarthEngine] = useState<EarthEngineStatus | null>(null);
   const [setupOpen, setSetupOpen] = useState(false);
   const [focus, setFocus] = useState(false);
@@ -93,6 +118,35 @@ export default function App() {
   const routed = Number(match?.params.workspace) || null;
 
   useEffect(() => applyTheme(theme), [theme]);
+  useEffect(() => panelRemember(panel), [panel]);
+
+  const docked = panel.open && page !== "assistant";
+  const setDocked = (open: boolean) => setPanel((p) => ({ ...p, open }));
+
+  // Magonia opens full size from its panel, and goes back to the page it came from
+  const lastPage = useRef<Page>("map");
+  useEffect(() => {
+    if (page !== "assistant") lastPage.current = page;
+  }, [page]);
+  function magoniaSmaller() {
+    setDocked(true);
+    if (workspaceId !== null) navigate(pagePath(workspaceId, lastPage.current));
+  }
+
+  // Magonia's panel is widened by dragging its edge, or with the arrow keys on it
+  function resize(e: React.PointerEvent<HTMLDivElement>) {
+    e.preventDefault();
+    const handle = e.currentTarget;
+    handle.setPointerCapture(e.pointerId);
+    const move = (m: PointerEvent) =>
+      setPanel((p) => ({ ...p, width: panelClamp(window.innerWidth - m.clientX) }));
+    const stop = () => {
+      handle.removeEventListener("pointermove", move);
+      handle.removeEventListener("pointerup", stop);
+    };
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", stop);
+  }
 
   // Notices fade after a few seconds; errors stay until the next action
   useEffect(() => {
@@ -176,6 +230,16 @@ export default function App() {
     const name = freeName(wanted ?? `Area ${existing.length + 1}`, existing.map((a) => a.name));
     const area = await createArea(workspaceId!, name, geometry);
     return [...existing, area];
+  }
+
+  async function renameWorkspace(name: string) {
+    if (workspaceId === null) return;
+    try {
+      await updateWorkspace(workspaceId, { name });
+      setWorkspaces(workspaces.map((w) => (w.id === workspaceId ? { ...w, name } : w)));
+    } catch (error) {
+      fail(error);
+    }
   }
 
   async function drawn(geometry: GeoJSON.Polygon) {
@@ -323,21 +387,32 @@ export default function App() {
   const label = PAGES.find((p) => p.key === page)!.label;
 
   return (
-    <div className={`workbench page-${page}${focus && page === "map" ? " focus" : ""}${docked ? " docked" : ""}`}>
-      <Rail page={page} workspaceId={workspaceId} docked={docked} onDock={() => setDocked(!docked)} />
-
-      <Sidebar
+    <div
+      className={`workbench page-${page}${focus && page === "map" ? " focus" : ""}${docked ? " docked" : ""}`}
+      style={{ "--panel-width": `${panel.width}px` } as React.CSSProperties}
+    >
+      <TopBar
         theme={theme}
         onTheme={() => setTheme(theme === "light" ? "dark" : "light")}
         workspaces={workspaces}
         workspaceId={workspaceId}
         onOpen={(id) => navigate(pagePath(id, page))}
         onNew={newWorkspace}
+        onRename={renameWorkspace}
         earthEngine={earthEngine}
         onEarthEngine={() => setSetupOpen(true)}
-      >
-        <DataPanel catalogue={catalogue} settings={settings} onChange={change} progress={progress} />
-      </Sidebar>
+        magonia={{
+          open: docked || page === "assistant",
+          onToggle: () => (page === "assistant" ? magoniaSmaller() : setDocked(!docked)),
+        }}
+      />
+      <Rail workspaceId={workspaceId} />
+
+      {page === "data" && (
+        <Sidebar>
+          <DataPanel catalogue={catalogue} settings={settings} onChange={change} progress={progress} />
+        </Sidebar>
+      )}
 
       <main className="content" aria-label={label}>
         <div className="map-area" hidden={page !== "map"}>
@@ -364,8 +439,15 @@ export default function App() {
           />
         </div>
 
-        {page === "charts" && (
-          <ChartsPage catalogue={catalogue} settings={settings} onChange={change} areas={shown} entries={entries} />
+        {page === "data" && (
+          <DataPage
+            catalogue={catalogue}
+            settings={settings}
+            onChange={change}
+            areas={shown}
+            entries={entries}
+            mapPath={workspaceId === null ? null : pagePath(workspaceId, "map")}
+          />
         )}
         {page === "analyses" && (
           <AnalysesPage
@@ -374,6 +456,8 @@ export default function App() {
             areas={shown}
             entries={entries}
             options={optionsFor}
+            dataPath={workspaceId === null ? null : pagePath(workspaceId, "data")}
+            mapPath={workspaceId === null ? null : pagePath(workspaceId, "map")}
             analyses={analyses}
             onAdd={(kind: Kind) => changeAnalyses(addAnalysis(analyses, kind, settings.variables))}
             onChange={(id, update) =>
@@ -396,17 +480,43 @@ export default function App() {
       {/* One assistant for every page, so a conversation carries on when the page changes:
           a full page of its own, or a panel beside the others */}
       <aside className="dock" aria-label="Magonia">
+        {page !== "assistant" && (
+          <div
+            className="dock-handle"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize Magonia"
+            aria-valuenow={panel.width}
+            aria-valuemin={PANEL_WIDTH.min}
+            tabIndex={0}
+            title="Drag to resize"
+            onPointerDown={resize}
+            onKeyDown={(e) => {
+              const step = e.key === "ArrowLeft" ? 40 : e.key === "ArrowRight" ? -40 : 0;
+              if (step) setPanel((p) => ({ ...p, width: panelClamp(p.width + step) }));
+            }}
+          />
+        )}
         <AssistantCard
           key={workspaceId}
           workspaceId={workspaceId}
           view={view}
           actions={
-            page !== "assistant" && (
+            page === "assistant" ? (
+              <button
+                className="icon-button"
+                aria-label="Make Magonia smaller"
+                title="Back to the side panel"
+                onClick={magoniaSmaller}
+              >
+                <ShrinkIcon size={14} />
+              </button>
+            ) : (
               <>
                 <button
                   className="icon-button"
-                  aria-label="Open Magonia on its own page"
-                  title="Open Magonia on its own page"
+                  aria-label="Make Magonia bigger"
+                  title="Open Magonia full size"
                   onClick={() => workspaceId !== null && navigate(pagePath(workspaceId, "assistant"))}
                 >
                   <ExpandIcon size={14} />
