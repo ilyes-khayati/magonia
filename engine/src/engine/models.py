@@ -232,18 +232,15 @@ class ForecastError(ValueError):
     """The series is too short or too gappy to train and test a model."""
 
 
-def forecast(
-    area: str,
+def design(
     target: tuple[str, str, pd.Series],
     drivers: list[tuple[str, str, pd.Series]],
     own_lags: list[int] | None = None,
     driver_lags: dict[str, list[int]] | None = None,
     test_years: int = 3,
-    seeds: int = 20,
-    draws: int = 12,
-) -> Forecast:
-    """Forecast a monthly target one month ahead; lags not given are recommended by code."""
-    title, key, y = target
+) -> tuple[pd.DataFrame, pd.Series, list[dict], str]:
+    """The predictors, the target, why each predictor is there, and the first test month."""
+    title, _, y = target
     y = y.rename(title)
     chosen = []
     if own_lags is None:
@@ -267,11 +264,28 @@ def forecast(
 
     X = features(y, own_lags, lagged)
     table = pd.concat([X, y.rename("target")], axis=1).dropna()
-    X, y_ = table.drop(columns="target"), table["target"]
-    end = y_.index.max()
+    X, y = table.drop(columns="target"), table["target"]
+    end = y.index.max()
     test_start = (end - pd.DateOffset(years=test_years) + pd.DateOffset(months=1)).strftime(
         "%Y-%m-01"
     )
+    return X, y, chosen, test_start
+
+
+def forecast(
+    area: str,
+    target: tuple[str, str, pd.Series],
+    drivers: list[tuple[str, str, pd.Series]],
+    own_lags: list[int] | None = None,
+    driver_lags: dict[str, list[int]] | None = None,
+    test_years: int = 3,
+    seeds: int = 20,
+    draws: int = 12,
+) -> Forecast:
+    """Forecast a monthly target one month ahead; lags not given are recommended by code."""
+    title, key, _ = target
+    X, y_, chosen, test_start = design(target, drivers, own_lags, driver_lags, test_years)
+    end = y_.index.max()
     train = X.index < test_start
     if train.sum() < 12 * MIN_TRAIN_YEARS or (~train).sum() < 12:
         raise ForecastError(

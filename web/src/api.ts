@@ -172,17 +172,40 @@ export type ModelsBody = {
   test_years: number;
 };
 
-type Fitting = { status: "running" } | { status: "failed"; error: string } | ({ status: "done" } & ModelsResponse);
+// How fitted models explain their inputs, and whether they agree (notebook 05 of the paper)
+export type AgreementPair = {
+  pair: string;
+  tau: number;
+  tau_lo: number;
+  tau_hi: number;
+  dist: number;
+  dist_lo: number;
+  dist_hi: number;
+  separable: boolean | null;
+};
 
-// Fitting runs in the background on the API; the same request is repeated until it is done
-export async function fitModels(body: ModelsBody, every = 3000): Promise<ModelsResponse> {
+export type ExplanationResponse = {
+  importance: Record<string, Record<string, number>>;
+  families: Record<string, Record<string, number>>;
+  agreement: AgreementPair[];
+  seeds: number;
+  summary: string[];
+};
+
+type Running<T> = { status: "running" } | { status: "failed"; error: string } | ({ status: "done" } & T);
+
+// Work that runs in the background on the API: the same request is repeated until it is done
+async function poll<T>(path: string, body: unknown, every = 3000): Promise<T> {
   for (;;) {
-    const reply = await call<Fitting>("/models", send("POST", body));
+    const reply = await call<Running<T>>(path, send("POST", body));
     if (reply.status === "done") return reply;
     if (reply.status === "failed") throw new Error(reply.error);
     await new Promise((resolve) => setTimeout(resolve, every));
   }
 }
+
+export const fitModels = (body: ModelsBody) => poll<ModelsResponse>("/models", body);
+export const explainModels = (body: ModelsBody) => poll<ExplanationResponse>("/explanations", body);
 
 export async function fetchSeries(options: SeriesOptions): Promise<SeriesResponse> {
   let job = await call<Job>("/jobs", send("POST", options));

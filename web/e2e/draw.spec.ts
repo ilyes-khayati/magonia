@@ -42,6 +42,14 @@ async function fakeApi(page: Page, connected = true) {
     }
     return route.fulfill({ json: { status: "done", ...MODELS } });
   });
+  let explained = false;
+  await page.route("**/api/explanations", (route) => {
+    if (!explained) {
+      explained = true;
+      return route.fulfill({ status: 202, json: { status: "running" } });
+    }
+    return route.fulfill({ json: { status: "done", ...EXPLANATION } });
+  });
   await page.route("**/api/lags", (route) => {
     lagged.push(route.request().postDataJSON());
     return route.fulfill({ json: LAGS });
@@ -164,6 +172,20 @@ const MODELS = {
   models: [fitted("Ridge", 0.0584, 0), fitted("RandomForest", 0.0558, 0.0004), fitted("XGBoost", 0.0563, 0.0006)],
   baselines: { persistence: { RMSE: 0.0972, R2: 0.62, MAE: 0.07 }, climatology: { RMSE: 0.0753, R2: 0.77, MAE: 0.05 } },
   summary: ["Orchard: lowest test error Random Forest (RMSE 0.0558, R² 0.87), then XGBoost 0.0563, Ridge 0.0584."],
+};
+
+const EXPLANATION = {
+  importance: {},
+  families: {
+    XGBoost: { "own history": 0.38, LST: 0.61, calendar: 0.01 },
+    RandomForest: { "own history": 0.55, LST: 0.44, calendar: 0.01 },
+    Ridge: { "own history": 0.94, LST: 0.05, calendar: 0.01 },
+  },
+  agreement: [],
+  seeds: 5,
+  summary: [
+    "Orchard: XGBoost and Ridge explain the data differently, beyond what refitting with another seed changes (weighted τ 0.46, against at least 0.89 for a model with itself; 67% of the importance would have to move).",
+  ],
 };
 
 const paper = (n: number, short: string, title: string) => ({
@@ -391,6 +413,14 @@ test("forecast models fit in the background, then show scores against the baseli
   await card.getByRole("textbox", { name: "Its own lags (months)" }).press("Enter");
   await expect(card.getByRole("textbox", { name: "Its own lags (months)" })).toHaveValue("1, 12");
   await expect.poll(() => modelled.at(-1)?.own_lags).toEqual([1, 12]);
+  await expect(table).toBeVisible({ timeout: 10_000 });
+
+  await card.getByRole("button", { name: /Explain the models/ }).click();
+  await expect(card.getByRole("status")).toContainText("Shuffling each input");
+  const families = card.getByRole("table", { name: "Share of each model's importance by family of inputs" });
+  await expect(families).toBeVisible({ timeout: 10_000 });
+  await expect(families.getByRole("row", { name: /LST/ })).toContainText("61%");
+  await expect(card.getByText(/XGBoost and Ridge explain the data differently/)).toBeVisible();
 
   const results = await new AxeBuilder({ page }).include("[aria-label='Forecast models']").analyze();
   const serious = results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? ""));

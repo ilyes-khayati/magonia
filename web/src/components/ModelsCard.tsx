@@ -1,7 +1,15 @@
 import { useMemo, useState } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { Models } from "../analyses";
-import { fitModels, type ModelsBody, type SeriesOptions, type Variable, type VariableKey } from "../api";
+import {
+  explainModels,
+  fitModels,
+  type ExplanationResponse,
+  type ModelsBody,
+  type SeriesOptions,
+  type Variable,
+  type VariableKey,
+} from "../api";
 import { areaColour, type Theme } from "../theme";
 import { useAnalysis } from "../useAnalysis";
 import type { Entry } from "./ChartCard";
@@ -57,6 +65,14 @@ export default function ModelsCard(props: Props) {
   );
   const result = useAnalysis(requests, fitModels).get(signature);
   const found = result?.status === "done" ? result.data : null;
+
+  // explaining is asked for, since it takes about a minute more
+  const [explaining, setExplaining] = useState(false);
+  const explainRequests = useMemo(
+    () => (explaining && found ? [{ key: signature, body: JSON.parse(signature) as ModelsBody }] : []),
+    [explaining, found, signature],
+  );
+  const why = useAnalysis(explainRequests, explainModels).get(signature);
 
   const ranked = found ? [...found.models].sort((a, b) => a.test.RMSE - b.test.RMSE) : [];
   const chart = found
@@ -264,6 +280,20 @@ export default function ModelsCard(props: Props) {
               <li key={line}>{line}</li>
             ))}
           </ul>
+          {why?.status === "done" ? (
+            <Explanations data={why.data} />
+          ) : why?.status === "failed" ? (
+            <p className="placeholder">{why.error}</p>
+          ) : explaining ? (
+            <p className="placeholder" role="status">
+              Shuffling each input on held-out years, over five seeds, to see what each model leans on. This takes about
+              a minute.
+            </p>
+          ) : (
+            <button className="button" onClick={() => setExplaining(true)}>
+              Explain the models: what does each one lean on?
+            </button>
+          )}
           <details>
             <summary className="meta">Predictors and why each was chosen ({found.features.length})</summary>
             <ul className="summary">
@@ -277,5 +307,50 @@ export default function ModelsCard(props: Props) {
         </>
       )}
     </section>
+  );
+}
+
+const FAMILIES = ["own history", "LST", "drought", "calendar"];
+
+// Share of each model's importance by family of inputs, and how far the models agree
+function Explanations({ data }: { data: ExplanationResponse }) {
+  const models = ["XGBoost", "RandomForest", "Ridge"] as const;
+  return (
+    <>
+      <div className="table-scroll">
+        <table className="stats models">
+          <caption className="visually-hidden">Share of each model&apos;s importance by family of inputs</caption>
+          <thead>
+            <tr>
+              <th scope="col">Leans on</th>
+              {models.map((m) => (
+                <th key={m} scope="col">
+                  {LABEL[m]}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {FAMILIES.filter((f) => models.some((m) => data.families[m]?.[f] !== undefined)).map((f) => (
+              <tr key={f}>
+                <th scope="row">{f}</th>
+                {models.map((m) => (
+                  <td key={m}>{`${Math.round(100 * (data.families[m]?.[f] ?? 0))}%`}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <ul className="summary">
+        {data.summary.map((line) => (
+          <li key={line}>{line}</li>
+        ))}
+      </ul>
+      <span className="meta">
+        Permutation importance on held-out training years, {data.seeds} seeds. Two models disagree beyond noise when their
+        whole range lies outside how much each one varies with itself.
+      </span>
+    </>
   );
 }
