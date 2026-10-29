@@ -27,7 +27,7 @@ def test_a_season_that_crosses_the_new_year_is_found_around_its_peak():
         )
         assert 100 < season.length < 200
         assert season.amplitude == pytest.approx(0.4, abs=0.05)
-    assert "the season starts around" in found.summary[0]
+    assert "the growing season starts around" in found.summary[0]
     assert found.cautions == []
 
 
