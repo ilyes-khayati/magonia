@@ -646,6 +646,13 @@ test("cards can be moved, widened and folded, and stay so", async ({ page }) => 
   await expect(lst.locator(".recharts-wrapper")).toBeHidden();
   await expect(lst.getByRole("heading", { name: "LST" })).toBeVisible();
 
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Save NDVI as an image" }).click();
+  const image = await download;
+  expect(image.suggestedFilename()).toBe("ndvi.png");
+  const bytes = await (await import("node:fs/promises")).readFile((await image.path())!);
+  expect([...bytes.subarray(1, 4)].map((b) => String.fromCharCode(b)).join("")).toBe("PNG");
+
   await page.waitForTimeout(700); // saving waits half a second after the last change
   await page.reload();
   await expect(titles).toHaveText(["NDVI", "LST"]);
