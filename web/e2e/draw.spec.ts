@@ -8,6 +8,7 @@ let asked: { content: string; view?: { page: string; charts: string[]; series: {
 
 // The series the interface asked to extract
 let jobs: { variable: string; resolution: string }[] = [];
+let phenologyAsked: { variable: string; resolution: string }[] = [];
 let modelled: {
   response: { variable: string };
   own_lags: number[] | null;
@@ -20,6 +21,7 @@ let lagged: { response: { variable: string }; drivers: { variable: string }[]; d
 async function fakeApi(page: Page, connected = true) {
   asked = [];
   modelled = [];
+  phenologyAsked = [];
   jobs = [];
   lagged = [];
   const areas: { id: number; workspace_id: number; name: string; geometry: unknown; area_km2: number }[] = [];
@@ -39,6 +41,20 @@ async function fakeApi(page: Page, connected = true) {
     return route.fulfill({ status: 202, json: { id: 1, status: "done", error: null, result: RESULT } });
   });
   await page.route("**/api/decomposition", (route) => route.fulfill({ json: DECOMPOSITION }));
+  await page.route("**/api/phenology", (route) => {
+    phenologyAsked.push(route.request().postDataJSON());
+    return route.fulfill({
+      json: {
+        area_id: 1,
+        seasons: [
+          { year: 2024, start: "2023-11-04", peak: "2024-03-03", end: "2024-05-13", length: 191, peak_value: 0.8, amplitude: 0.45 },
+        ],
+        smoothed: POINTS.map((p) => ({ date: p.date, value: p.value })),
+        summary: ["Orchard, NDVI: over 1 seasons the season starts around 04 Nov, peaks around 03 Mar."],
+        cautions: [],
+      },
+    });
+  });
   await page.route("**/api/trend", (route) =>
     route.fulfill({
       json: {
@@ -416,6 +432,22 @@ test("a trend card tests the annual means and warns about short records", async 
   await expect(card.getByRole("row", { name: /Orchard/ })).toContainText("significant");
   await expect(card.getByRole("list", { name: "Cautions" })).toContainText("only 4 complete years");
   const results = await new AxeBuilder({ page }).include("[aria-label='Trend chart']").analyze();
+  expect(results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? "")).map((v) => v.id)).toEqual([]);
+});
+
+test("season dates are found from NDVI at its own time step", async ({ page }) => {
+  await page.getByTestId("upload").setInputFiles({
+    name: "fields.geojson",
+    mimeType: "application/geo+json",
+    buffer: Buffer.from(JSON.stringify(SQUARE)),
+  });
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Analyses" }).click();
+  await page.getByRole("region", { name: "Suggested analyses" }).getByRole("button", { name: /season start, peak and end/ }).click();
+  const card = page.getByRole("region", { name: "Season dates chart" });
+  await expect(card.getByRole("row", { name: /2024/ })).toContainText("2023-11-04");
+  await expect(card.getByText(/starts around 04 Nov/)).toBeVisible();
+  expect(phenologyAsked.at(-1)).toMatchObject({ variable: "ndvi", resolution: "native" });
+  const results = await new AxeBuilder({ page }).include("[aria-label='Season dates chart']").analyze();
   expect(results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? "")).map((v) => v.id)).toEqual([]);
 });
 

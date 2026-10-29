@@ -141,6 +141,25 @@ export type TrendResponse = {
 };
 export const trendOf = (options: SeriesOptions) => call<TrendResponse>("/trend", send("POST", options));
 
+// Start, peak and end of each growing season (ANA-05)
+export type Season = {
+  year: number;
+  start: string;
+  peak: string;
+  end: string;
+  length: number;
+  peak_value: number;
+  amplitude: number;
+};
+export type PhenologyResponse = {
+  area_id: number;
+  seasons: Season[];
+  smoothed: { date: string; value: number }[];
+  summary: string[];
+  cautions: string[];
+};
+export const phenologyOf = (options: SeriesOptions) => call<PhenologyResponse>("/phenology", send("POST", options));
+
 // How a series remembers itself and which past months of its drivers stand out
 export type LagEvidence = {
   driver: string;
