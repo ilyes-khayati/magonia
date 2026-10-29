@@ -6,6 +6,7 @@ import {
   listMessages,
   type CheckedNumber,
   type PaperCard,
+  type Proposal,
   type View,
 } from "../api";
 import { answerParts, applyEvent, fromSaved, styled, type Turn } from "../chat";
@@ -61,6 +62,34 @@ function AnswerText(props: { text: string; papers: PaperCard[]; numbers?: Checke
         return part.bold ? <strong key={i}>{shown}</strong> : <span key={i}>{shown}</span>;
       })}
     </>
+  );
+}
+
+// An analysis Magonia proposes: added only when the researcher clicks (AI-07)
+function ProposalCard({ proposal, onAdd }: { proposal: Proposal; onAdd?: (p: Proposal) => void }) {
+  const [added, setAdded] = useState(false);
+  return (
+    <div className="proposal" role="group" aria-label={`Proposed: ${proposal.title}`}>
+      <div>
+        <span className="meta">Magonia proposes</span>
+        <strong>{proposal.title}</strong>
+        {proposal.why && <span className="meta">{proposal.why}</span>}
+      </div>
+      {added ? (
+        <span className="meta">Added</span>
+      ) : (
+        <button
+          className="primary"
+          disabled={!onAdd}
+          onClick={() => {
+            onAdd?.(proposal);
+            setAdded(true);
+          }}
+        >
+          Add it
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -174,9 +203,10 @@ type Props = {
   actions?: React.ReactNode; // controls for where the card is shown, next to its own
   // until the workspace has opened, a question would reach Magonia without the data
   loading?: { opening: boolean; series: number }; // series: how many are still loading
+  onPropose?: (proposal: Proposal) => void; // the researcher adds what Magonia proposed
 };
 
-export default function AssistantCard({ workspaceId, view, actions, loading }: Props) {
+export default function AssistantCard({ workspaceId, view, actions, loading, onPropose }: Props) {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -277,6 +307,9 @@ export default function AssistantCard({ workspaceId, view, actions, loading }: P
                   </div>
                 )}
                 {turn.error && <p className="error">{turn.error}</p>}
+                {(turn.details.proposals ?? []).map((p, k) => (
+                  <ProposalCard key={k} proposal={p} onAdd={onPropose} />
+                ))}
                 {!last && <Sources turn={turn} anchor={anchor} />}
               </div>
             );

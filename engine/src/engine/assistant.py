@@ -14,6 +14,8 @@ from engine.citations import check
 from engine.facts import View
 from engine.literature import LiteratureError, Paper, search_papers
 from engine.numbers import check_numbers
+from engine.proposals import PROPOSE_TOOL, ProposalError, proposal
+from engine.proposals import describe as describe_proposal
 
 NAME = "Magonia"
 
@@ -45,6 +47,8 @@ when the researcher has some open. You cannot see the map or the charts as pictu
 you cannot run new analyses yet."""
 
 # Sent with the facts only, so that questions asked without a workspace are not steered by them
+MAX_PROPOSALS = 2
+
 DATA_RULES = """How to use these facts:
 - If the question is about the researcher's areas or results, answer from the facts. Copy \
 numbers exactly as written, never compute new ones, and name the chart or analysis each \
@@ -57,6 +61,9 @@ that is not statistically significant is not evidence of a trend. A correlation 
 chance band is unlikely to be chance.
 - Whether two models agree, and which model leans most on what, is stated in the facts. \
 Repeat those verdicts; never judge them yourself from the size of a number such as τ.
+- When the researcher asks for an analysis, a forecast or another period, call \
+propose_analysis. You cannot run anything yourself: never say an analysis was run or added; \
+say it is proposed and that they can add it.
 - Answer only the question asked, with the few facts it needs.
 - Keep the researcher's data and published research apart: say which is which.
 - If the question is about published research rather than these data, search the \
@@ -246,11 +253,13 @@ def answer(
         messages[-1] = {**last, "content": question}
     papers: list[Paper] = []
     said: list[str] = []
-    searches = reads = 0
+    searches = reads = proposed = 0
     while True:
         tools = [SEARCH_TOOL] if searches < max_searches else []
         if view is not None and reads < max_reads:
             tools.append(READ_TOOL)
+        if view is not None and proposed < MAX_PROPOSALS:
+            tools.append(PROPOSE_TOOL)
         calls = []
         for piece in provider.stream(messages, tools or None):
             if isinstance(piece, ToolCall):
@@ -258,8 +267,9 @@ def answer(
             else:
                 said.append(piece)
                 yield {"type": "text", "text": piece}
-        # Done when the model answered, or asked for a tool it was no longer offered
-        if not calls or not tools:
+        # Done when the model answered, or asked only for tools it was no longer offered
+        offered = {t["function"]["name"] for t in tools}
+        if not calls or not any(c.name in offered for c in calls):
             break
         messages.append(
             {
@@ -271,6 +281,25 @@ def answer(
             }
         )
         for call in calls:
+            if call.name == "propose_analysis" and view is not None and proposed < MAX_PROPOSALS:
+                proposed += 1
+                areas = list(dict.fromkeys(s.area for s in view.series))
+                try:
+                    found = proposal(call.arguments, areas)
+                except ProposalError as exc:
+                    messages.append({"role": "tool", "content": f"Not proposed: {exc}."})
+                    continue
+                yield {"type": "proposal", "proposal": {**found, "title": describe_proposal(found)}}
+                messages.append(
+                    {
+                        "role": "tool",
+                        "content": (
+                            f"Proposed: {describe_proposal(found)}. The researcher sees a button to "
+                            "add it; nothing has run. Say in one sentence what it will show."
+                        ),
+                    }
+                )
+                continue
             if call.name == "read_series" and view is not None and reads < max_reads:
                 reads += 1
                 area = str(call.arguments.get("area", ""))

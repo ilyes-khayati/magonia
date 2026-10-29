@@ -1681,3 +1681,23 @@ button:disabled {
   color: var(--on-selected);
   border-color: var(--selected);
 }
+
+/* An analysis Magonia proposes, added only when the researcher clicks */
+.proposal {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 7%, var(--card));
+  white-space: normal;
+}
+
+.proposal > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}

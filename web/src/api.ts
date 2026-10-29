@@ -312,6 +312,22 @@ export type AnswerDetails = {
   cards?: string[]; // the charts and analyses it was given facts about
   reads?: Read[];
   numbers?: CheckedNumber[];
+  proposals?: Proposal[];
+};
+
+// An analysis Magonia proposes; nothing runs until the researcher adds it (AI-07)
+export type Proposal = {
+  kind: "correlation" | "decomposition" | "trend" | "phenology" | "lags" | "experiment";
+  label: string;
+  title: string;
+  why: string;
+  variable?: VariableKey;
+  driver?: VariableKey;
+  drivers?: VariableKey[];
+  area?: string;
+  models?: ("Ridge" | "RandomForest" | "XGBoost")[];
+  test_years?: number;
+  period?: { start: string | null; end: string | null };
 };
 
 // What is open when a question is asked, so the assistant can discuss it
@@ -340,7 +356,8 @@ export type ChatEvent =
   | ({ type: "check"; text: string; numbers?: CheckedNumber[] } & CitationCheck)
   | { type: "error"; message: string }
   | { type: "view"; cards: string[] }
-  | ({ type: "read" } & Read);
+  | ({ type: "read" } & Read)
+  | { type: "proposal"; proposal: Proposal };
 
 export const assistantInfo = () => call<{ name: string; model: string }>("/assistant");
 export const listMessages = (workspaceId: number) => call<ChatMessage[]>(`/workspaces/${workspaceId}/messages`);
