@@ -593,12 +593,14 @@ def explanation_summary(stored: dict, area: str) -> list[str]:
         stored["families"],
         [Pair(**p) for p in stored["agreement"]],
         stored["seeds"],
+        stored.get("family_range", {}),
+        stored.get("dropped", {}),
     )
     return describe(stored.get("area", area), found)
 
 
 def explanations_key(body: ModelsRequest, store: Store) -> str:
-    return fingerprint({"explain": models_key(body, store)})
+    return fingerprint({"explain": models_key(body, store), "with": "ranges and drop-column"})
 
 
 @app.post("/explanations")
@@ -642,7 +644,7 @@ def check_stability(store, key, models_result, response, drivers, body) -> None:
 
 
 def stability_key(body: ModelsRequest, store: Store) -> str:
-    return fingerprint({"stability": models_key(body, store)})
+    return fingerprint({"stability": models_key(body, store), "retune": True})
 
 
 @app.post("/stability")

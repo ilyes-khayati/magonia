@@ -229,14 +229,48 @@ function Explanations({ data }: { data: ExplanationResponse }) {
             {FAMILIES.filter((f) => models.some((m) => data.families[m]?.[f] !== undefined)).map((f) => (
               <tr key={f}>
                 <th scope="row">{f}</th>
-                {models.map((m) => (
-                  <td key={m}>{`${Math.round(100 * (data.families[m]?.[f] ?? 0))}%`}</td>
-                ))}
+                {models.map((m) => {
+                  const range = data.family_range?.[m]?.[f];
+                  return (
+                    <td key={m} title={range ? "Lowest and highest share over the seeds" : undefined}>
+                      {`${Math.round(100 * (data.families[m]?.[f] ?? 0))}%`}
+                      {range && <span className="range"> {Math.round(100 * range[0])}–{Math.round(100 * range[1])}</span>}
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      {data.dropped && Object.keys(data.dropped).length > 0 && (
+        <div className="table-scroll">
+          <table className="stats models">
+            <caption className="caption">Refitted without it: how much the error rises</caption>
+            <thead>
+              <tr>
+                <th scope="col">Left out</th>
+                {models.map((m) => (
+                  <th key={m} scope="col">
+                    {label(m)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {FAMILIES.filter((f) => models.some((m) => data.dropped?.[m]?.[f] !== undefined)).map((f) => (
+                <tr key={f}>
+                  <th scope="row">{f}</th>
+                  {models.map((m) => {
+                    const v = data.dropped?.[m]?.[f];
+                    return <td key={m}>{v === undefined ? "–" : `${v >= 0 ? "+" : "−"}${Math.abs(Math.round(100 * v))}%`}</td>;
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       <ul className="summary">
         {data.summary.map((line) => (
           <li key={line}>{line}</li>

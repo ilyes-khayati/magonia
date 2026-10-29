@@ -116,11 +116,26 @@ def test_stability_says_which_models_keep_their_story_across_training_windows():
     X = pd.DataFrame({"NDVI_lag1": own, "LST_lag1": rng.normal(size=len(index))}, index=index)
     y = 2 * own + 0.1 * rng.normal(size=len(index))  # only its own past matters
     params = {"Ridge": {"ridge__alpha": 1.0}}
-    found = stability("Orchard", X, y, params, "2013-01-01", windows=3, seeds=1)
+    found = stability("Orchard", X, y, params, "2013-01-01", windows=3, seeds=1, draws=2)
     assert [w["train_end"] for w in found.windows] == ["2010-12", "2011-12", "2012-12"]
     assert found.leading == {"Ridge": ["own history"] * 3}
     assert found.summary[0].startswith(
-        "Orchard: across 3 training windows ending 2010-12 to 2012-12, Ridge always leans most on own history"
+        "Orchard: across 3 training windows ending 2010-12 to 2012-12, each tuned again, Ridge always leans most on own history"
     )
     short = stability("Orchard", X, y, params, "2008-06-01", windows=3, seeds=1)
     assert "stability cannot be checked" in short.summary[0]
+
+
+def test_dropping_a_family_shows_whether_a_model_needs_it():
+    import numpy as np
+
+    from engine.explain import drop_family
+
+    index = pd.date_range("2000-01-01", periods=12 * 12, freq="MS")
+    rng = np.random.default_rng(1)
+    own = pd.Series(rng.normal(size=len(index)), index)
+    X = pd.DataFrame({"NDVI_lag1": own, "LST_lag1": rng.normal(size=len(index))}, index=index)
+    y = 2 * own + 0.1 * rng.normal(size=len(index))
+    found = drop_family("Ridge", {"ridge__alpha": 1.0}, X, y)
+    assert found["own history"] > 5  # the error rises many times over without it
+    assert abs(found["LST"]) < 0.05  # and barely moves without noise

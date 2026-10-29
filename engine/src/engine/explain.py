@@ -10,7 +10,7 @@ itself; when the whole range between them lies outside both of those, the models
 data differently, beyond refitting noise.
 """
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from itertools import combinations
 
 import numpy as np
@@ -150,6 +150,10 @@ class Explanation:
     families: dict[str, dict[str, float]]  # model → family → share of importance
     agreement: list[Pair]
     seeds: int
+    # how far each family's share moves from seed to seed: model -> family -> [low, high]
+    family_range: dict[str, dict[str, list[float]]] = field(default_factory=dict)
+    # error rise when a family is left out and the model refitted: model -> family -> share
+    dropped: dict[str, dict[str, float]] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return {
@@ -157,23 +161,52 @@ class Explanation:
             "families": self.families,
             "agreement": [p.to_dict() for p in self.agreement],
             "seeds": self.seeds,
+            "family_range": self.family_range,
+            "dropped": self.dropped,
         }
+
+
+def drop_family(name: str, params: dict, X: pd.DataFrame, y: pd.Series) -> dict[str, float]:
+    """Drop-column importance by family (XAI-02): how much the out-of-fold error rises when a
+    family's inputs are left out and the model is refitted without them. Unlike shuffling, it
+    asks whether the model needs the family at all, or can do as well with what is left."""
+
+    def oof_rmse(columns: list[str]) -> float:
+        errors = []
+        for fit, val in CV.split(X):
+            model = estimator(name, params).fit(X.iloc[fit][columns], y.iloc[fit])
+            errors.append(np.mean((y.iloc[val] - model.predict(X.iloc[val][columns])) ** 2))
+        return float(np.sqrt(np.mean(errors)))
+
+    every = list(X.columns)
+    base = oof_rmse(every)
+    out = {}
+    for fam in dict.fromkeys(family(c) for c in every):
+        rest = [c for c in every if family(c) != fam]
+        if rest:
+            out[fam] = (oof_rmse(rest) - base) / base
+    return out
 
 
 def explain(X: pd.DataFrame, y: pd.Series, params: dict[str, dict], seeds: int = 5) -> Explanation:
     """Permutation importance, family shares and agreement of the three models, on the
     training years only. Ridge fits the same every time, but its shuffles vary by seed."""
-    runs, families = {}, {}
+    runs, families, ranges, dropped = {}, {}, {}, {}
     for name in [n for n in ORDER if n in params]:
         runs[name] = [oof_permutation(name, params[name], X, y, s) for s in range(seeds)]
         fam = [oof_family(name, params[name], X, y, s) for s in range(seeds)]
         families[name] = shares(pd.concat(fam, axis=1).mean(axis=1))
+        each = pd.concat([shares(f) for f in fam], axis=1)
+        ranges[name] = {k: [float(each.loc[k].min()), float(each.loc[k].max())] for k in each.index}
+        dropped[name] = drop_family(name, params[name], X, y)
     importance = {m: pd.concat(r, axis=1).mean(axis=1).to_dict() for m, r in runs.items()}
     return Explanation(
         importance,
         {m: f.to_dict() for m, f in families.items()},
         agreement(runs),
         seeds,
+        ranges,
+        dropped,
     )
 
 
@@ -227,6 +260,19 @@ def describe(area: str, explained: Explanation) -> list[str]:
                 f"(at least {itself:.2f}); {moved}."
             )
         lines.append(f"{area}: {line}")
+    for name in [n for n in ORDER if n in explained.dropped]:
+        need = {k: v for k, v in explained.dropped[name].items() if k != "noise probe"}
+        if not need:
+            continue
+        ranked = sorted(need.items(), key=lambda kv: -kv[1])
+        details.append(
+            f"{area}: refitted without a family, {LABELS[name]}'s error "
+            + ", ".join(
+                f"{'rises' if v > 0 else 'falls'} by {abs(100 * v):.0f}% without {k}"
+                for k, v in ranked
+            )
+            + "."
+        )
     return lines + details
 
 
@@ -234,7 +280,7 @@ def describe(area: str, explained: Explanation) -> list[str]:
 class Stability:
     """What each model leans on when its training years end earlier."""
 
-    windows: list[dict]  # train_end, and each model's share by family
+    windows: list[dict]  # train_end, each model's share by family, and its settings
     leading: dict[str, list[str]]  # model -> the family it leans on most, window by window
     summary: list[str]
 
@@ -251,28 +297,37 @@ def stability(
     windows: int = 4,
     seeds: int = 3,
     min_train_years: int = 8,
+    retune: bool = True,
+    draws: int = 12,
 ) -> Stability:
     """Explain the models again on training years that end 0, 1, 2… years before the test,
     and say which models keep the same story. Seed noise is one null for an explanation; the
-    years it was trained on are another, which the paper's comparison does not include."""
+    years it was trained on are another, which the paper's comparison does not include. With
+    retune, each window is tuned again as a researcher would, so a story that changes with
+    the settings tuning picks shows up too."""
+    from engine.models import tune
+
     found = []
     for back in range(windows):
         end = pd.Timestamp(test_start) - pd.DateOffset(years=back)
         train = X.index < end
         if train.sum() < 12 * min_train_years:
             break
+        names = [n for n in ORDER if n in params]
+        used = {
+            n: tune(n, X[train], y[train], draws) if retune and back else params[n] for n in names
+        }
         fam = {
-            name: shares(
+            n: shares(
                 pd.concat(
-                    [oof_family(name, params[name], X[train], y[train], s) for s in range(seeds)],
+                    [oof_family(n, used[n], X[train], y[train], s) for s in range(seeds)],
                     axis=1,
                 ).mean(axis=1)
             ).to_dict()
-            for name in ORDER
-            if name in params
+            for n in names
         }
         last = X.index[train][-1]
-        found.append({"train_end": f"{last:%Y-%m}", "families": fam})
+        found.append({"train_end": f"{last:%Y-%m}", "families": fam, "params": used})
     found.reverse()  # oldest first
     names = [n for n in ORDER if n in params]
     leading = {n: [max(w["families"][n], key=w["families"][n].get) for w in found] for n in names}
@@ -282,7 +337,10 @@ def stability(
             f"{area}: too few years to train on in earlier windows; stability cannot be checked."
         )
     else:
-        span = f"{len(found)} training windows ending {found[0]['train_end']} to {found[-1]['train_end']}"
+        span = (
+            f"{len(found)} training windows ending {found[0]['train_end']} to "
+            f"{found[-1]['train_end']}" + (", each tuned again" if retune else "")
+        )
         for n in names:
             kinds = list(dict.fromkeys(leading[n]))
             if len(kinds) == 1:
