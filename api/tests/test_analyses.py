@@ -346,3 +346,22 @@ def test_cards_carry_the_guardrails_cautions(client, store, monkeypatch):
     models = {"response": body["response"], "own_lags": [1]}
     client.post("/models", json=models)
     assert client.post("/models", json=models).json()["cautions"] == []
+
+
+def test_stability_needs_fitted_models_then_runs_in_the_background(client, store, monkeypatch):
+    from api import main
+
+    class Held:
+        def to_dict(self):
+            return {"windows": [], "leading": {}, "summary": ["Orchard: stable."]}
+
+    monkeypatch.setattr(main, "forecast", FakeForecast())
+    monkeypatch.setattr(main, "stability", lambda *args, **kwargs: Held())
+    ndvi = cache_years(store, "ndvi", None, [0.5 + 0.1 * math.sin(i) for i in range(180)])
+    body = {"response": {**ndvi, "area_id": area(client), "masking": "pixel"}, "own_lags": [1]}
+
+    assert client.post("/stability", json=body).status_code == 409  # no models yet
+    client.post("/models", json=body)
+    assert client.post("/stability", json=body).json() == {"status": "running"}
+    done = client.post("/stability", json=body).json()
+    assert done["status"] == "done" and done["summary"] == ["Orchard: stable."]

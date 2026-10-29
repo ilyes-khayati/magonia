@@ -103,3 +103,24 @@ def test_comparisons_between_models_are_written_by_code():
     assert any(
         line.startswith("Orchard: XGBoost and Ridge explain the data differently") for line in lines
     )
+
+
+def test_stability_says_which_models_keep_their_story_across_training_windows():
+    import numpy as np
+
+    from engine.explain import stability
+
+    index = pd.date_range("2000-01-01", periods=12 * 16, freq="MS")
+    rng = np.random.default_rng(0)
+    own = pd.Series(rng.normal(size=len(index)), index)
+    X = pd.DataFrame({"NDVI_lag1": own, "LST_lag1": rng.normal(size=len(index))}, index=index)
+    y = 2 * own + 0.1 * rng.normal(size=len(index))  # only its own past matters
+    params = {"Ridge": {"ridge__alpha": 1.0}}
+    found = stability("Orchard", X, y, params, "2013-01-01", windows=3, seeds=1)
+    assert [w["train_end"] for w in found.windows] == ["2010-12", "2011-12", "2012-12"]
+    assert found.leading == {"Ridge": ["own history"] * 3}
+    assert found.summary[0].startswith(
+        "Orchard: across 3 training windows ending 2010-12 to 2012-12, Ridge always leans most on own history"
+    )
+    short = stability("Orchard", X, y, params, "2008-06-01", windows=3, seeds=1)
+    assert "stability cannot be checked" in short.summary[0]

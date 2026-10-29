@@ -220,6 +220,14 @@ async function poll<T>(path: string, body: unknown, every = 3000): Promise<T> {
 export const fitModels = (body: ModelsBody) => poll<ModelsResponse>("/models", body);
 export const explainModels = (body: ModelsBody) => poll<ExplanationResponse>("/explanations", body);
 
+// What each model leans on when its training years end earlier
+export type StabilityResponse = {
+  windows: { train_end: string; families: Record<string, Record<string, number>> }[];
+  leading: Record<string, string[]>;
+  summary: string[];
+};
+export const checkStability = (body: ModelsBody) => poll<StabilityResponse>("/stability", body);
+
 export async function fetchSeries(options: SeriesOptions): Promise<SeriesResponse> {
   let job = await call<Job>("/jobs", send("POST", options));
   while (job.status === "queued" || job.status === "running") {
