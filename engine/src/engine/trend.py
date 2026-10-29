@@ -64,9 +64,10 @@ def trend(area: str, title: str, key: str, units: str, points: list[dict]) -> Tr
     p = mann_kendall(values)
     span = order[-1] - order[0]
     change = slope_year * span
-    digits = 2 if key == "lst" else 3
     verdict = "statistically significant" if p < 0.05 else "not statistically significant"
-    direction = "rising" if slope_year > 0 else "falling" if slope_year < 0 else "flat"
+    digits = 2 if key == "lst" else 3
+    shown = round(slope_year * 10, digits)
+    direction = "rising" if shown > 0 else "falling" if shown < 0 else "about flat, changing"
     first, last = values[0], values[-1]
     rate = (
         f"{who}: annual means{over} {direction} by {slope_year * 10:+.{digits}f}{unit} per decade "

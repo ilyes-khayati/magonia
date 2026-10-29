@@ -9,6 +9,7 @@ import type { Entry } from "./ChartCard";
 import CorrelationCard from "./CorrelationCard";
 import DecompositionCard from "./DecompositionCard";
 import LagsCard from "./LagsCard";
+import PhenologyCard from "./PhenologyCard";
 import TrendCard from "./TrendCard";
 import { PlusIcon } from "./Icons";
 
@@ -115,6 +116,14 @@ export default function AnalysesPage(props: Props) {
             title={title}
             entries={entries(analysis.variable, true)}
             options={(areaId) => options(areaId, analysis.variable, true)}
+          />
+        );
+      case "phenology":
+        return (
+          <PhenologyCard
+            onRemove={() => onRemove(analysis.id)}
+            entries={entries("ndvi", true)}
+            options={(areaId) => options(areaId, "ndvi", true)}
           />
         );
       case "trend":

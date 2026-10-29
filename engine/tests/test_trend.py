@@ -46,3 +46,9 @@ def test_short_records_are_cautioned_or_refused():
         "Field", "NDVI", "ndvi", "", points([0.3 + 0.01 * (i // 12) for i in range(12 * 5)])
     )
     assert "only 5 complete years" in short.cautions[0]
+
+
+def test_a_slope_too_small_to_show_is_called_flat():
+    flat = [0.5 + 0.2 * math.sin(2 * math.pi * i / 12) + 1e-6 * i for i in range(12 * 12)]
+    found = trend("Orchard", "NDVI", "ndvi", "", points(flat))
+    assert "annual means about flat, changing by +0.000 per decade" in found.summary[0]

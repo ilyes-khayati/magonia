@@ -470,6 +470,20 @@ class View:
                     if s := self.find(area, analysis["variable"], "native"):
                         facts.extend(decomposition_facts(f"Decomposition {n}: {s.title}", s))
                 continue
+            if analysis.get("kind") == "phenology":
+                from engine.phenology import PhenologyError, phenology
+
+                for area in areas:
+                    if s := self.find(area, "ndvi", "native"):
+                        card = f"Season dates {n}: {s.title}"
+                        try:
+                            found = phenology(s.area, s.title, s.key, s.points)
+                        except PhenologyError as exc:
+                            facts.append(Fact(card, f"{s.area}: {exc}"))
+                            continue
+                        facts += [Fact(card, line) for line in found.summary]
+                        facts += caution_facts(card, found.cautions)
+                continue
             if analysis.get("kind") == "trend":
                 from engine.trend import trend  # here, since trend builds on these helpers
 

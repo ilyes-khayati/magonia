@@ -373,3 +373,9 @@ def test_a_trend_is_tested_on_annual_means(client, store):
     found = client.post("/trend", json={**ndvi, "area_id": area(client), "masking": "pixel"}).json()
     assert round(found["slope"], 3) == 0.1 and found["p"] < 0.001
     assert found["summary"][0].startswith("Orchard, NDVI: annual means rising by +0.100 per decade")
+
+
+def test_season_dates_need_ndvi_at_its_own_step(client, store):
+    ndvi = cache_years(store, "ndvi", None, [0.5] * 60)
+    body = {**ndvi, "area_id": area(client), "masking": "pixel"}
+    assert client.post("/phenology", json=body).status_code == 422  # monthly, not native

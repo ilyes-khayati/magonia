@@ -20,6 +20,8 @@ export type Trend = {
   variable: VariableKey;
 };
 
+export type Phenology = { kind: "phenology" }; // always NDVI, the greenness of vegetation
+
 export type Lags = {
   kind: "lags";
   response: VariableKey;
@@ -38,7 +40,7 @@ export type Models = {
   test_years: number;
 };
 
-export type AnalysisBody = Correlation | Decomposition | Trend | Lags;
+export type AnalysisBody = Correlation | Decomposition | Trend | Phenology | Lags;
 
 export type Analysis = { id: number } & AnalysisBody;
 
@@ -84,6 +86,13 @@ export const KINDS: KindInfo[] = [
     create: (chosen) => ({ kind: "trend", variable: chosen[0] ?? "ndvi" }),
   },
   {
+    kind: "phenology",
+    label: "Season dates",
+    question: "When does the season start, peak and end, and does it shift?",
+    description: "Start, peak, end, length and amplitude of each growing season, from NDVI.",
+    create: () => ({ kind: "phenology" }),
+  },
+  {
     kind: "lags",
     label: "Memory and lags",
     question: "Which past months matter?",
@@ -108,6 +117,8 @@ export function needsOf(analysis: Analysis): Need[] {
       return [{ variable: analysis.variable, native: true }];
     case "trend":
       return [{ variable: analysis.variable, native: false }];
+    case "phenology":
+      return [{ variable: "ndvi", native: true }];
     case "lags":
       return [analysis.response, ...analysis.drivers].map((variable) => ({ variable, native: false }));
   }
