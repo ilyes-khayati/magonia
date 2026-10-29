@@ -1,4 +1,14 @@
+import type { Analysis } from "./analyses";
+import type { VariableKey } from "./api";
 import type { CardLayout } from "./cards";
+import type { Experiment } from "./experiments";
+
+// What a pinned card is drawn from: its own copy of the card's choices, so that it stays live
+// (hover, zoom, change it) without following later changes on its page
+export type Source =
+  | { type: "chart"; variable: VariableKey }
+  | { type: "analysis"; analysis: Analysis }
+  | { type: "experiment"; experiment: Experiment };
 
 // The research board (#80, #90): what the researcher pinned, kept as it was when pinned, so
 // that the board is a dated record of findings even after the analyses change.
@@ -11,6 +21,7 @@ export type BoardItem = {
   image?: string; // the card's charts, as a data URL
   question?: string; // for an answer: what was asked
   page?: string; // where it came from, to open it again
+  source?: Source; // drawn live from this; items pinned before had only a picture
   pinned: string; // ISO date
   layout?: CardLayout;
 };

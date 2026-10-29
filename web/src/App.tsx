@@ -19,11 +19,13 @@ import {
   type WorkspaceSummary,
 } from "./api";
 import { addAnalysis, needsOf, readAnalyses, type Analysis, type Kind, type Models, type Need } from "./analyses";
-import { boardForMagonia, pin, readBoard, snapshotLines, type BoardItem } from "./board";
-import { chartSnapshot } from "./chartImage";
+import { boardForMagonia, pin, readBoard, snapshotLines, type BoardItem, type Source } from "./board";
+import AnalysisCard from "./components/AnalysisCard";
+import ChartCard from "./components/ChartCard";
+import PinnedExperiment from "./components/PinnedExperiment";
 import BoardPage from "./components/BoardPage";
 import { describeDisplay } from "./display";
-import { MODEL_NAMES, newExperiment, PAPER, readExperiments, type Experiment } from "./experiments";
+import { EMPTY, MODEL_NAMES, newExperiment, readExperiments, type Experiment } from "./experiments";
 import { readAreaFile } from "./areaFiles";
 import AnalysesPage from "./components/AnalysesPage";
 import AssistantCard from "./components/AssistantCard";
@@ -351,16 +353,48 @@ export default function App() {
     save({ board: next });
   }
 
-  // A card kept on the board as it is now: its picture, findings and cautions
-  async function pinCard(card: HTMLElement, title: string, kind: BoardItem["kind"] = "card") {
+  // A card pinned to the board: drawn live there from its own copy of the card's choices. Its
+  // sentences are kept too, for Magonia and for when its data is not loaded.
+  function pinCard(card: HTMLElement, title: string, source: Source) {
     const { lines, cautions } = snapshotLines(card);
-    const image = await chartSnapshot(card, title).catch(() => undefined);
-    setBoard((current) => {
-      const next = pin(current, { kind, title, lines, cautions, image, page });
-      save({ board: next });
-      return next;
-    });
+    const kind = source.type === "experiment" ? "experiment" : "card";
+    changeBoard(pin(board, { kind, title, lines, cautions, page, source }));
     setMessage({ text: `Pinned ${title} to the board.` });
+  }
+
+  // The live card of a pinned item
+  function livePin(item: BoardItem, update: (change: Partial<BoardItem>) => void, remove: () => void) {
+    const source = item.source;
+    if (!source) return null;
+    const title = (v: Variable) => variableTitle(v, settings);
+    if (source.type === "chart") {
+      const v = catalogue.find((x) => x.key === source.variable);
+      return v ? <ChartCard variable={v} title={title(v)} entries={entries(v.key)} mode={settings.mode} /> : null;
+    }
+    if (source.type === "analysis")
+      return (
+        <AnalysisCard
+          analysis={source.analysis}
+          onChange={(change) => update({ source: { type: "analysis", analysis: { ...source.analysis, ...change } as Analysis } })}
+          onRemove={remove}
+          catalogue={catalogue}
+          settings={settings}
+          entries={entries}
+          options={optionsFor}
+        />
+      );
+    return (
+      <PinnedExperiment
+        experiment={source.experiment}
+        onChange={(experiment) => update({ source: { type: "experiment", experiment } })}
+        onRemove={remove}
+        areas={areas.filter((a) => !hidden.has(a.id))}
+        variables={catalogue}
+        title={title}
+        entries={(variable) => entries(variable)}
+        options={(areaId, variable) => optionsFor(areaId, variable)}
+      />
+    );
   }
 
   function pinAnswer(question: string, answer: string) {
@@ -387,10 +421,11 @@ export default function App() {
     const areaId = (p.area ? areas.find((a) => a.name === p.area)?.id : undefined) ?? visible[0]?.id ?? null;
     if (p.kind === "experiment") {
       const recipe = {
-        ...structuredClone(PAPER),
+        ...structuredClone(EMPTY),
         area: areaId,
         response: p.variable ?? "ndvi",
-        drivers: p.drivers ?? PAPER.drivers,
+        drivers: p.drivers ?? [],
+        calendar: true,
         models: p.models ?? [...MODEL_NAMES],
         test_years: p.test_years ?? 3,
       };
@@ -436,13 +471,26 @@ export default function App() {
     const forecast = experiments.flatMap((e) =>
       [e.recipe, e.ran].flatMap((r) => (r ? [r.response, ...r.drivers] : [])).map((variable) => ({ variable, native: false })),
     );
+    // pinned cards are drawn live, so their series are fetched too
+    const pinned = board.flatMap(({ source }): Need[] =>
+      !source
+        ? []
+        : source.type === "chart"
+          ? [{ variable: source.variable, native: false }]
+          : source.type === "analysis"
+            ? needsOf(source.analysis)
+            : (source.experiment.ran ? [source.experiment.ran.response, ...source.experiment.ran.drivers] : []).map(
+                (variable) => ({ variable, native: false }),
+              ),
+    );
     const all: Need[] = [
       ...settings.variables.map((variable) => ({ variable, native: false })),
       ...analyses.flatMap(needsOf),
       ...forecast,
+      ...pinned,
     ];
     return all.filter((n, i) => all.findIndex((m) => m.variable === n.variable && m.native === n.native) === i);
-  }, [settings.variables, analyses, experiments]);
+  }, [settings.variables, analyses, experiments, board]);
   const requests = useMemo(
     () =>
       // nothing is asked of Earth Engine until it is connected
@@ -460,25 +508,23 @@ export default function App() {
   const results = useSeries(requests);
 
   // What is open, sent with each question so that Magonia can discuss it
-  const view = useMemo(
-    () => ({
-      page,
-      charts: settings.variables,
-      resolution: settings.resolution,
-      // experiments are read as forecasts of the area they ran on
-      analyses: [
-        ...analyses,
-        // on the Model page, only the experiments on screen, so that runs are not mixed up
-        ...experiments
-          .filter((e) => page !== "model" || experimentsShown.includes(e.id))
-          .flatMap((e) => (e.ran ? [{ kind: "models", name: e.name, ...e.ran, area: e.ran.area ?? shown[0]?.id ?? null }] : [])),
-      ],
-      series: requests.map((r) => r.options),
-      display: describeDisplay(settings.display),
-      board: boardForMagonia(board),
-    }),
-    [page, settings.variables, settings.resolution, settings.display, analyses, experiments, experimentsShown, shown, requests, board],
-  );
+  // (built afresh each render: it is only read when a question is sent)
+  const view = {
+    page,
+    charts: settings.variables,
+    resolution: settings.resolution,
+    // experiments are read as forecasts of the area they ran on
+    analyses: [
+      ...analyses,
+      // on the Model page, only the experiments on screen, so that runs are not mixed up
+      ...experiments
+        .filter((e) => page !== "model" || experimentsShown.includes(e.id))
+        .flatMap((e) => (e.ran ? [{ kind: "models", name: e.name, ...e.ran, area: e.ran.area ?? shown[0]?.id ?? null }] : [])),
+    ],
+    series: requests.map((r) => r.options),
+    display: describeDisplay(settings.display),
+    board: boardForMagonia(board),
+  };
   const states = requests.map((r) => results.get(r.key));
   const progress = {
     total: requests.length,
@@ -562,7 +608,7 @@ export default function App() {
             areas={shown}
             entries={entries}
             mapPath={workspaceId === null ? null : pagePath(workspaceId, "map")}
-            onPin={(card, title) => pinCard(card, title)}
+            onPin={pinCard}
           />
         )}
         {page === "analyses" && (
@@ -582,7 +628,7 @@ export default function App() {
             onRemove={(id) => changeAnalyses(analyses.filter((a) => a.id !== id))}
             onReorder={changeAnalyses}
             onSettings={change}
-            onPin={(card, title) => pinCard(card, title)}
+            onPin={pinCard}
           />
         )}
 
@@ -592,6 +638,7 @@ export default function App() {
             onChange={changeBoard}
             onNote={() => changeBoard(pin(board, { kind: "note", title: "Note", lines: [] }))}
             pagePath={(p) => (workspaceId === null || !isPage(p) ? null : pagePath(workspaceId, p))}
+            live={livePin}
           />
         )}
         {page === "model" && (
@@ -607,7 +654,7 @@ export default function App() {
             dataPath={workspaceId === null ? null : pagePath(workspaceId, "data")}
             mapPath={workspaceId === null ? null : pagePath(workspaceId, "map")}
             onShown={setExperimentsShown}
-            onPin={(card, title) => pinCard(card, title, "experiment")}
+            onPin={pinCard}
           />
         )}
 
