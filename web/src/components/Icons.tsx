@@ -145,3 +145,29 @@ export const ShrinkIcon = (p: IconProps) => (
     <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" />
   </Svg>
 );
+
+export const ModelIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="5" cy="6" r="2" />
+    <circle cx="5" cy="18" r="2" />
+    <circle cx="19" cy="12" r="2" />
+    <path d="M7 6.8l10 4.4M7 17.2l10-4.4" />
+  </Svg>
+);
+
+export const GripIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="9" cy="6" r="1" />
+    <circle cx="15" cy="6" r="1" />
+    <circle cx="9" cy="12" r="1" />
+    <circle cx="15" cy="12" r="1" />
+    <circle cx="9" cy="18" r="1" />
+    <circle cx="15" cy="18" r="1" />
+  </Svg>
+);
+
+export const WidthIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4" />
+  </Svg>
+);

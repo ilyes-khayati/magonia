@@ -17,7 +17,8 @@ import {
   type Workspace,
   type WorkspaceSummary,
 } from "./api";
-import { addAnalysis, needsOf, readAnalyses, type Analysis, type Kind, type Need } from "./analyses";
+import { addAnalysis, needsOf, readAnalyses, type Analysis, type Kind, type Models, type Need } from "./analyses";
+import { readExperiments, type Experiment } from "./experiments";
 import { readAreaFile } from "./areaFiles";
 import AnalysesPage from "./components/AnalysesPage";
 import AssistantCard from "./components/AssistantCard";
@@ -26,12 +27,13 @@ import DataPanel from "./components/DataPanel";
 import EarthEngineSetup from "./components/EarthEngineSetup";
 import { CloseIcon, ExpandIcon, ShrinkIcon } from "./components/Icons";
 import MapView, { type Target, type Tool } from "./components/MapView";
+import ModelPage from "./components/ModelPage";
 import Rail from "./components/Rail";
 import Sidebar from "./components/Sidebar";
 import Toolbar from "./components/Toolbar";
 import TopBar from "./components/TopBar";
 import { PAGES, isPage, pagePath, type Page } from "./pages";
-import { DEFAULTS, readSettings, seriesKey, seriesOptions, type Settings } from "./settings";
+import { DEFAULTS, readSettings, seriesKey, seriesOptions, variableTitle, type Settings } from "./settings";
 import { applyTheme, areaColour, initialTheme, type Theme } from "./theme";
 import { useSeries } from "./useSeries";
 
@@ -100,6 +102,8 @@ export default function App() {
   const [areas, setAreas] = useState<Area[]>([]);
   const [hidden, setHidden] = useState<Set<number>>(new Set());
   const [analyses, setAnalyses] = useState<Analysis[]>([]);
+  const [experiments, setExperiments] = useState<Experiment[]>([]);
+  const [experimentsShown, setExperimentsShown] = useState<number[]>([]);
   const [tool, setTool] = useState<Tool>(null);
   const [target, setTarget] = useState<Target | null>(null);
   const [message, setMessage] = useState<Message>(null);
@@ -164,6 +168,9 @@ export default function App() {
     setSettings(readSettings(workspace.settings));
     setHidden(new Set((workspace.settings.hidden as number[] | undefined) ?? []));
     setAnalyses(readAnalyses(workspace.settings.analyses));
+    // forecast cards from before the Model page become experiments
+    const saved = Array.isArray(workspace.settings.analyses) ? (workspace.settings.analyses as { kind?: string }[]) : [];
+    setExperiments(readExperiments(workspace.settings.experiments, saved.filter((a): a is Models => a.kind === "models")));
     remember(id);
     const box = bounds(workspace.areas.map((a) => a.geometry));
     if (box) setTarget({ key: Date.now(), bounds: box });
@@ -286,7 +293,7 @@ export default function App() {
 
   // Settings, hidden areas and analyses are saved with the workspace, half a second after the
   // last change
-  function save(next: { settings?: Settings; hidden?: Set<number>; analyses?: Analysis[] }) {
+  function save(next: { settings?: Settings; hidden?: Set<number>; analyses?: Analysis[]; experiments?: Experiment[] }) {
     window.clearTimeout(saving.current);
     const id = workspaceId;
     if (id === null) return;
@@ -294,6 +301,7 @@ export default function App() {
       ...(next.settings ?? settings),
       hidden: [...(next.hidden ?? hidden)],
       analyses: next.analyses ?? analyses,
+      experiments: next.experiments ?? experiments,
     };
     saving.current = window.setTimeout(() => {
       updateWorkspace(id, { settings: saved }).catch(fail);
@@ -319,6 +327,11 @@ export default function App() {
     save({ analyses: next });
   }
 
+  function changeExperiments(next: Experiment[]) {
+    setExperiments(next);
+    save({ experiments: next });
+  }
+
   const colours = useMemo(
     () => new Map(areas.map((area, index) => [area.id, areaColour(theme, index)])),
     [areas, theme],
@@ -334,9 +347,16 @@ export default function App() {
 
   // One request per visible area and series, charted or needed by an analysis
   const needed = useMemo(() => {
-    const all: Need[] = [...settings.variables.map((variable) => ({ variable, native: false })), ...analyses.flatMap(needsOf)];
+    const forecast = experiments.flatMap((e) =>
+      [e.recipe, e.ran].flatMap((r) => (r ? [r.response, ...r.drivers] : [])).map((variable) => ({ variable, native: false })),
+    );
+    const all: Need[] = [
+      ...settings.variables.map((variable) => ({ variable, native: false })),
+      ...analyses.flatMap(needsOf),
+      ...forecast,
+    ];
     return all.filter((n, i) => all.findIndex((m) => m.variable === n.variable && m.native === n.native) === i);
-  }, [settings.variables, analyses]);
+  }, [settings.variables, analyses, experiments]);
   const requests = useMemo(
     () =>
       // nothing is asked of Earth Engine until it is connected
@@ -359,10 +379,17 @@ export default function App() {
       page,
       charts: settings.variables,
       resolution: settings.resolution,
-      analyses,
+      // experiments are read as forecasts of the area they ran on
+      analyses: [
+        ...analyses,
+        // on the Model page, only the experiments on screen, so that runs are not mixed up
+        ...experiments
+          .filter((e) => page !== "model" || experimentsShown.includes(e.id))
+          .flatMap((e) => (e.ran ? [{ kind: "models", name: e.name, ...e.ran, area: e.ran.area ?? shown[0]?.id ?? null }] : [])),
+      ],
       series: requests.map((r) => r.options),
     }),
-    [page, settings.variables, settings.resolution, analyses, requests],
+    [page, settings.variables, settings.resolution, analyses, experiments, experimentsShown, shown, requests],
   );
   const states = requests.map((r) => results.get(r.key));
   const progress = {
@@ -464,6 +491,24 @@ export default function App() {
               changeAnalyses(analyses.map((a) => (a.id === id ? ({ ...a, ...update } as Analysis) : a)))
             }
             onRemove={(id) => changeAnalyses(analyses.filter((a) => a.id !== id))}
+            onReorder={changeAnalyses}
+            onSettings={change}
+          />
+        )}
+
+        {page === "model" && (
+          <ModelPage
+            experiments={experiments}
+            onChange={changeExperiments}
+            areas={shown}
+            variables={catalogue}
+            title={(v) => variableTitle(v, settings)}
+            entries={(variable) => entries(variable)}
+            options={(areaId, variable) => optionsFor(areaId, variable)}
+            seasonal={settings.resolution === "seasonal"}
+            dataPath={workspaceId === null ? null : pagePath(workspaceId, "data")}
+            mapPath={workspaceId === null ? null : pagePath(workspaceId, "map")}
+            onShown={setExperimentsShown}
           />
         )}
 
@@ -501,6 +546,10 @@ export default function App() {
           key={workspaceId}
           workspaceId={workspaceId}
           view={view}
+          loading={{
+            opening: earthEngine === null || workspaceId === null,
+            series: progress.total - progress.done - progress.failed,
+          }}
           actions={
             page === "assistant" ? (
               <button

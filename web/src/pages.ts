@@ -3,6 +3,7 @@ export const PAGES = [
   { key: "map", label: "Map", title: "Draw and choose areas and data" },
   { key: "data", label: "Data", title: "Your variables over time, and how they are prepared" },
   { key: "analyses", label: "Analyses", title: "Relations between the variables" },
+  { key: "model", label: "Model", title: "Forecast experiments and what the models rely on" },
   { key: "assistant", label: "Magonia", title: "Talk with the Magonia assistant" },
 ] as const;
 

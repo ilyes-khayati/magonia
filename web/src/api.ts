@@ -170,6 +170,10 @@ export type ModelsBody = {
   own_lags: number[] | null;
   driver_lags: Partial<Record<VariableKey, number[]>> | null;
   test_years: number;
+  models?: ("Ridge" | "RandomForest" | "XGBoost")[]; // all three when left out
+  params?: Partial<Record<"Ridge" | "RandomForest" | "XGBoost", Record<string, number>>>; // else tuned
+  calendar?: boolean;
+  rolling?: boolean;
 };
 
 // How fitted models explain their inputs, and whether they agree (notebook 05 of the paper)

@@ -51,8 +51,19 @@ def skipped(text: str) -> list[tuple[int, int]]:
     return spans
 
 
-def numbers_in(text: str) -> list[tuple[re.Match, Found]]:
-    spans = skipped(text)
+def named(text: str, labels: list[str]) -> list[tuple[int, int]]:
+    """Where the answer names a card it was given ("Models 4", "Paper method 1: NDVI forecast"):
+    the digits in a name are part of the name, not a measurement."""
+    names = {part for label in labels for part in (label, label.split(":")[0]) if len(part) > 3}
+    return [
+        m.span()
+        for name in sorted(names, key=len, reverse=True)
+        for m in re.finditer(re.escape(name), text)
+    ]
+
+
+def numbers_in(text: str, labels: list[str] | None = None) -> list[tuple[re.Match, Found]]:
+    spans = skipped(text) + named(text, labels or [])
     return [
         (m, value_of(m))
         for m in NUMBER.finditer(text)
@@ -82,7 +93,7 @@ def check_numbers(answer: str, sources: list[tuple[str, str]]) -> list[Number]:
     """Every number in the answer, with where it was found among the (label, text) sources."""
     given = [(label, found) for label, text in sources for _, found in numbers_in(text)]
     checked = []
-    for match, written in numbers_in(answer):
+    for match, written in numbers_in(answer, [label for label, _ in sources]):
         text = answer[match.start() : match.end()]
         if source := best_source(written, given):
             checked.append(Number(match.start(), match.end(), text, "verified", source))

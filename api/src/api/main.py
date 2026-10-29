@@ -13,7 +13,7 @@ from engine.areas import AreaError, make_area
 from engine.catalogue import CATALOGUE, get_variable
 from engine.decompose import DecompositionError, decompose
 from engine.earth_engine import EarthEngineError, check
-from engine.explain import describe, explain
+from engine.explain import Explanation, Pair, describe, explain
 from engine.lags import explore
 from engine.models import ForecastError, design, forecast
 from engine.pipeline import Request, fingerprint
@@ -462,6 +462,12 @@ class ModelsRequest(BaseModel):
     own_lags: list[int] | None = Field(None, max_length=12)  # None: recommended by code
     driver_lags: dict[str, list[int]] | None = None  # by variable; a driver left out: recommended
     test_years: int = Field(3, ge=1, le=10)
+    models: list[Literal["Ridge", "RandomForest", "XGBoost"]] = Field(
+        ["Ridge", "RandomForest", "XGBoost"], min_length=1
+    )
+    params: dict[str, dict[str, float]] | None = None  # by model; a model left out is tuned
+    calendar: bool = True
+    rolling: bool = True  # also test on earlier windows
 
 
 # forecasts being fitted, and the last error of each, by key; results go to the store
@@ -473,7 +479,18 @@ def models_key(body: ModelsRequest, store: Store) -> str:
     """Identical choices on identical series share one forecast."""
     series = [cache_key(series_request(s, store)[1]) for s in [body.response, *body.drivers]]
     choices = body.model_dump(include={"own_lags", "driver_lags", "test_years"})
-    return fingerprint({"forecast": series, **choices, "engine": engine.__version__})
+    # later choices count only when changed, so earlier forecasts keep their key
+    later = body.model_dump(
+        include={"models", "params", "calendar", "rolling"}, exclude_defaults=True
+    )
+    if later.get("models") == ["Ridge", "RandomForest", "XGBoost"]:
+        later.pop("models")
+    # settings matter only for the models chosen
+    params = {m: p for m, p in (body.params or {}).items() if m in body.models}
+    later.pop("params", None)
+    if params:
+        later["params"] = params
+    return fingerprint({"forecast": series, **choices, **later, "engine": engine.__version__})
 
 
 def fit_forecast(store: Store, key: str, response: facts.Series, drivers: list[facts.Series], body):
@@ -485,6 +502,10 @@ def fit_forecast(store: Store, key: str, response: facts.Series, drivers: list[f
             body.own_lags,
             body.driver_lags,
             body.test_years,
+            models=body.models,
+            params=body.params,
+            calendar=body.calendar,
+            rolling=body.rolling,
         )
         store.save_result(key, found.to_dict())
     except ForecastError as exc:
@@ -497,8 +518,8 @@ def fit_forecast(store: Store, key: str, response: facts.Series, drivers: list[f
 
 @app.post("/models")
 def models(body: ModelsRequest, store: StoreDep, runner: RunnerDep, reply: Response) -> dict:
-    """Ridge, Random Forest and XGBoost forecasting a series one month ahead, tested on its
-    last years against two baselines. Fitting runs in the background: ask again with the same
+    """The chosen models (Ridge, Random Forest, XGBoost) forecasting a series one month ahead,
+    tested on its last years against two baselines. Fitting runs in the background: ask again with the same
     body until the status is done."""
     if body.response.resolution == "seasonal":
         raise HTTPException(422, "forecasts are monthly; use native or monthly values")
@@ -524,15 +545,28 @@ def explain_forecast(store, key, models_result, response, drivers, body) -> None
             body.own_lags,
             body.driver_lags,
             body.test_years,
+            body.calendar,
         )
         train = X.index < test_start
         params = {m["name"]: m["params"] for m in models_result["models"]}
         found = explain(X[train], y[train], params)
-        store.save_result(key, {**found.to_dict(), "summary": describe(response.area, found)})
+        store.save_result(key, {**found.to_dict(), "area": response.area})
     except Exception as exc:  # noqa: BLE001 - any failure must reach the user, not vanish
         FAILED[key] = f"The models could not be explained: {exc}"
     finally:
         FITTING.discard(key)
+
+
+def explanation_summary(stored: dict, area: str) -> list[str]:
+    """The sentences are written when read, so that results explained earlier gain what the
+    engine has learned to say since."""
+    found = Explanation(
+        stored["importance"],
+        stored["families"],
+        [Pair(**p) for p in stored["agreement"]],
+        stored["seeds"],
+    )
+    return describe(stored.get("area", area), found)
 
 
 def explanations_key(body: ModelsRequest, store: Store) -> str:
@@ -548,7 +582,8 @@ def explanations(body: ModelsRequest, store: StoreDep, runner: RunnerDep, reply:
         raise HTTPException(409, "fit the models first")
     key = explanations_key(body, store)
     if (result := store.result(key)) is not None:
-        return {"status": "done", **result}
+        area = cached_series(body.response, store).area
+        return {"status": "done", **result, "summary": explanation_summary(result, area)}
     if key in FAILED:
         return {"status": "failed", "error": FAILED.pop(key)}
     if key not in FITTING:
@@ -646,7 +681,11 @@ def forecast_facts(store: Store, view: View, areas: dict[int, dict]) -> list[fac
     for n, analysis in enumerate(view.analyses, start=1):
         if analysis.get("kind") != "models":
             continue
+        # an experiment from the Model page ran on one area; older cards on every area
+        chosen = analysis.get("area")
         for area_id, area in areas.items():
+            if chosen is not None and area_id != chosen:
+                continue
             mine = {
                 s.variable: s
                 for s in view.series
@@ -654,14 +693,21 @@ def forecast_facts(store: Store, view: View, areas: dict[int, dict]) -> list[fac
             }
             if analysis.get("response") not in mine:
                 continue
+            later = {
+                k: analysis[k]
+                for k in ("models", "params", "calendar", "rolling")
+                if analysis.get(k) is not None
+            }
             body = ModelsRequest(
                 response=mine[analysis["response"]],
                 drivers=[mine[k] for k in analysis.get("drivers", []) if k in mine],
                 own_lags=analysis.get("own_lags"),
                 driver_lags=analysis.get("driver_lags"),
                 test_years=analysis.get("test_years", 3),
+                **later,
             )
-            card = f"Models {n}: {analysis['response'].upper()} forecast"
+            name = analysis.get("name") or f"Models {n}"
+            card = f"{name}: {analysis['response'].upper()} forecast"
             key = models_key(body, store)
             if (result := store.result(key)) is not None:
                 found += [facts.Fact(card, line) for line in result["summary"]]
@@ -670,8 +716,9 @@ def forecast_facts(store: Store, view: View, areas: dict[int, dict]) -> list[fac
                     facts.Fact(card, f"{area['name']}: the models are still being fitted.")
                 )
             if (why := store.result(explanations_key(body, store))) is not None:
-                card = f"Models {n}: what the models lean on"
-                found += [facts.Fact(card, line) for line in why["summary"]]
+                card = f"{name}: what the models lean on"
+                lines = explanation_summary(why, area["name"])
+                found += [facts.Fact(card, line) for line in lines]
     return found
 
 

@@ -8,7 +8,13 @@ let asked: { content: string; view?: { page: string; charts: string[]; series: {
 
 // The series the interface asked to extract
 let jobs: { variable: string; resolution: string }[] = [];
-let modelled: { response: { variable: string }; own_lags: number[] | null }[] = [];
+let modelled: {
+  response: { variable: string };
+  own_lags: number[] | null;
+  models?: string[];
+  params?: Record<string, Record<string, number>>;
+  calendar?: boolean;
+}[] = [];
 let lagged: { response: { variable: string }; drivers: { variable: string }[]; deseasonalise: boolean }[] = [];
 
 async function fakeApi(page: Page, connected = true) {
@@ -382,18 +388,21 @@ test("the lag explorer tests drivers and says which stand out", async ({ page })
   expect(serious.map((v) => v.id)).toEqual([]);
 });
 
-test("forecast models fit in the background, then show scores against the baselines", async ({ page }) => {
+test("an experiment runs a recipe, keeps its results, and two runs can be compared", async ({ page }) => {
   await page.getByTestId("upload").setInputFiles({
     name: "fields.geojson",
     mimeType: "application/geo+json",
     buffer: Buffer.from(JSON.stringify(SQUARE)),
   });
-  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Analyses" }).click();
-  await page.getByRole("region", { name: "Suggested analyses" }).getByRole("button", { name: /Forecast models/ }).click();
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Model" }).click();
+  await page.getByRole("region", { name: "Suggested experiments" }).getByRole("button", { name: /The paper's method/ }).click();
 
-  const card = page.getByRole("region", { name: "Forecast models" });
-  await expect(card.getByRole("status")).toContainText("Tuning three models");
-  const table = card.getByRole("table", { name: "Test scores of each model and baseline" });
+  const experiment = page.getByRole("region", { name: "Experiment" });
+  await expect(experiment.getByRole("combobox", { name: "Start from" })).toHaveValue("paper");
+  expect(modelled).toHaveLength(0); // nothing runs before it is asked for
+  await experiment.getByRole("button", { name: "Run experiment" }).click();
+  await expect(experiment.getByText(/Tuning the models/)).toBeVisible();
+  const table = experiment.getByRole("table", { name: "Test scores of each model and baseline" });
   await expect(table).toBeVisible({ timeout: 10_000 });
   await expect(table.getByRole("rowheader")).toHaveText([
     "Random Forest",
@@ -403,25 +412,43 @@ test("forecast models fit in the background, then show scores against the baseli
     "Climatology (usual month)",
   ]);
   await expect(table.getByRole("row", { name: /Random Forest/ })).toContainText("±0.0004");
-  await expect(card.getByText(/lowest test error Random Forest/)).toBeVisible();
-  expect(modelled.at(-1)?.own_lags).toBeNull();
+  expect(modelled.at(-1)).toMatchObject({ own_lags: null, test_years: 3 });
+  expect(modelled.at(-1)).not.toHaveProperty("models"); // the paper's request, unchanged
 
-  await card.getByRole("textbox", { name: "Its own lags (months)" }).fill("12, 1, x");
-  await card.getByRole("textbox", { name: "Its own lags (months)" }).press("Enter");
-  await expect(card.getByRole("textbox", { name: "Its own lags (months)" })).toHaveValue("1, 12");
-  await expect.poll(() => modelled.at(-1)?.own_lags).toEqual([1, 12]);
-  await expect(table).toBeVisible({ timeout: 10_000 });
-
-  await card.getByRole("button", { name: /Explain the models/ }).click();
-  await expect(card.getByRole("status")).toContainText("Shuffling each input");
-  const families = card.getByRole("table", { name: "Share of each model's importance by family of inputs" });
+  await experiment.getByRole("button", { name: "Explain the models" }).click();
+  const families = experiment.getByRole("table", { name: "Share of each model's importance by family of inputs" });
   await expect(families).toBeVisible({ timeout: 10_000 });
   await expect(families.getByRole("row", { name: /LST/ })).toContainText("61%");
-  await expect(card.getByText(/XGBoost and Ridge explain the data differently/)).toBeVisible();
+  await expect(experiment.getByText(/XGBoost and Ridge explain the data differently/)).toBeVisible();
 
-  const results = await new AxeBuilder({ page }).include("[aria-label='Forecast models']").analyze();
+  // the explanation is kept with the experiment, so it is back after a reload
+  await page.waitForTimeout(700);
+  await page.reload();
+  await expect(families).toBeVisible({ timeout: 10_000 });
+
+  // a copy with one change, then the two side by side
+  await experiment.getByRole("button", { name: "Duplicate" }).click();
+  await experiment.getByRole("checkbox", { name: "Ridge" }).uncheck();
+  await experiment.getByRole("group", { name: "XGBoost settings" }).getByRole("button", { name: "Set by hand" }).click();
+  await experiment.getByRole("spinbutton", { name: "Maximum depth" }).first().fill("3");
+  await experiment.getByRole("spinbutton", { name: "Maximum depth" }).first().blur();
+  await experiment.getByRole("checkbox", { name: /Calendar month/ }).uncheck();
+  await expect(experiment.getByRole("combobox", { name: "Start from" })).toHaveValue("custom");
+  await experiment.getByRole("button", { name: "Run experiment" }).click();
+  await expect.poll(() => modelled.at(-1)?.models).toEqual(["RandomForest", "XGBoost"]);
+  expect(modelled.at(-1)).toMatchObject({ calendar: false });
+  expect(modelled.at(-1)?.params?.XGBoost).toEqual({ max_depth: 3 });
+
+  const list = page.getByRole("navigation", { name: "Experiments" });
+  await list.getByRole("checkbox", { name: "Compare" }).nth(0).check();
+  await list.getByRole("checkbox", { name: "Compare" }).nth(1).check();
+  const comparison = page.getByRole("region", { name: "Comparison" });
+  await expect(comparison.getByText(/calendar only in the first; models Ridge, Random Forest, XGBoost against Random Forest, XGBoost/)).toBeVisible();
+  await expect(comparison.getByRole("table", { name: "Test scores of each model and baseline" })).toHaveCount(2);
+
+  const results = await new AxeBuilder({ page }).include(".model-page").analyze();
   const serious = results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? ""));
-  expect(serious.map((v) => v.id)).toEqual([]);
+  expect(serious.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
 });
 
 test("when Earth Engine is not connected, the setup explains how and saves the project", async ({ page }) => {
@@ -490,6 +517,43 @@ test("empty pages suggest what to add", async ({ page }) => {
   await expect(page.getByRole("region", { name: "Lags chart" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Suggested analyses" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Add analysis" })).toBeVisible();
+});
+
+test("cards can be moved, widened and folded, and stay so", async ({ page }) => {
+  await page.getByTestId("upload").setInputFiles({
+    name: "fields.geojson",
+    mimeType: "application/geo+json",
+    buffer: Buffer.from(JSON.stringify(SQUARE)),
+  });
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Data" }).click();
+  await page.getByRole("checkbox", { name: /LST/ }).check();
+  const titles = page.locator(".page-grid .card h3");
+  await expect(titles).toHaveText(["NDVI", "LST"]);
+
+  await page.getByRole("button", { name: "Move LST" }).focus();
+  await page.keyboard.press("ArrowLeft");
+  await expect(titles).toHaveText(["LST", "NDVI"]);
+  await expect(page.getByRole("button", { name: "Move LST" })).toBeFocused();
+  await page.getByRole("button", { name: "Move LST" }).hover();
+  await page.mouse.down();
+  const target = (await page.getByRole("region", { name: "NDVI chart" }).boundingBox())!;
+  await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2, { steps: 8 });
+  await page.mouse.up();
+  await expect(titles).toHaveText(["NDVI", "LST"]);
+
+  await page.getByRole("button", { name: "Full width: NDVI" }).click();
+  const ndvi = page.getByRole("region", { name: "NDVI chart" });
+  const lst = page.getByRole("region", { name: "LST chart" });
+  await expect(page.locator(".slot", { has: ndvi })).toHaveAttribute("data-wide", "true"); // spans every column
+  await page.getByRole("button", { name: "Show LST" }).click();
+  await expect(lst.locator(".recharts-wrapper")).toBeHidden();
+  await expect(lst.getByRole("heading", { name: "LST" })).toBeVisible();
+
+  await page.waitForTimeout(700); // saving waits half a second after the last change
+  await page.reload();
+  await expect(titles).toHaveText(["NDVI", "LST"]);
+  await expect(page.getByRole("button", { name: "Show LST" })).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByRole("button", { name: "Full width: NDVI" })).toHaveAttribute("aria-pressed", "true");
 });
 
 test("each page has its own address, and back and reload keep it", async ({ page }) => {

@@ -1321,3 +1321,284 @@ button:disabled {
 .data-line a {
   color: var(--accent);
 }
+
+/* The Model page: experiments on the left, the open one (or two side by side) on the right */
+.model-layout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .model-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.experiments {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: sticky;
+  top: 0;
+}
+
+.experiment-item {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+  overflow: hidden;
+}
+
+.experiment-item[aria-current="true"] {
+  border-color: var(--accent);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.experiment-open {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  width: 100%;
+  padding: 10px 12px 6px;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  line-height: 1.4;
+}
+
+.experiment-open .not-run {
+  color: var(--warning);
+}
+
+.compare-check {
+  gap: 6px;
+  padding: 0 12px 8px;
+}
+
+.experiment-name {
+  font-size: 15px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  padding: 4px 6px;
+  margin-left: -6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.experiment-name:hover,
+.experiment-name:focus {
+  border-color: var(--line);
+  background: var(--ground);
+}
+
+.recipe-box > summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 4px 0;
+}
+
+.recipe {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 8px;
+}
+
+.recipe-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.recipe-group {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px 12px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.recipe-group legend {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 0 4px;
+}
+
+.checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+}
+
+.checks .row {
+  gap: 6px;
+}
+
+.model-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.model-choice {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 8px;
+  background: var(--ground);
+}
+
+.model-choice[data-on="false"] {
+  opacity: 0.7;
+}
+
+.model-choice .row {
+  gap: 6px;
+}
+
+.segmented.small button {
+  font-size: 11px;
+  padding: 4px 8px;
+}
+
+.setting {
+  font-size: 12px;
+}
+
+.run-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 4px 0;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.run-bar .primary:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.results-head {
+  margin: 6px 0 0;
+  font-size: 13px;
+}
+
+.compare {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.compare-diff {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--card);
+  border: 1px solid var(--line);
+}
+
+.compare-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+.compare-grid h3 {
+  margin: 0 0 6px;
+}
+
+.experiment > .button,
+.compare-grid .card > .button {
+  align-self: flex-start;
+}
+
+/* A card's place: tools on its top edge, shown on hover or keyboard focus */
+.slot {
+  position: relative;
+  min-width: 0;
+  border-radius: 12px;
+}
+
+.slot[data-wide="true"] {
+  grid-column: 1 / -1;
+}
+
+.slot[data-over="true"] {
+  outline: 2px dashed var(--accent);
+  outline-offset: 3px;
+}
+
+.slot[data-collapsed="true"] .card > :not(.card-head) {
+  display: none;
+}
+
+.card-tools {
+  position: absolute;
+  top: -11px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 8%);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.slot:hover > .card-tools,
+.card-tools:focus-within,
+.slot[data-collapsed="true"] > .card-tools {
+  opacity: 1;
+}
+
+.tool-button {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 20px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.tool-button:hover,
+.tool-button[aria-pressed="true"] {
+  background: var(--ground);
+  color: var(--ink);
+}
+
+.tool-button.grip {
+  cursor: grab;
+}
+
+.tool-button.fold svg {
+  transition: transform 0.15s;
+}
+
+.tool-button.fold[aria-expanded="false"] svg {
+  transform: rotate(-90deg);
+}
+
+@media (hover: none) {
+  .card-tools {
+    opacity: 1;
+  }
+}

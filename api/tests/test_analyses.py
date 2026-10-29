@@ -203,9 +203,11 @@ class FakeForecast:
 
     def __init__(self):
         self.calls = 0
+        self.choices = {}
 
     def __call__(self, area, *args, **kwargs):
         self.calls += 1
+        self.choices = kwargs
 
         class Found:
             def to_dict(self):
@@ -231,6 +233,38 @@ def test_magonia_reads_a_finished_forecast(client, store, monkeypatch):
     assert "[Models 1: NDVI forecast]\n- Orchard: fitted." in model.seen[-1]["content"]
 
 
+def test_magonia_reads_an_experiment_by_its_name_and_area(client, store, monkeypatch):
+    from api import main
+
+    monkeypatch.setattr(main, "forecast", FakeForecast())
+    model = Scripted("Fine.")
+    main.app.dependency_overrides[main.get_provider] = lambda: model
+    area_id = area(client)
+    ndvi = cache_years(store, "ndvi", None, [0.5] * 180)
+    series = {**ndvi, "area_id": area_id, "masking": "pixel"}
+    client.post("/models", json={"response": series, "models": ["Ridge"], "calendar": False})
+    experiment = {
+        "kind": "models",
+        "name": "Ridge alone",
+        "area": area_id,
+        "response": "ndvi",
+        "drivers": [],
+        "own_lags": None,
+        "driver_lags": None,
+        "test_years": 3,
+        "models": ["Ridge"],
+        "params": {},
+        "calendar": False,
+        "rolling": True,
+    }
+    elsewhere = {**experiment, "name": "Elsewhere", "area": area_id + 1}
+    view = {"charts": [], "analyses": [experiment, elsewhere], "series": [series]}
+    ws = client.get("/workspaces").json()[0]["id"]
+    client.post(f"/workspaces/{ws}/chat", json={"content": "How did Ridge do?", "view": view})
+    assert "[Ridge alone: NDVI forecast]\n- Orchard: fitted." in model.seen[-1]["content"]
+    assert "Elsewhere" not in model.seen[-1]["content"]
+
+
 def test_explanations_need_fitted_models_then_run_in_the_background(client, store, monkeypatch):
     from api import main
 
@@ -249,3 +283,37 @@ def test_explanations_need_fitted_models_then_run_in_the_background(client, stor
     assert client.post("/explanations", json=body).json() == {"status": "running"}
     done = client.post("/explanations", json=body).json()
     assert done["status"] == "done" and done["summary"] == ["Orchard: explained."]
+
+
+def test_models_and_their_settings_are_the_researchers_choice(client, store, monkeypatch):
+    from api import main
+
+    monkeypatch.setattr(main, "forecast", fake_forecast := FakeForecast())
+    ndvi = cache_years(store, "ndvi", None, [0.5 + 0.2 * math.sin(i / 1.9) for i in range(180)])
+    base = {"response": {**ndvi, "area_id": area(client), "masking": "pixel"}, "own_lags": [1]}
+    chosen = {
+        **base,
+        "models": ["XGBoost"],
+        "params": {"XGBoost": {"max_depth": 3}},
+        "calendar": False,
+        "rolling": False,
+    }
+    client.post("/models", json=chosen)
+    assert fake_forecast.choices == {
+        "models": ["XGBoost"],
+        "params": {"XGBoost": {"max_depth": 3.0}},
+        "calendar": False,
+        "rolling": False,
+    }
+    # earlier forecasts keep their key: the defaults, written out or not, are the same choice
+    defaults = {**base, "models": ["Ridge", "RandomForest", "XGBoost"], "calendar": True}
+    key = main.models_key(main.ModelsRequest(**base), store)
+    assert main.models_key(main.ModelsRequest(**defaults), store) == key
+    assert main.models_key(main.ModelsRequest(**chosen), store) != key
+    unused = {**base, "params": {}, "rolling": True}
+    assert main.models_key(main.ModelsRequest(**unused), store) == key
+    other_model = {**chosen, "params": {"XGBoost": {"max_depth": 3}, "Ridge": {"alpha": 1}}}
+    assert main.models_key(main.ModelsRequest(**other_model), store) == main.models_key(
+        main.ModelsRequest(**chosen), store
+    )
+    assert client.post("/models", json={**base, "models": []}).status_code == 422

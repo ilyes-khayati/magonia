@@ -55,6 +55,8 @@ write a value you were not given.
 - Interpret only what the facts state. A positive r means the two rise together. A trend \
 that is not statistically significant is not evidence of a trend. A correlation beyond its \
 chance band is unlikely to be chance.
+- Whether two models agree, and which model leans most on what, is stated in the facts. \
+Repeat those verdicts; never judge them yourself from the size of a number such as τ.
 - Answer only the question asked, with the few facts it needs.
 - Keep the researcher's data and published research apart: say which is which.
 - If the question is about published research rather than these data, search the \

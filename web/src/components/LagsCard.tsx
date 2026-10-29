@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import {
   Bar,
   BarChart,
@@ -41,8 +41,7 @@ export default function LagsCard(props: Props) {
     return v ? title(v) : key;
   };
   const areas = entries(analysis.response).map((e) => e.area);
-  const [picked, setPicked] = useState<number | null>(null);
-  const areaId = areas.some((a) => a.id === picked) ? picked! : (areas[0]?.id ?? null);
+  const areaId = areas.some((a) => a.id === analysis.area) ? analysis.area! : (areas[0]?.id ?? null);
   const theme = (document.documentElement.dataset.theme as Theme) ?? "light";
 
   // asked for once the response and every driver of this area have been extracted
@@ -108,7 +107,7 @@ export default function LagsCard(props: Props) {
         {areas.length > 1 && (
           <label className="field" style={{ minWidth: 0 }}>
             Area
-            <select className="select" value={areaId ?? ""} onChange={(e) => setPicked(Number(e.target.value))}>
+            <select className="select" value={areaId ?? ""} onChange={(e) => onChange({ area: Number(e.target.value) })}>
               {areas.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.name}

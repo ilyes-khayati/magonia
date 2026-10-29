@@ -88,3 +88,75 @@ export function answerParts(text: string, numbers: CheckedNumber[] = []): Part[]
   if (last < chars.length) parts.push(...citationParts(at(last)));
   return parts;
 }
+
+export type Styled = Part & { bold?: boolean };
+
+// The little markdown the model writes: **bold**, "# " headings shown bold, and "- " or "* "
+// list markers shown as bullets. Done over the parts, so that numbers and citations keep their
+// places, and bold may span them.
+export function styled(parts: Part[]): Styled[] {
+  const out: Styled[] = [];
+  let bold = false;
+  let heading = false;
+  let lineStart = true;
+  for (const part of parts) {
+    if (!("text" in part)) {
+      out.push({ ...part, bold: bold || heading });
+      lineStart = false;
+      continue;
+    }
+    const t = part.text;
+    let buffer = "";
+    const flush = () => {
+      if (buffer) out.push({ text: buffer, bold: bold || heading });
+      buffer = "";
+    };
+    let i = 0;
+    while (i < t.length) {
+      if (t.startsWith("**", i)) {
+        flush();
+        bold = !bold;
+        i += 2;
+        lineStart = false;
+        continue;
+      }
+      if (lineStart) {
+        const rest = t.slice(i);
+        const title = /^#{1,6} +/.exec(rest);
+        if (title) {
+          flush();
+          heading = true;
+          i += title[0].length;
+          lineStart = false;
+          continue;
+        }
+        const bullet = /^[*-] +/.exec(rest);
+        if (bullet) {
+          buffer += "• ";
+          i += bullet[0].length;
+          lineStart = false;
+          continue;
+        }
+      }
+      const c = t[i];
+      if (c === "\n") {
+        flush();
+        heading = false;
+        buffer += c;
+        lineStart = true;
+      } else {
+        buffer += c;
+        if (c !== " " && c !== "\t") lineStart = false;
+      }
+      i += 1;
+    }
+    flush();
+  }
+  // consecutive pieces of the same weight read as one
+  return out.reduce<Styled[]>((all, p) => {
+    const prev = all.at(-1);
+    if (prev && "text" in prev && "text" in p && !!prev.bold === !!p.bold) prev.text += p.text;
+    else all.push({ ...p });
+    return all;
+  }, []);
+}

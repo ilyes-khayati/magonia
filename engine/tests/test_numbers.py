@@ -63,3 +63,14 @@ def test_positions_point_at_the_number_in_the_answer():
     answer = "Peak 0.89."
     [n] = check_numbers(answer, FACTS)
     assert answer[n.start : n.end] == "0.89"
+
+
+def test_digits_in_the_name_of_a_card_are_not_measurements():
+    from engine.numbers import check_numbers
+
+    sources = [("Models 4: what the models lean on", "Orchard: XGBoost leans on LST (63%).")]
+    answer = (
+        "XGBoost leans on LST for 63% [(Models 4: what the models lean on)], as Models 4 shows."
+    )
+    found = check_numbers(answer, sources)
+    assert [(n.text, n.status) for n in found] == [("63", "verified")]
