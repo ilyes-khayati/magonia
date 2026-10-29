@@ -321,6 +321,7 @@ export type View = {
   resolution: Resolution;
   analyses: unknown[];
   series: SeriesOptions[];
+  display?: string | null; // how the Data page shows the series, if changed
 };
 
 export type ChatMessage = {

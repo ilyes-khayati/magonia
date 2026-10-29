@@ -4,7 +4,10 @@ import { expect, test, type Page } from "@playwright/test";
 // A small in-memory stand-in for the Magonia API, so the tests need neither the
 // API nor Earth Engine
 // What the interface sent with each question, for tests to inspect
-let asked: { content: string; view?: { page: string; charts: string[]; series: { area_id: number; variable: string }[] } }[] = [];
+let asked: {
+  content: string;
+  view?: { page: string; charts: string[]; series: { area_id: number; variable: string }[]; display?: string | null };
+}[] = [];
 
 // The series the interface asked to extract
 let jobs: { variable: string; resolution: string }[] = [];
@@ -648,6 +651,31 @@ test("cards can be moved, widened and folded, and stay so", async ({ page }) => 
   await expect(titles).toHaveText(["NDVI", "LST"]);
   await expect(page.getByRole("button", { name: "Show LST" })).toHaveAttribute("aria-expanded", "false");
   await expect(page.getByRole("button", { name: "Full width: NDVI" })).toHaveAttribute("aria-pressed", "true");
+});
+
+test("the Data page can smooth, show anomalies and keep some months, without asking again", async ({ page }) => {
+  await page.getByTestId("upload").setInputFiles({
+    name: "fields.geojson",
+    mimeType: "application/geo+json",
+    buffer: Buffer.from(JSON.stringify(SQUARE)),
+  });
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Data" }).click();
+  const chart = page.getByRole("region", { name: "NDVI chart" });
+  await expect(chart.locator(".recharts-line")).toBeVisible();
+  const extracted = jobs.length;
+  const panel = page.getByRole("complementary", { name: "Data" });
+  await panel.getByRole("checkbox", { name: "Smooth" }).check();
+  await panel.getByRole("checkbox", { name: "Anomalies" }).check();
+  await panel.getByRole("button", { name: "January" }).click();
+  await expect(chart.getByText(/anomalies against the 2020–2024 mean of each month, smoothed/)).toBeVisible();
+  await expect(chart.getByText(/only Feb, Mar/)).toBeVisible();
+  expect(jobs.length).toBe(extracted); // nothing extracted again
+
+  await page.getByRole("button", { name: "Magonia", exact: true }).click();
+  const assistant = page.getByRole("region", { name: "Magonia assistant" });
+  await assistant.getByRole("textbox", { name: "Ask Magonia" }).fill("What do the charts show?");
+  await assistant.getByRole("button", { name: "Send" }).click();
+  await expect.poll(() => asked.at(-1)?.view?.display).toMatch(/^anomalies against/);
 });
 
 test("each page has its own address, and back and reload keep it", async ({ page }) => {
