@@ -203,6 +203,8 @@ export type ExplanationResponse = {
   agreement: AgreementPair[];
   seeds: number;
   summary: string[];
+  family_range?: Record<string, Record<string, [number, number]>>; // share from seed to seed
+  dropped?: Record<string, Record<string, number>>; // error rise when a family is left out
 };
 
 type Running<T> = { status: "running" } | { status: "failed"; error: string } | ({ status: "done" } & T);
