@@ -27,6 +27,7 @@ type Props = {
   onSettings: (change: Partial<Settings>) => void;
   dataPath: string | null;
   mapPath: string | null;
+  onPin?: (card: HTMLElement, title: string) => void;
 };
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -236,6 +237,7 @@ export default function AnalysesPage(props: Props) {
               onMove={(step) => onReorder(moved(analyses, i, i + step))}
               onDrop={(from) => onReorder(moved(analyses, analyses.findIndex((a) => String(a.id) === from), i))}
               onNotebook={() => exportNotebook(analysis)}
+              onPin={props.onPin && ((card) => props.onPin!(card, card.querySelector("h3")?.textContent ?? "Analysis"))}
             >
               {card(analysis)}
             </CardSlot>

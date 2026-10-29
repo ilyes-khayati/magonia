@@ -1701,3 +1701,54 @@ button:disabled {
   flex-direction: column;
   gap: 2px;
 }
+
+/* The research board */
+.board-image {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+}
+
+.board-question {
+  margin: 0;
+  font-style: italic;
+  color: var(--muted);
+}
+
+.board-item.kind-note {
+  background: color-mix(in srgb, var(--warning) 6%, var(--card));
+}
+
+.note-title {
+  font-size: 15px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ink);
+  padding: 2px 4px;
+  margin-left: -4px;
+  border-radius: 6px;
+}
+
+.note-title:focus,
+.note-title:hover {
+  border-color: var(--line);
+}
+
+.note-text {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  line-height: 1.5;
+}
+
+.pin-answer {
+  align-self: flex-start;
+  margin-top: 4px;
+  font-size: 12px;
+}

@@ -19,6 +19,9 @@ import {
   type WorkspaceSummary,
 } from "./api";
 import { addAnalysis, needsOf, readAnalyses, type Analysis, type Kind, type Models, type Need } from "./analyses";
+import { boardForMagonia, pin, readBoard, snapshotLines, type BoardItem } from "./board";
+import { chartSnapshot } from "./chartImage";
+import BoardPage from "./components/BoardPage";
 import { describeDisplay } from "./display";
 import { MODEL_NAMES, newExperiment, PAPER, readExperiments, type Experiment } from "./experiments";
 import { readAreaFile } from "./areaFiles";
@@ -106,6 +109,7 @@ export default function App() {
   const [analyses, setAnalyses] = useState<Analysis[]>([]);
   const [experiments, setExperiments] = useState<Experiment[]>([]);
   const [experimentsShown, setExperimentsShown] = useState<number[]>([]);
+  const [board, setBoard] = useState<BoardItem[]>([]);
   const [tool, setTool] = useState<Tool>(null);
   const [target, setTarget] = useState<Target | null>(null);
   const [message, setMessage] = useState<Message>(null);
@@ -173,6 +177,7 @@ export default function App() {
     // forecast cards from before the Model page become experiments
     const saved = Array.isArray(workspace.settings.analyses) ? (workspace.settings.analyses as { kind?: string }[]) : [];
     setExperiments(readExperiments(workspace.settings.experiments, saved.filter((a): a is Models => a.kind === "models")));
+    setBoard(readBoard(workspace.settings.board));
     remember(id);
     const box = bounds(workspace.areas.map((a) => a.geometry));
     if (box) setTarget({ key: Date.now(), bounds: box });
@@ -295,7 +300,13 @@ export default function App() {
 
   // Settings, hidden areas and analyses are saved with the workspace, half a second after the
   // last change
-  function save(next: { settings?: Settings; hidden?: Set<number>; analyses?: Analysis[]; experiments?: Experiment[] }) {
+  function save(next: {
+    settings?: Settings;
+    hidden?: Set<number>;
+    analyses?: Analysis[];
+    experiments?: Experiment[];
+    board?: BoardItem[];
+  }) {
     window.clearTimeout(saving.current);
     const id = workspaceId;
     if (id === null) return;
@@ -304,6 +315,7 @@ export default function App() {
       hidden: [...(next.hidden ?? hidden)],
       analyses: next.analyses ?? analyses,
       experiments: next.experiments ?? experiments,
+      board: next.board ?? board,
     };
     saving.current = window.setTimeout(() => {
       updateWorkspace(id, { settings: saved }).catch(fail);
@@ -332,6 +344,35 @@ export default function App() {
   function changeExperiments(next: Experiment[]) {
     setExperiments(next);
     save({ experiments: next });
+  }
+
+  function changeBoard(next: BoardItem[]) {
+    setBoard(next);
+    save({ board: next });
+  }
+
+  // A card kept on the board as it is now: its picture, findings and cautions
+  async function pinCard(card: HTMLElement, title: string, kind: BoardItem["kind"] = "card") {
+    const { lines, cautions } = snapshotLines(card);
+    const image = await chartSnapshot(card, title).catch(() => undefined);
+    setBoard((current) => {
+      const next = pin(current, { kind, title, lines, cautions, image, page });
+      save({ board: next });
+      return next;
+    });
+    setMessage({ text: `Pinned ${title} to the board.` });
+  }
+
+  function pinAnswer(question: string, answer: string) {
+    const next = pin(board, {
+      kind: "answer",
+      title: `Magonia: ${question.length > 60 ? `${question.slice(0, 57)}…` : question}`,
+      question,
+      lines: answer.split("\n").filter((l) => l.trim()),
+      page: "assistant",
+    });
+    changeBoard(next);
+    setMessage({ text: "Pinned the answer to the board." });
   }
 
   // What Magonia proposed, added because the researcher clicked (AI-07): its card, and the
@@ -434,8 +475,9 @@ export default function App() {
       ],
       series: requests.map((r) => r.options),
       display: describeDisplay(settings.display),
+      board: boardForMagonia(board),
     }),
-    [page, settings.variables, settings.resolution, settings.display, analyses, experiments, experimentsShown, shown, requests],
+    [page, settings.variables, settings.resolution, settings.display, analyses, experiments, experimentsShown, shown, requests, board],
   );
   const states = requests.map((r) => results.get(r.key));
   const progress = {
@@ -520,6 +562,7 @@ export default function App() {
             areas={shown}
             entries={entries}
             mapPath={workspaceId === null ? null : pagePath(workspaceId, "map")}
+            onPin={(card, title) => pinCard(card, title)}
           />
         )}
         {page === "analyses" && (
@@ -539,9 +582,18 @@ export default function App() {
             onRemove={(id) => changeAnalyses(analyses.filter((a) => a.id !== id))}
             onReorder={changeAnalyses}
             onSettings={change}
+            onPin={(card, title) => pinCard(card, title)}
           />
         )}
 
+        {page === "board" && (
+          <BoardPage
+            board={board}
+            onChange={changeBoard}
+            onNote={() => changeBoard(pin(board, { kind: "note", title: "Note", lines: [] }))}
+            pagePath={(p) => (workspaceId === null || !isPage(p) ? null : pagePath(workspaceId, p))}
+          />
+        )}
         {page === "model" && (
           <ModelPage
             experiments={experiments}
@@ -555,6 +607,7 @@ export default function App() {
             dataPath={workspaceId === null ? null : pagePath(workspaceId, "data")}
             mapPath={workspaceId === null ? null : pagePath(workspaceId, "map")}
             onShown={setExperimentsShown}
+            onPin={(card, title) => pinCard(card, title, "experiment")}
           />
         )}
 
@@ -593,6 +646,7 @@ export default function App() {
           workspaceId={workspaceId}
           view={view}
           onPropose={adopt}
+          onPin={pinAnswer}
           loading={{
             opening: earthEngine === null || workspaceId === null,
             series: progress.total - progress.done - progress.failed,

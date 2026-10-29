@@ -396,3 +396,22 @@ def test_an_analysis_is_exported_as_a_notebook_with_its_data(client, store):
     sources = ["".join(c["source"]) for c in nb["cells"]]
     assert any("MODIS Terra MOD13Q1" in s for s in sources)
     assert any("from engine.trend import trend" in s for s in sources)
+
+
+def test_magonia_reads_what_the_researcher_pinned_first(client, store):
+    from api import main
+
+    model = Scripted("Fine.")
+    main.app.dependency_overrides[main.get_provider] = lambda: model
+    area(client)
+    view = {
+        "charts": [],
+        "analyses": [],
+        "series": [],
+        "board": [{"title": "Note: check 2017", "text": "The 2017 dip may be the drought."}],
+    }
+    ws = client.get("/workspaces").json()[0]["id"]
+    client.post(f"/workspaces/{ws}/chat", json={"content": "What did I note?", "view": view})
+    assert (
+        "[Board: Note: check 2017]\n- The 2017 dip may be the drought." in model.seen[-1]["content"]
+    )
