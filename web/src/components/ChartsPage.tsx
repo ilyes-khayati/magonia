@@ -1,3 +1,4 @@
+import { Link } from "react-router";
 import type { Area, Variable, VariableKey } from "../api";
 import { variableTitle, type Settings } from "../settings";
 import { summarise } from "../stats";
@@ -9,9 +10,10 @@ type Props = {
   onChange: (change: Partial<Settings>) => void;
   areas: Area[];
   entries: (variable: VariableKey) => Entry[];
+  mapPath: string | null;
 };
 
-export default function ChartsPage({ catalogue, settings, onChange, areas, entries }: Props) {
+export default function ChartsPage({ catalogue, settings, onChange, areas, entries, mapPath }: Props) {
   const chosen = catalogue.filter((v) => settings.variables.includes(v.key));
 
   const summary = chosen.flatMap((v) =>
@@ -40,9 +42,24 @@ export default function ChartsPage({ catalogue, settings, onChange, areas, entri
       </div>
 
       {!areas.length ? (
-        <p className="placeholder">Draw or upload an area on the map to begin.</p>
+        <p className="placeholder">
+          {mapPath ? <Link to={mapPath}>Draw or upload an area on the map</Link> : "Draw or upload an area on the map"} to
+          begin.
+        </p>
       ) : !chosen.length ? (
-        <p className="placeholder">Choose a variable on the left to see it here.</p>
+        <section className="suggestions" aria-label="Suggested charts">
+          <h2>What would you like to see?</h2>
+          <div className="tiles">
+            {catalogue.map((v) => (
+              <button key={v.key} className="tile" onClick={() => onChange({ variables: [v.key] })}>
+                <strong>{v.name}</strong>
+                <span className="meta">
+                  {v.product} · {v.resolution} · {v.cadence}
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
       ) : (
         <div className="page-grid">
           {chosen.map((v) => (

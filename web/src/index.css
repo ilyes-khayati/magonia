@@ -79,21 +79,30 @@ button:disabled {
   white-space: nowrap;
 }
 
-/* Layout: pages | data | the open page | Magonia beside it */
+/* Layout: the top bar over pages | data (charts only) | the open page | Magonia beside it */
 .workbench {
+  --data-width: 0px;
+  --dock-width: 0px;
   height: 100vh;
   display: grid;
-  grid-template-columns: 76px 280px minmax(0, 1fr) 0;
-  grid-template-areas: "rail data content dock";
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-columns: 76px var(--data-width) minmax(0, 1fr) var(--dock-width);
+  grid-template-areas:
+    "top top top top"
+    "rail data content dock";
   overflow: hidden;
 }
 
+.workbench.page-charts {
+  --data-width: 280px;
+}
+
 .workbench.docked {
-  grid-template-columns: 76px 280px minmax(0, 1fr) 420px;
+  --dock-width: var(--panel-width, 420px);
 }
 
 .workbench.page-assistant {
-  grid-template-columns: 76px 280px 0 minmax(0, 1fr);
+  grid-template-columns: 76px 0 0 minmax(0, 1fr);
 }
 
 /* Hidden, not removed: the map and the conversation keep their state */
@@ -104,17 +113,165 @@ button:disabled {
 
 /* Focus mode (VIS-07): only the map */
 .workbench.focus {
-  grid-template-columns: 76px 0 minmax(0, 1fr) 0;
+  grid-template-rows: 0 minmax(0, 1fr);
+  --dock-width: 0px;
 }
 
-.workbench.focus > .sidebar {
-  visibility: hidden;
-  padding: 0;
-  border: none;
-}
-
+.workbench.focus > .topbar,
 .workbench.focus > .dock {
   display: none;
+}
+
+.topbar {
+  grid-area: top;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 14px 8px 20px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+  min-width: 0;
+}
+
+.brand-name {
+  font-weight: 600;
+  letter-spacing: 0.32em;
+  font-size: 13px;
+}
+
+.workspace-menu {
+  position: relative;
+}
+
+.workspace-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 8px;
+  padding: 5px 8px;
+  color: var(--ink);
+}
+
+.workspace-name:hover,
+.workspace-name[aria-expanded="true"] {
+  background: var(--ground);
+  border-color: var(--line);
+}
+
+.workspaces {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+  width: 280px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.workspaces button {
+  border: none;
+  background: transparent;
+  padding: 8px 10px;
+  border-radius: 8px;
+  text-align: left;
+  color: var(--ink);
+}
+
+.workspaces button:hover {
+  background: var(--ground);
+}
+
+.workspaces button[aria-current="true"] {
+  font-weight: 600;
+}
+
+.workspaces hr {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 4px 0;
+  width: 100%;
+}
+
+.workspaces .rename {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 6px;
+}
+
+.workspaces .rename .primary {
+  align-self: flex-end;
+}
+
+.magonia-toggle {
+  gap: 6px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  border-radius: 8px;
+  padding: 6px 12px;
+}
+
+.magonia-toggle[aria-pressed="true"] {
+  background: var(--selected);
+  color: var(--on-selected);
+  border-color: var(--selected);
+}
+
+.dock-handle {
+  position: absolute;
+  left: -4px;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  cursor: col-resize;
+  z-index: 3;
+  touch-action: none;
+}
+
+.dock-handle:hover,
+.dock-handle:focus-visible {
+  background: var(--accent);
+  opacity: 0.35;
+  outline: none;
+}
+
+.data-line {
+  margin: -6px 0 0;
+}
+
+.suggestions h2 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 8px 0 12px;
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+  gap: 12px;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  text-align: left;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--ink);
+  line-height: 1.4;
+}
+
+.tile:hover {
+  border-color: var(--accent);
 }
 
 .sidebar {
@@ -162,10 +319,6 @@ button:disabled {
 .rail-link[aria-pressed="true"] {
   background: var(--selected);
   color: var(--on-selected);
-}
-
-.rail .dock-toggle {
-  margin-top: auto;
 }
 
 .content {
@@ -277,6 +430,7 @@ button:disabled {
 
 .dock {
   grid-area: dock;
+  position: relative;
   background: var(--panel);
   border-left: 1px solid var(--line);
   padding: 14px;
@@ -303,17 +457,6 @@ button:disabled {
 .page-assistant .dock > .assistant {
   max-width: 880px;
   margin: 0 auto;
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.brand span {
-  font-weight: 600;
-  letter-spacing: 0.32em;
 }
 
 .section {
@@ -489,10 +632,6 @@ button:disabled {
   justify-content: center;
   pointer-events: none;
   z-index: 2;
-}
-
-.engine-status {
-  margin-top: auto;
 }
 
 .toolbar {
@@ -1112,4 +1251,8 @@ button:disabled {
 .map-frame .maplibregl-ctrl-attrib a,
 .setup a {
   text-decoration: underline;
+}
+
+.data-line a {
+  color: var(--accent);
 }
