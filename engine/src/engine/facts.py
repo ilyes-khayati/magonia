@@ -425,6 +425,7 @@ class View:
     charts: list[str]  # the variable keys charted
     analyses: list[dict]  # as the interface saves them
     resolution: str = "monthly"  # of the charts
+    extra: list[Fact] = field(default_factory=list)  # facts computed elsewhere, e.g. forecasts
 
     def find(self, area: str, key: str, resolution: str | None = None) -> Series | None:
         wanted = resolution or self.resolution
@@ -468,7 +469,7 @@ class View:
                             card, response, driver, analysis.get("deseasonalise", True)
                         )
                     )
-        return facts
+        return facts + self.extra
 
     def cards(self) -> list[str]:
         return list(dict.fromkeys(f.card for f in self.facts()))
