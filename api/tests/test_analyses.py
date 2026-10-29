@@ -365,3 +365,11 @@ def test_stability_needs_fitted_models_then_runs_in_the_background(client, store
     assert client.post("/stability", json=body).json() == {"status": "running"}
     done = client.post("/stability", json=body).json()
     assert done["status"] == "done" and done["summary"] == ["Orchard: stable."]
+
+
+def test_a_trend_is_tested_on_annual_means(client, store):
+    rising = [0.4 + 0.01 * (i // 12) + 0.2 * math.sin(2 * math.pi * i / 12) for i in range(180)]
+    ndvi = cache_years(store, "ndvi", None, rising)
+    found = client.post("/trend", json={**ndvi, "area_id": area(client), "masking": "pixel"}).json()
+    assert round(found["slope"], 3) == 0.1 and found["p"] < 0.001
+    assert found["summary"][0].startswith("Orchard, NDVI: annual means rising by +0.100 per decade")
