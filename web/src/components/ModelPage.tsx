@@ -13,6 +13,7 @@ import {
 import type { Entry } from "./ChartCard";
 import { CloseIcon, PlusIcon } from "./Icons";
 import Recipe from "./Recipe";
+import type { Source } from "../board";
 import { useRun } from "../useRun";
 import Results from "./Results";
 
@@ -28,7 +29,7 @@ type Props = {
   dataPath: string | null;
   mapPath: string | null;
   onShown: (ids: number[]) => void; // the experiments on screen, which Magonia is told about
-  onPin?: (card: HTMLElement, title: string) => void;
+  onPin?: (card: HTMLElement, title: string, source: Source) => void;
 };
 
 // Forecasting experiments, kept like the runs of a notebook: each has its recipe and its
@@ -86,30 +87,12 @@ export default function ModelPage(props: Props) {
           <h2>Can the next month be forecast, and what do the models rely on?</h2>
           <div className="tiles">
             <button className="tile" onClick={() => add()}>
-              <strong>The paper&apos;s method</strong>
-              <span>Ridge, Random Forest and XGBoost forecast NDVI from its past, LST and SPEI.</span>
-              <span className="meta">Tuned on the training years, tested on the last three, explained and compared.</span>
-            </button>
-            <button
-              className="tile"
-              onClick={() =>
-                add({
-                  area: firstArea,
-                  response: "ndvi",
-                  drivers: [],
-                  own_lags: null,
-                  driver_lags: null,
-                  test_years: 3,
-                  models: ["Ridge"],
-                  params: {},
-                  calendar: true,
-                  rolling: true,
-                })
-              }
-            >
-              <strong>Your own recipe</strong>
-              <span>Start from one model and its own past, and add what you want to test.</span>
-              <span className="meta">Every choice can be changed before running.</span>
+              <strong>New experiment</strong>
+              <span>Choose what to forecast, from which predictors, with which models.</span>
+              <span className="meta">
+                Each run is split by time, compared with persistence and climatology, and refitted with several seeds to
+                show how much a score moves by chance.
+              </span>
             </button>
           </div>
         </section>
@@ -208,7 +191,7 @@ type ViewProps = {
   onChange: (change: Partial<Experiment>) => void;
   onDuplicate: () => void;
   onRemove: () => void;
-  onPin?: (card: HTMLElement, title: string) => void;
+  onPin?: (card: HTMLElement, title: string, source: Source) => void;
   areas: Area[];
   variables: Variable[];
   title: (v: Variable) => string;
@@ -244,7 +227,7 @@ function ExperimentView(props: ViewProps) {
               title="Keep this run's results on the board, as they are now"
               onClick={(ev) => {
                 const card = (ev.currentTarget as HTMLElement).closest<HTMLElement>(".experiment");
-                if (card) onPin(card, e.name);
+                if (card) onPin(card, e.name, { type: "experiment", experiment: structuredClone(e) });
               }}
             >
               Pin
@@ -294,7 +277,7 @@ function ExperimentView(props: ViewProps) {
         </button>
         <span className="meta" role="status">
           {!runnable
-            ? "Choose at least one model and one predictor."
+            ? "Choose at least one model to run."
             : changed && ran
               ? "The recipe has changed since the results below were made."
               : ran

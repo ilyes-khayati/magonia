@@ -184,7 +184,7 @@ export type LagsBody = { response: SeriesOptions; drivers: SeriesOptions[]; dese
 
 export const exploreLags = (body: LagsBody) => call<LagsResponse>("/lags", send("POST", body));
 
-// Models forecasting a series one month ahead, as notebook 04 of the paper fits them
+// Models forecasting a series one month ahead, tuned and tested by time
 export type FittedModel = {
   name: "Ridge" | "RandomForest" | "XGBoost";
   params: Record<string, unknown>;
@@ -218,7 +218,7 @@ export type ModelsBody = {
   rolling?: boolean;
 };
 
-// How fitted models explain their inputs, and whether they agree (notebook 05 of the paper)
+// How fitted models explain their inputs, and whether they agree
 export type AgreementPair = {
   pair: string;
   tau: number;

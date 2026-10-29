@@ -496,10 +496,15 @@ test("an experiment runs a recipe, keeps its results, and two runs can be compar
     buffer: Buffer.from(JSON.stringify(SQUARE)),
   });
   await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Model" }).click();
-  await page.getByRole("region", { name: "Suggested experiments" }).getByRole("button", { name: /The paper's method/ }).click();
+  await page.getByRole("region", { name: "Suggested experiments" }).getByRole("button", { name: /New experiment/ }).click();
 
   const experiment = page.getByRole("region", { name: "Experiment" });
-  await expect(experiment.getByRole("combobox", { name: "Start from" })).toHaveValue("paper");
+  // nothing is chosen for the researcher: no model, no driver, no calendar
+  await expect(experiment.getByRole("button", { name: "Run experiment" })).toBeDisabled();
+  for (const name of ["Ridge", "Random Forest", "XGBoost", /^LST/, /Calendar month/]) {
+    await expect(experiment.getByRole("checkbox", { name })).not.toBeChecked();
+    await experiment.getByRole("checkbox", { name }).check();
+  }
   expect(modelled).toHaveLength(0); // nothing runs before it is asked for
   await experiment.getByRole("button", { name: "Run experiment" }).click();
   await expect(experiment.getByText(/Tuning the models/)).toBeVisible();
@@ -514,7 +519,7 @@ test("an experiment runs a recipe, keeps its results, and two runs can be compar
   ]);
   await expect(table.getByRole("row", { name: /Random Forest/ })).toContainText("±0.0004");
   expect(modelled.at(-1)).toMatchObject({ own_lags: null, test_years: 3 });
-  expect(modelled.at(-1)).not.toHaveProperty("models"); // the paper's request, unchanged
+  expect(modelled.at(-1)).not.toHaveProperty("models"); // all three models: the plain request
 
   await experiment.getByRole("button", { name: "Explain the models" }).click();
   const families = experiment.getByRole("table", { name: "Share of each model's importance by family of inputs" });
@@ -534,6 +539,14 @@ test("an experiment runs a recipe, keeps its results, and two runs can be compar
   await page.reload();
   await expect(families).toBeVisible({ timeout: 10_000 });
 
+  // pinned, the run is live on the board: its scores and explanations, not a picture
+  await experiment.getByRole("button", { name: "Pin", exact: true }).click();
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Board" }).click();
+  const pinned = page.getByRole("region", { name: "Experiment 1" });
+  await expect(pinned.getByRole("table", { name: "Test scores of each model and baseline" })).toBeVisible();
+  await expect(pinned.getByRole("table", { name: "Share of each model's importance by family of inputs" })).toBeVisible();
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Model" }).click();
+
   // a copy with one change, then the two side by side
   await experiment.getByRole("button", { name: "Duplicate" }).click();
   await experiment.getByRole("checkbox", { name: "Ridge" }).uncheck();
@@ -541,7 +554,6 @@ test("an experiment runs a recipe, keeps its results, and two runs can be compar
   await experiment.getByRole("spinbutton", { name: "Maximum depth" }).first().fill("3");
   await experiment.getByRole("spinbutton", { name: "Maximum depth" }).first().blur();
   await experiment.getByRole("checkbox", { name: /Calendar month/ }).uncheck();
-  await expect(experiment.getByRole("combobox", { name: "Start from" })).toHaveValue("custom");
   await experiment.getByRole("button", { name: "Run experiment" }).click();
   await expect.poll(() => modelled.at(-1)?.models).toEqual(["RandomForest", "XGBoost"]);
   expect(modelled.at(-1)).toMatchObject({ calendar: false });
@@ -715,8 +727,11 @@ test("cards, answers and notes are pinned to the board, and Magonia is told abou
   await assistant.getByRole("button", { name: "Pin to the board" }).click();
 
   await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Board" }).click();
-  const ndvi = page.getByRole("region", { name: "NDVI", exact: true });
-  await expect(ndvi.getByRole("img", { name: "NDVI, as pinned" })).toBeVisible();
+  // a pinned card is the live card, not a picture of it
+  const ndvi = page.getByRole("region", { name: "NDVI chart" });
+  await expect(ndvi.locator(".recharts-line")).toBeVisible();
+  await ndvi.getByRole("button", { name: "Where this comes from" }).click();
+  await expect(ndvi.getByText("7fd36665e815857e")).toBeVisible();
   await expect(page.getByRole("region", { name: "Magonia: When does it peak?" })).toContainText("Orchard NDVI peaks in Aug");
 
   await page.getByRole("button", { name: "Add a note" }).click();
@@ -728,9 +743,9 @@ test("cards, answers and notes are pinned to the board, and Magonia is told abou
 
   await page.waitForTimeout(700);
   await page.reload();
-  await expect(page.getByRole("region", { name: "NDVI", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Remove NDVI from the board" }).click();
-  await expect(page.getByRole("region", { name: "NDVI", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "NDVI chart" }).locator(".recharts-line")).toBeVisible();
+  await page.getByRole("button", { name: "Unpin NDVI" }).click();
+  await expect(page.getByRole("region", { name: "NDVI chart" })).toHaveCount(0);
   const results = await new AxeBuilder({ page }).exclude(".maplibregl-canvas").analyze();
   expect(results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? "")).map((v) => v.id)).toEqual([]);
 });

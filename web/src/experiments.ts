@@ -54,22 +54,20 @@ export type Experiment = {
   stability?: boolean; // the explanations checked across training windows, for the run
 };
 
-// The paper's method: the three models tuned on the training years, lags chosen by the tests,
-// the calendar, the last three years held out and earlier windows as well
-export const PAPER: Omit<Recipe, "area"> = {
+// A new experiment chooses nothing for the researcher beyond what to forecast: the models and
+// the predictors are theirs to pick. Its own past is left to the memory test until they type
+// lags.
+export const EMPTY: Omit<Recipe, "area"> = {
   response: "ndvi",
-  drivers: ["lst", "spei"],
+  drivers: [],
   own_lags: null,
   driver_lags: null,
   test_years: 3,
-  models: [...MODEL_NAMES],
+  models: [],
   params: {},
-  calendar: true,
+  calendar: false,
   rolling: true,
 };
-
-// The area is not part of the method
-export const isPaper = (r: Recipe) => sameRecipe({ ...r, area: null }, { ...PAPER, area: null });
 
 // Equal recipes compare equal whatever the order of their choices
 function normal(r: Recipe): Recipe {
@@ -86,8 +84,8 @@ export const sameRecipe = (a: Recipe | null, b: Recipe | null) =>
 
 export function newExperiment(list: Experiment[], area: number | null, from?: Recipe): Experiment {
   const id = Math.max(0, ...list.map((e) => e.id)) + 1;
-  const recipe = from ? structuredClone(from) : { ...structuredClone(PAPER), area };
-  return { id, name: from ? `Experiment ${id}` : `Paper method ${id}`, recipe, ran: null, explain: false };
+  const recipe = from ? structuredClone(from) : { ...structuredClone(EMPTY), area };
+  return { id, name: `Experiment ${id}`, recipe, ran: null, explain: false };
 }
 
 // The request a run makes; later choices are sent only when they differ from the defaults
@@ -128,8 +126,11 @@ export function readExperiments(saved: unknown, oldCards: Models[] = []): Experi
     ? saved.filter((e): e is Experiment => typeof e === "object" && e !== null && typeof e.id === "number" && isRecipe(e.recipe))
     : [];
   for (const card of oldCards) {
+    // a forecast card fitted all three models with the calendar and earlier windows
     const recipe: Recipe = {
-      ...PAPER,
+      ...EMPTY,
+      models: ["Ridge", "RandomForest", "XGBoost"],
+      calendar: true,
       area: null,
       response: card.response,
       drivers: card.drivers,

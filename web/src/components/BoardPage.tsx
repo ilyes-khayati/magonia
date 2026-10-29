@@ -10,12 +10,14 @@ type Props = {
   onChange: (board: BoardItem[]) => void;
   onNote: () => void;
   pagePath: (page: string) => string | null;
+  // the live card for an item, or null to show what was kept when it was pinned
+  live: (item: BoardItem, update: (change: Partial<BoardItem>) => void, remove: () => void) => React.ReactNode | null;
 };
 
 const FROM: Record<string, string> = { data: "Data", analyses: "Analyses", model: "Model", assistant: "Magonia" };
 
 // The research board: findings pinned from anywhere, as they were when pinned, with notes
-export default function BoardPage({ board, onChange, onNote, pagePath }: Props) {
+export default function BoardPage({ board, onChange, onNote, pagePath, live }: Props) {
   const update = (id: number, change: Partial<BoardItem>) => onChange(board.map((b) => (b.id === id ? { ...b, ...change } : b)));
 
   return (
@@ -34,11 +36,11 @@ export default function BoardPage({ board, onChange, onNote, pagePath }: Props) 
           <div className="tiles">
             <div className="tile">
               <strong>Pin a card</strong>
-              <span className="meta">The pin in a card&apos;s tools keeps its chart and findings here, dated.</span>
+              <span className="meta">The pin in a card&apos;s tools puts the live card here: hover it, change it, dated.</span>
             </div>
             <div className="tile">
               <strong>Pin an experiment</strong>
-              <span className="meta">On the Model page, &quot;Pin&quot; keeps a run&apos;s scores and explanations.</span>
+              <span className="meta">On the Model page, &quot;Pin&quot; puts a run here with its scores and explanations.</span>
             </div>
             <div className="tile">
               <strong>Pin an answer</strong>
@@ -61,8 +63,40 @@ export default function BoardPage({ board, onChange, onNote, pagePath }: Props) 
               onLayout={(layout) => update(b.id, { layout })}
               onMove={(step) => onChange(moved(board, i, i + step))}
               onDrop={(from) => onChange(moved(board, board.findIndex((x) => String(x.id) === from), i))}
-              image={false}
+              image={!!b.source}
             >
+              {(() => {
+                const card = b.source
+                  ? live(
+                      b,
+                      (change) => update(b.id, change),
+                      () => onChange(board.filter((x) => x.id !== b.id)),
+                    )
+                  : null;
+                return card ? (
+                  <div className="board-live">
+                    <span className="meta row" style={{ justifyContent: "space-between" }}>
+                      <span>
+                        Pinned {b.pinned}
+                        {b.page && pagePath(b.page) && (
+                          <>
+                            {" · "}
+                            <Link to={pagePath(b.page)!}>open {FROM[b.page] ?? b.page}</Link>
+                          </>
+                        )}
+                      </span>
+                      <button
+                        className="link"
+                        aria-label={`Unpin ${b.title}`}
+                        onClick={() => onChange(board.filter((x) => x.id !== b.id))}
+                      >
+                        Unpin
+                      </button>
+                    </span>
+                    {card}
+                  </div>
+                ) : null;
+              })() ?? (
               <section className={`card board-item kind-${b.kind}`} aria-label={b.title}>
                 <div className="card-head">
                   <div>
@@ -116,6 +150,7 @@ export default function BoardPage({ board, onChange, onNote, pagePath }: Props) 
                 )}
                 <Cautions items={b.cautions} />
               </section>
+              )}
             </CardSlot>
           ))}
         </div>

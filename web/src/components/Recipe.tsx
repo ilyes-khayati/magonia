@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Area, Variable, VariableKey } from "../api";
-import { isPaper, MODEL_LABEL, MODEL_NAMES, PAPER, SETTABLE, type ModelName, type Recipe as RecipeT } from "../experiments";
+import { MODEL_LABEL, MODEL_NAMES, SETTABLE, type ModelName, type Recipe as RecipeT } from "../experiments";
 
 type Props = {
   recipe: RecipeT;
@@ -36,22 +36,6 @@ export default function Recipe({ recipe, onChange, areas, variables, title }: Pr
   return (
     <div className="recipe">
       <div className="recipe-row">
-        <label className="field">
-          Start from
-          <select
-            className="select"
-            value={isPaper(recipe) ? "paper" : "custom"}
-            onChange={(e) => {
-              if (e.target.value === "paper") {
-                set({ ...structuredClone(PAPER) });
-                setLagText("");
-              }
-            }}
-          >
-            <option value="paper">The paper&apos;s method (Bounouh et al. 2026)</option>
-            <option value="custom">Your own recipe</option>
-          </select>
-        </label>
         <label className="field">
           Area
           <select className="select" value={recipe.area ?? ""} onChange={(e) => set({ area: Number(e.target.value) })}>

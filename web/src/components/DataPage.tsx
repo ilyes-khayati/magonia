@@ -2,6 +2,7 @@ import { Link } from "react-router";
 import type { Area, Variable, VariableKey } from "../api";
 import { variableTitle, type Settings } from "../settings";
 import { summarise } from "../stats";
+import type { Source } from "../board";
 import { moved, ordered } from "../cards";
 import CardSlot from "./CardSlot";
 import { describeDisplay, display } from "../display";
@@ -14,7 +15,7 @@ type Props = {
   areas: Area[];
   entries: (variable: VariableKey) => Entry[];
   mapPath: string | null;
-  onPin?: (card: HTMLElement, title: string) => void;
+  onPin?: (card: HTMLElement, title: string, source: Source) => void;
 };
 
 export default function DataPage({ catalogue, settings, onChange, areas, entries, mapPath, onPin }: Props) {
@@ -80,7 +81,7 @@ export default function DataPage({ catalogue, settings, onChange, areas, entries
               onLayout={(layout) => onChange({ cards: { ...settings.cards, [`chart:${v.key}`]: layout } })}
               onMove={(step) => move(i, i + step)}
               onDrop={(from) => move(keys.indexOf(from as typeof v.key), i)}
-              onPin={onPin && ((card) => onPin(card, variableTitle(v, settings)))}
+              onPin={onPin && ((card) => onPin(card, variableTitle(v, settings), { type: "chart", variable: v.key }))}
             >
               <ChartCard
                 variable={v}

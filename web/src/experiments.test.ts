@@ -1,20 +1,19 @@
 import { describe, expect, it } from "vitest";
 import type { SeriesOptions, VariableKey } from "./api";
-import { bodyOf, isPaper, newExperiment, PAPER, readExperiments, recipeDifferences, sameRecipe, type Recipe } from "./experiments";
+import { bodyOf, EMPTY, newExperiment, readExperiments, recipeDifferences, sameRecipe, type Recipe } from "./experiments";
 
 const options = (areaId: number, variable: VariableKey) => ({ area_id: areaId, variable }) as unknown as SeriesOptions;
-const paper: Recipe = { ...PAPER, area: 1 };
+// three models on NDVI with LST and SPEI: a common recipe for these tests
+const paper: Recipe = { ...EMPTY, area: 1, drivers: ["lst", "spei"], models: ["Ridge", "RandomForest", "XGBoost"], calendar: true };
 
 describe("experiments", () => {
-  it("start from the paper's method, not yet run", () => {
+  it("start empty: the researcher chooses the models and the predictors", () => {
     const e = newExperiment([], 1);
-    expect(e).toMatchObject({ id: 1, name: "Paper method 1", ran: null, explain: false });
-    expect(isPaper(e.recipe)).toBe(true);
-    expect(isPaper({ ...e.recipe, area: 7 })).toBe(true); // the area is not part of the method
-    expect(isPaper({ ...e.recipe, calendar: false })).toBe(false);
+    expect(e).toMatchObject({ id: 1, name: "Experiment 1", ran: null, explain: false });
+    expect(e.recipe).toMatchObject({ area: 1, response: "ndvi", drivers: [], models: [], calendar: false });
   });
 
-  it("send the paper's request unchanged, and later choices only when they differ", () => {
+  it("send all three models unchanged, and later choices only when they differ", () => {
     expect(bodyOf(paper, options)).toEqual({
       response: { area_id: 1, variable: "ndvi" },
       drivers: [
