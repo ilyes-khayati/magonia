@@ -106,7 +106,7 @@ export default function TrendCard({ analysis, onChange, onRemove, variables, tit
               ))}
             </LineChart>
           </ResponsiveContainer>
-          <div className="table-scroll">
+          <div className="table-scroll" tabIndex={0}>
             <table className="stats models">
               <caption className="visually-hidden">Trend of each area</caption>
               <thead>

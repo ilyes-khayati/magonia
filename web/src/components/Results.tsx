@@ -48,7 +48,7 @@ export default function Results({ fit, why, explain, onExplain, held, stable, on
 
   return (
     <>
-      <div className="table-scroll">
+      <div className="table-scroll" tabIndex={0}>
         <table className="stats models">
           <caption className="visually-hidden">Test scores of each model and baseline</caption>
           <thead>
@@ -212,7 +212,7 @@ function Explanations({ data }: { data: ExplanationResponse }) {
   const models = (["XGBoost", "RandomForest", "Ridge"] as const).filter((m) => data.families[m]);
   return (
     <>
-      <div className="table-scroll">
+      <div className="table-scroll" tabIndex={0}>
         <table className="stats models">
           <caption className="visually-hidden">Share of each model&apos;s importance by family of inputs</caption>
           <thead>
@@ -244,7 +244,7 @@ function Explanations({ data }: { data: ExplanationResponse }) {
         </table>
       </div>
       {data.dropped && Object.keys(data.dropped).length > 0 && (
-        <div className="table-scroll">
+        <div className="table-scroll" tabIndex={0}>
           <table className="stats models">
             <caption className="caption">Refitted without it: how much the error rises</caption>
             <thead>
@@ -289,7 +289,7 @@ function Stability({ data }: { data: StabilityResponse }) {
   const models = (["XGBoost", "RandomForest", "Ridge"] as const).filter((m) => data.leading[m]);
   return (
     <>
-      <div className="table-scroll">
+      <div className="table-scroll" tabIndex={0}>
         <table className="stats models">
           <caption className="visually-hidden">What each model leans on most, by training window</caption>
           <thead>
