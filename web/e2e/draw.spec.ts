@@ -283,7 +283,7 @@ test("an area with NDVI chosen shows its chart, statistics, provenance and summa
     mimeType: "application/geo+json",
     buffer: Buffer.from(JSON.stringify(SQUARE)),
   });
-  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Charts" }).click();
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Data" }).click();
   const chart = page.getByRole("region", { name: "NDVI chart" });
   await expect(chart.locator(".recharts-line")).toBeVisible();
   await expect(chart.getByRole("rowheader", { name: "Orchard" })).toBeVisible();
@@ -300,13 +300,13 @@ test("a correlation is shown only once added, and is saved with the workspace", 
     mimeType: "application/geo+json",
     buffer: Buffer.from(JSON.stringify(SQUARE)),
   });
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Data" }).click();
   await page.getByRole("checkbox", { name: /LST/ }).check();
   await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Analyses" }).click();
-  await expect(page.getByText("No analyses yet.")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Suggested analyses" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Correlation chart" })).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Add analysis" }).click();
-  await page.getByRole("group", { name: "Analysis types" }).getByRole("button", { name: /Correlation and lag/ }).click();
+  await page.getByRole("region", { name: "Suggested analyses" }).getByRole("button", { name: /Correlation and lag/ }).click();
   const card = page.getByRole("region", { name: "Correlation chart" });
   await expect(card.locator(".recharts-line")).toBeVisible();
   // the fake API returns the same series for both variables, so they match in the same month
@@ -319,7 +319,7 @@ test("a correlation is shown only once added, and is saved with the workspace", 
   await expect(card.getByRole("checkbox", { name: "Remove seasonal cycle" })).not.toBeChecked();
 
   await card.getByRole("button", { name: "Remove this analysis" }).click();
-  await expect(page.getByText("No analyses yet.")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Suggested analyses" })).toBeVisible();
 });
 
 test("an analysis fetches its variables even when they are not charted", async ({ page }) => {
@@ -329,11 +329,11 @@ test("an analysis fetches its variables even when they are not charted", async (
     buffer: Buffer.from(JSON.stringify(SQUARE)),
   });
   await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Analyses" }).click();
-  await page.getByRole("button", { name: "Add analysis" }).click();
-  await page.getByRole("button", { name: /Correlation and lag/ }).click();
+  await page.getByRole("region", { name: "Suggested analyses" }).getByRole("button", { name: /Correlation and lag/ }).click();
   const card = page.getByRole("region", { name: "Correlation chart" });
   await expect(card.getByRole("combobox", { name: "Driver" })).toHaveValue("lst");
   await expect(card.locator(".recharts-line")).toBeVisible();
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Data" }).click();
   await expect(page.getByRole("checkbox", { name: /LST/ })).not.toBeChecked();
 });
 
@@ -344,8 +344,7 @@ test("a decomposition asks for the series at its own time step and shows trend a
     buffer: Buffer.from(JSON.stringify(SQUARE)),
   });
   await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Analyses" }).click();
-  await page.getByRole("button", { name: "Add analysis" }).click();
-  await page.getByRole("button", { name: /Trend and season/ }).click();
+  await page.getByRole("region", { name: "Suggested analyses" }).getByRole("button", { name: /Trend and season/ }).click();
 
   const card = page.getByRole("region", { name: "Decomposition chart" });
   await expect(card.getByText("Discrete Meyer wavelet, level 5 on 16-day steps")).toBeVisible();
@@ -366,8 +365,7 @@ test("the lag explorer tests drivers and says which stand out", async ({ page })
     buffer: Buffer.from(JSON.stringify(SQUARE)),
   });
   await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Analyses" }).click();
-  await page.getByRole("button", { name: "Add analysis" }).click();
-  await page.getByRole("button", { name: /Memory and lags/ }).click();
+  await page.getByRole("region", { name: "Suggested analyses" }).getByRole("button", { name: /Memory and lags/ }).click();
 
   const card = page.getByRole("region", { name: "Lags chart" });
   await expect(card.getByText("LST: stands out")).toBeVisible();
@@ -391,8 +389,7 @@ test("forecast models fit in the background, then show scores against the baseli
     buffer: Buffer.from(JSON.stringify(SQUARE)),
   });
   await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Analyses" }).click();
-  await page.getByRole("button", { name: "Add analysis" }).click();
-  await page.getByRole("button", { name: /Forecast models/ }).click();
+  await page.getByRole("region", { name: "Suggested analyses" }).getByRole("button", { name: /Forecast models/ }).click();
 
   const card = page.getByRole("region", { name: "Forecast models" });
   await expect(card.getByRole("status")).toContainText("Tuning three models");
@@ -436,26 +433,78 @@ test("when Earth Engine is not connected, the setup explains how and saves the p
   await expect(page.getByText("Earth Engine · my-project")).toBeVisible();
 });
 
-test("focus mode hides the panels", async ({ page }) => {
+test("focus mode hides the top bar", async ({ page }) => {
   await page.getByRole("button", { name: "Focus map" }).click();
-  await expect(page.getByRole("complementary", { name: "Data" })).toBeHidden();
+  await expect(page.getByRole("banner")).toBeHidden();
   await page.getByRole("button", { name: "Show panels" }).click();
-  await expect(page.getByRole("complementary", { name: "Data" })).toBeVisible();
+  await expect(page.getByRole("banner")).toBeVisible();
+});
+
+test("the workspace is named in the top bar and can be renamed", async ({ page }) => {
+  const renamed: string[] = [];
+  page.on("request", (r) => {
+    if (r.method() === "PATCH" && r.url().endsWith("/workspaces/1") && r.postDataJSON().name) renamed.push(r.postDataJSON().name);
+  });
+  const menu = page.getByRole("banner").getByRole("button", { name: /My workspace/ });
+  await menu.click();
+  await page.getByRole("group", { name: "Workspaces" }).getByRole("button", { name: "Rename this workspace…" }).click();
+  await page.getByRole("textbox", { name: "Name" }).fill("Jendouba orchard");
+  await page.getByRole("button", { name: "Rename", exact: true }).click();
+  await expect(page.getByRole("banner").getByRole("button", { name: /Jendouba orchard/ })).toBeVisible();
+  expect(renamed).toEqual(["Jendouba orchard"]);
+});
+
+test("Magonia's panel can be widened by its edge, and stays open across pages", async ({ page }) => {
+  await page.getByRole("button", { name: "Magonia", exact: true }).click();
+  const panel = page.getByRole("complementary", { name: "Magonia" });
+  const before = (await panel.boundingBox())!.width;
+  const edge = page.getByRole("separator", { name: "Resize Magonia" });
+  await edge.focus();
+  await page.keyboard.press("ArrowLeft");
+  await page.keyboard.press("ArrowLeft");
+  await expect.poll(async () => (await panel.boundingBox())!.width).toBe(before + 80);
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Analyses" }).click();
+  await expect(page.getByRole("region", { name: "Magonia assistant" })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("region", { name: "Magonia assistant" })).toBeVisible();
+  await expect.poll(async () => (await panel.boundingBox())!.width).toBe(before + 80);
+});
+
+test("empty pages suggest what to add", async ({ page }) => {
+  await page.getByTestId("upload").setInputFiles({
+    name: "fields.geojson",
+    mimeType: "application/geo+json",
+    buffer: Buffer.from(JSON.stringify(SQUARE)),
+  });
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Data" }).click();
+  await page.getByRole("complementary", { name: "Data" }).getByRole("checkbox", { name: /NDVI/ }).uncheck();
+  const charts = page.getByRole("region", { name: "Suggested charts" });
+  await charts.getByRole("button", { name: /LST/ }).click();
+  await expect(page.getByRole("region", { name: "LST chart" })).toBeVisible();
+  await expect(charts).toHaveCount(0);
+
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Analyses" }).click();
+  await expect(page.getByText(/^Data: Jan 2020 to Dec 2024 · monthly/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add analysis" })).toHaveCount(0);
+  await page.getByRole("region", { name: "Suggested analyses" }).getByRole("button", { name: /Which past months matter/ }).click();
+  await expect(page.getByRole("region", { name: "Lags chart" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Suggested analyses" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Add analysis" })).toBeVisible();
 });
 
 test("each page has its own address, and back and reload keep it", async ({ page }) => {
   await expect(page).toHaveURL(/\/workspaces\/1\/map$/);
-  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Charts" }).click();
-  await expect(page).toHaveURL(/\/workspaces\/1\/charts$/);
-  await expect(page.getByRole("heading", { name: "Charts" })).toBeVisible();
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Data" }).click();
+  await expect(page).toHaveURL(/\/workspaces\/1\/data$/);
+  await expect(page.getByRole("heading", { name: "Data" })).toBeVisible();
   await expect(page.locator(".map")).toBeHidden();
   await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Analyses" }).click();
   await expect(page.getByRole("heading", { name: "Analyses" })).toBeVisible();
   await page.goBack();
-  await expect(page).toHaveURL(/\/charts$/);
+  await expect(page).toHaveURL(/\/data$/);
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Charts" })).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Charts" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("heading", { name: "Data" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Data" })).toHaveAttribute("aria-current", "page");
 });
 
 test("areas and data choices survive a change of page", async ({ page }) => {
@@ -464,27 +513,32 @@ test("areas and data choices survive a change of page", async ({ page }) => {
     mimeType: "application/geo+json",
     buffer: Buffer.from(JSON.stringify(SQUARE)),
   });
-  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Charts" }).click();
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Data" }).click();
   await page.getByRole("checkbox", { name: /LST/ }).check();
   await expect(page.getByRole("region", { name: "LST chart" })).toBeVisible();
   await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Map" }).click();
   await expect(page.locator(".map")).toBeVisible();
   await expect(page.getByRole("toolbar").getByRole("button", { name: /^Orchard/ })).toBeVisible();
+  await expect(page.getByRole("complementary", { name: "Data" })).toHaveCount(0); // data choices live on the Data page
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Data" }).click();
   await expect(page.getByRole("checkbox", { name: /LST/ })).toBeChecked();
 });
 
 test("Magonia opens beside a page, and the conversation carries over to its own page", async ({ page }) => {
   const assistant = page.getByRole("region", { name: "Magonia assistant" });
   await expect(assistant).toBeHidden();
-  await page.getByRole("button", { name: "Beside" }).click();
+  await page.getByRole("button", { name: "Magonia", exact: true }).click();
   await expect(assistant).toBeVisible();
   await assistant.getByRole("textbox", { name: "Ask Magonia" }).fill("What does drought do to olive NDVI?");
   await assistant.getByRole("button", { name: "Send" }).click();
   await expect(assistant.getByText("Drought lowers olive NDVI")).toBeVisible();
-  await assistant.getByRole("button", { name: "Open Magonia on its own page" }).click();
+  await expect(page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Magonia" })).toHaveCount(0);
+  await assistant.getByRole("button", { name: "Make Magonia bigger" }).click();
   await expect(page).toHaveURL(/\/assistant$/);
   await expect(assistant.getByText("Drought lowers olive NDVI")).toBeVisible();
-  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Map" }).click();
+  await assistant.getByRole("button", { name: "Make Magonia smaller" }).click();
+  await expect(page).toHaveURL(/\/map$/);
+  await expect(assistant.getByText("Drought lowers olive NDVI")).toBeVisible();
   await assistant.getByRole("button", { name: "Close Magonia" }).click();
   await expect(assistant).toBeHidden();
 });
@@ -495,8 +549,8 @@ test("Magonia is sent what is open and says which cards it read", async ({ page 
     mimeType: "application/geo+json",
     buffer: Buffer.from(JSON.stringify(SQUARE)),
   });
-  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Charts" }).click();
-  await page.getByRole("button", { name: "Beside" }).click();
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Data" }).click();
+  await page.getByRole("button", { name: "Magonia", exact: true }).click();
   const assistant = page.getByRole("region", { name: "Magonia assistant" });
   await assistant.getByRole("textbox", { name: "Ask Magonia" }).fill("When does it peak?");
   await assistant.getByRole("button", { name: "Send" }).click();
@@ -510,13 +564,13 @@ test("Magonia is sent what is open and says which cards it read", async ({ page 
   expect(serious.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
   await expect(assistant.getByText("From your workspace: NDVI chart · looked closer at Orchard NDVI 2024")).toBeVisible();
   const { view } = asked.at(-1)!;
-  expect(view?.page).toBe("charts");
+  expect(view?.page).toBe("data");
   expect(view?.charts).toEqual(["ndvi"]);
   expect(view?.series.map((s) => [s.area_id, s.variable])).toEqual([[1, "ndvi"]]);
 });
 
 test("an answer shows its checked sources and what the check removed", async ({ page }) => {
-  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Magonia" }).click();
+  await page.getByRole("button", { name: "Magonia", exact: true }).click();
   const assistant = page.getByRole("region", { name: "Magonia assistant" });
   await assistant.getByRole("textbox", { name: "Ask Magonia" }).fill("What does drought do to olive NDVI?");
   await assistant.getByRole("button", { name: "Send" }).click();
@@ -543,20 +597,19 @@ for (const theme of ["light", "dark"]) {
       mimeType: "application/geo+json",
       buffer: Buffer.from(JSON.stringify(SQUARE)),
     });
-    await page.getByRole("button", { name: "Beside" }).click();
-    for (const name of ["Charts", "Analyses", "Map"]) {
+    await page.getByRole("button", { name: "Magonia", exact: true }).click();
+    for (const name of ["Data", "Analyses", "Map"]) {
       await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name }).click();
-      if (name === "Charts") await expect(page.locator(".recharts-line")).toBeVisible();
+      if (name === "Data") await expect(page.locator(".recharts-line")).toBeVisible();
       if (name === "Analyses") {
-        await page.getByRole("button", { name: "Add analysis" }).click();
-        await page.getByRole("button", { name: /Correlation and lag/ }).click();
+        await page.getByRole("region", { name: "Suggested analyses" }).getByRole("button", { name: /Correlation and lag/ }).click();
         await expect(page.locator(".recharts-line").first()).toBeVisible();
       }
       const results = await new AxeBuilder({ page }).exclude(".maplibregl-canvas").analyze();
       const serious = results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? ""));
       expect(serious.map((v) => `${name}: ${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
     }
-    await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Magonia" }).click();
+    await page.getByRole("region", { name: "Magonia assistant" }).getByRole("button", { name: "Make Magonia bigger" }).click();
     const results = await new AxeBuilder({ page }).exclude(".maplibregl-canvas").analyze();
     const serious = results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? ""));
     expect(serious.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);

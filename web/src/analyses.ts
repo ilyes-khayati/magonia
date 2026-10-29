@@ -40,6 +40,7 @@ export type Kind = Analysis["kind"];
 type KindInfo = {
   kind: Kind;
   label: string;
+  question: string; // what it answers, for the suggestions on an empty page
   description: string;
   // a new analysis of this kind, starting from the variables chosen for the charts
   create: (chosen: VariableKey[]) => AnalysisBody;
@@ -54,6 +55,7 @@ export const KINDS: KindInfo[] = [
   {
     kind: "correlation",
     label: "Correlation and lag",
+    question: "Does one variable follow another?",
     description: "How closely one variable follows another, 0 to 12 months later.",
     create: (chosen) => {
       const response = chosen[0] ?? "ndvi";
@@ -63,12 +65,14 @@ export const KINDS: KindInfo[] = [
   {
     kind: "decomposition",
     label: "Trend and season",
+    question: "Is it changing over the years, beyond the yearly cycle?",
     description: "Splits a variable into its slow trend and its seasonal cycle with a wavelet, as in the paper.",
     create: (chosen) => ({ kind: "decomposition", variable: chosen[0] ?? "ndvi" }),
   },
   {
     kind: "lags",
     label: "Memory and lags",
+    question: "Which past months matter?",
     description: "Which past months of a variable, and of its drivers, stand out, tested as in the paper.",
     create: (chosen) => {
       const response = chosen[0] ?? "ndvi";
@@ -80,6 +84,7 @@ export const KINDS: KindInfo[] = [
   {
     kind: "models",
     label: "Forecast models",
+    question: "Can next month be forecast, and what do the models rely on?",
     description: "Ridge, Random Forest and XGBoost forecast a variable a month ahead, tested against baselines, as in the paper.",
     create: (chosen) => {
       const response = chosen[0] ?? "ndvi";

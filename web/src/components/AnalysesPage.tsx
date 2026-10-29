@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router";
 import { KINDS, type Analysis, type Kind } from "../analyses";
 import type { Area, SeriesOptions, Variable, VariableKey } from "../api";
 import { variableTitle, type Settings } from "../settings";
@@ -19,7 +20,17 @@ type Props = {
   onAdd: (kind: Kind) => void;
   onChange: (id: number, change: Partial<Analysis>) => void;
   onRemove: (id: number) => void;
+  dataPath: string | null;
+  mapPath: string | null;
 };
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const month = (value: string) => {
+  const [year, m] = value.split("-").map(Number);
+  return `${MONTHS[m - 1]} ${year}`;
+};
+const STEPS = { native: "each product's own time step", monthly: "monthly", seasonal: "seasonal means" };
+const CLOUDS = { pixel: "cloudy pixels removed", date: "cloudy dates removed", none: "no cloud filter" };
 
 // The menu of analysis types, closed by a choice, Escape or a click elsewhere
 function AddAnalysis({ onAdd }: { onAdd: (kind: Kind) => void }) {
@@ -59,7 +70,6 @@ function AddAnalysis({ onAdd }: { onAdd: (kind: Kind) => void }) {
               <span className="meta">{description}</span>
             </button>
           ))}
-          <p className="meta">Explanations of the models are coming.</p>
         </div>
       )}
     </div>
@@ -67,20 +77,49 @@ function AddAnalysis({ onAdd }: { onAdd: (kind: Kind) => void }) {
 }
 
 export default function AnalysesPage(props: Props) {
-  const { catalogue, settings, areas, entries, options, analyses, onAdd, onChange, onRemove } = props;
+  const { catalogue, settings, areas, entries, options, analyses, onAdd, onChange, onRemove, dataPath, mapPath } = props;
   const title = (v: Variable) => variableTitle(v, settings);
+  const data = [
+    `${month(settings.start)} to ${month(settings.end)}`,
+    STEPS[settings.resolution],
+    CLOUDS[settings.masking],
+    settings.fill ? `gaps up to ${settings.maxGap} filled` : "gaps left empty",
+  ].join(" · ");
 
   return (
     <div className="page">
       <div className="page-head">
         <h1>Analyses</h1>
-        <AddAnalysis onAdd={onAdd} />
+        {analyses.length > 0 && <AddAnalysis onAdd={onAdd} />}
       </div>
+      <p className="meta data-line">
+        Data: {data}
+        {dataPath && (
+          <>
+            {" · "}
+            <Link to={dataPath}>change on Data</Link>
+          </>
+        )}
+      </p>
 
       {!areas.length ? (
-        <p className="placeholder">Draw or upload an area on the map to begin.</p>
+        <p className="placeholder">
+          {mapPath ? <Link to={mapPath}>Draw or upload an area on the map</Link> : "Draw or upload an area on the map"} to
+          begin.
+        </p>
       ) : !analyses.length ? (
-        <p className="placeholder">No analyses yet. Add one to study how your variables are related.</p>
+        <section className="suggestions" aria-label="Suggested analyses">
+          <h2>What would you like to find out?</h2>
+          <div className="tiles">
+            {KINDS.map(({ kind, label, question, description }) => (
+              <button key={kind} className="tile" onClick={() => onAdd(kind)}>
+                <strong>{label}</strong>
+                <span>{question}</span>
+                <span className="meta">{description}</span>
+              </button>
+            ))}
+          </div>
+        </section>
       ) : (
         <div className="page-grid">
           {analyses.map((analysis) => {
