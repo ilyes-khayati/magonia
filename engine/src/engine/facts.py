@@ -470,6 +470,16 @@ class View:
                     if s := self.find(area, analysis["variable"], "native"):
                         facts.extend(decomposition_facts(f"Decomposition {n}: {s.title}", s))
                 continue
+            if analysis.get("kind") == "trend":
+                from engine.trend import trend  # here, since trend builds on these helpers
+
+                for area in areas:
+                    if s := self.find(area, analysis["variable"]):
+                        card = f"Trend {n}: {s.title}"
+                        found = trend(s.area, s.title, s.key, s.units, s.points)
+                        facts += [Fact(card, line) for line in found.summary]
+                        facts += caution_facts(card, found.cautions)
+                continue
             if analysis.get("kind") == "lags":
                 for area in areas:
                     response = self.find(area, analysis["response"])

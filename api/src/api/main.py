@@ -19,6 +19,7 @@ from engine.models import ForecastError, design, forecast
 from engine.pipeline import Request, fingerprint
 from engine.prepare import Resolution
 from engine.series import Masking, band_name
+from engine.trend import trend
 from fastapi import Depends, FastAPI, HTTPException, Response
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -427,6 +428,14 @@ def split_cautions(found: list[facts.Fact]) -> tuple[list[str], list[str]]:
     summary = [f.text for f in found if not f.text.startswith("Caution. ")]
     cautions = [f.text.removeprefix("Caution. ") for f in found if f.text.startswith("Caution. ")]
     return summary, cautions
+
+
+@app.post("/trend")
+def series_trend(body: SeriesRequest, store: StoreDep) -> dict:
+    """Theil–Sen slope and Mann–Kendall test of a series' annual means (ANA-04)."""
+    s = cached_series(body, store)
+    found = trend(s.area, s.title, s.key, s.units, s.points)
+    return {"area_id": body.area_id, **found.to_dict()}
 
 
 class LagsRequest(BaseModel):

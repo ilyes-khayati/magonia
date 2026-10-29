@@ -9,6 +9,7 @@ import type { Entry } from "./ChartCard";
 import CorrelationCard from "./CorrelationCard";
 import DecompositionCard from "./DecompositionCard";
 import LagsCard from "./LagsCard";
+import TrendCard from "./TrendCard";
 import { PlusIcon } from "./Icons";
 
 type Props = {
@@ -114,6 +115,18 @@ export default function AnalysesPage(props: Props) {
             title={title}
             entries={entries(analysis.variable, true)}
             options={(areaId) => options(areaId, analysis.variable, true)}
+          />
+        );
+      case "trend":
+        return (
+          <TrendCard
+            analysis={analysis}
+            onChange={(change) => onChange(analysis.id, change)}
+            onRemove={() => onRemove(analysis.id)}
+            variables={catalogue}
+            title={title}
+            entries={entries(analysis.variable)}
+            options={(areaId) => options(areaId, analysis.variable)}
           />
         );
       case "lags":
