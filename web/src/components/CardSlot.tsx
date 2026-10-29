@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import type { CardLayout } from "../cards";
-import { ChevronIcon, GripIcon, WidthIcon } from "./Icons";
+import { saveChartImage } from "../chartImage";
+import { ChevronIcon, GripIcon, ImageIcon, WidthIcon } from "./Icons";
 
 type Props = {
   id: string;
@@ -64,6 +65,18 @@ export default function CardSlot({ id, label, layout, onLayout, onMove, onDrop, 
           onClick={() => onLayout({ ...layout, wide: !layout.wide })}
         >
           <WidthIcon size={14} />
+        </button>
+        <button
+          className="tool-button"
+          aria-label={`Save ${label} as an image`}
+          title="Save the chart as an image"
+          onClick={() => {
+            const card = slot.current?.querySelector<HTMLElement>(".card");
+            const subtitle = card?.querySelector(".card-head .meta")?.textContent ?? "";
+            if (card) saveChartImage(card, card.querySelector("h3")?.textContent ?? label, subtitle);
+          }}
+        >
+          <ImageIcon size={14} />
         </button>
         <button
           className="tool-button fold"
