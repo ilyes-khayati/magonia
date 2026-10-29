@@ -4,6 +4,7 @@ import { variableTitle, type Settings } from "../settings";
 import { summarise } from "../stats";
 import { moved, ordered } from "../cards";
 import CardSlot from "./CardSlot";
+import { describeDisplay, display } from "../display";
 import ChartCard, { type Entry } from "./ChartCard";
 
 type Props = {
@@ -79,7 +80,18 @@ export default function DataPage({ catalogue, settings, onChange, areas, entries
               onMove={(step) => move(i, i + step)}
               onDrop={(from) => move(keys.indexOf(from as typeof v.key), i)}
             >
-              <ChartCard variable={v} title={variableTitle(v, settings)} entries={entries(v.key)} mode={settings.mode} />
+              <ChartCard
+                variable={v}
+                title={variableTitle(v, settings)}
+                entries={entries(v.key).map((e) =>
+                  e.state?.status === "done"
+                    ? { ...e, state: { ...e.state, data: { ...e.state.data, points: display(e.state.data.points, settings.display) } } }
+                    : e,
+                )}
+                mode={settings.mode}
+                shown={describeDisplay(settings.display)}
+                anomaly={settings.display.anomaly !== null}
+              />
             </CardSlot>
           ))}
         </div>

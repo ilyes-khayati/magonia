@@ -18,6 +18,7 @@ import {
   type WorkspaceSummary,
 } from "./api";
 import { addAnalysis, needsOf, readAnalyses, type Analysis, type Kind, type Models, type Need } from "./analyses";
+import { describeDisplay } from "./display";
 import { readExperiments, type Experiment } from "./experiments";
 import { readAreaFile } from "./areaFiles";
 import AnalysesPage from "./components/AnalysesPage";
@@ -388,8 +389,9 @@ export default function App() {
           .flatMap((e) => (e.ran ? [{ kind: "models", name: e.name, ...e.ran, area: e.ran.area ?? shown[0]?.id ?? null }] : [])),
       ],
       series: requests.map((r) => r.options),
+      display: describeDisplay(settings.display),
     }),
-    [page, settings.variables, settings.resolution, analyses, experiments, experimentsShown, shown, requests],
+    [page, settings.variables, settings.resolution, settings.display, analyses, experiments, experimentsShown, shown, requests],
   );
   const states = requests.map((r) => results.get(r.key));
   const progress = {
