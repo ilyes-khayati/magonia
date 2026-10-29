@@ -93,3 +93,43 @@ export function describeLink(area: string, response: string, driver: string, lag
   const weak = Math.abs(best.r) < 0.3 ? ", weak" : "";
   return `${area}: ${response} ${what} are most closely linked to ${driver} ${what} ${when} (${r}${weak}): higher ${driver} goes with ${direction} ${response}.`;
 }
+
+// Share of a monthly series' variance explained by its calendar-month means (as the engine's
+// guardrails compute it)
+export function seasonalShare(series: Map<number, number>): number {
+  const values = [...series.values()];
+  if (values.length < 24) return 0;
+  const spread = (xs: number[]) => {
+    const m = mean(xs);
+    return xs.reduce((a, x) => a + (x - m) ** 2, 0) / (xs.length - 1);
+  };
+  const total = spread(values);
+  return total ? 1 - spread([...anomalies(series).values()]) / total : 0;
+}
+
+export const SEASONAL = 0.5;
+export const MIN_MONTHS = 36;
+
+// The guardrails on a correlation (AI-03), worded as the engine words them for Magonia
+export function correlationCautions(
+  area: string,
+  response: string,
+  driver: string,
+  a: SeriesPoint[],
+  b: SeriesPoint[],
+  deseasonalise: boolean,
+): string[] {
+  const ma = monthly(a);
+  const mb = monthly(b);
+  const out: string[] = [];
+  const sa = seasonalShare(ma);
+  const sb = seasonalShare(mb);
+  if (!deseasonalise && Math.min(sa, sb) > SEASONAL)
+    out.push(
+      `${area}: ${response} and ${driver} both follow a yearly cycle (${Math.round(100 * sa)}% and ${Math.round(100 * sb)}% of their variance), and it was not removed, so most of the correlation is the shared season. Tick 'Remove seasonal cycle' to see the link beyond it.`,
+    );
+  const months = [...ma.keys()].filter((m) => mb.has(m)).length;
+  if (months < MIN_MONTHS)
+    out.push(`${area}: only ${months} months in common; a correlation needs about ${MIN_MONTHS} to mean much.`);
+  return out;
+}

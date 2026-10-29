@@ -92,7 +92,7 @@ def cache_monthly(store, variable, scale, values):
     ]
     masking = "none" if variable == "spei" else "pixel"
     request = Request(variable, SQUARE, "2018-01-01", "2024-01-01", masking, scale, "monthly", 2)
-    name = {"ndvi": "NDVI", "spei": f"SPEI-{scale}"}[variable]
+    name = {"ndvi": "NDVI", "lst": "LST", "spei": f"SPEI-{scale}"}[variable]
     store.save_result(
         cache_key(request),
         {
@@ -153,7 +153,7 @@ def cache_years(store, variable, scale, values, start_year=2005):
     end = f"{start_year + len(values) // 12}-01-01"
     masking = "none" if variable == "spei" else "pixel"
     request = Request(variable, SQUARE, f"{start_year}-01-01", end, masking, scale, "monthly", 2)
-    name = {"ndvi": "NDVI", "spei": f"SPEI-{scale}"}[variable]
+    name = {"ndvi": "NDVI", "lst": "LST", "spei": f"SPEI-{scale}"}[variable]
     response = {"variable": variable, "name": name, "units": "", "points": points}
     store.save_result(cache_key(request), response | {"warnings": [], "provenance": {}})
     return {
@@ -211,7 +211,12 @@ class FakeForecast:
 
         class Found:
             def to_dict(self):
-                return {"summary": [f"{area}: fitted."], "models": []}
+                return {
+                    "summary": [f"{area}: fitted."],
+                    "models": [],
+                    "baselines": {"persistence": {"RMSE": 0.1}, "climatology": {"RMSE": 0.1}},
+                    "observed": [0.5] * 36,
+                }
 
         return Found()
 
@@ -317,3 +322,27 @@ def test_models_and_their_settings_are_the_researchers_choice(client, store, mon
         main.ModelsRequest(**chosen), store
     )
     assert client.post("/models", json={**base, "models": []}).status_code == 422
+
+
+def test_cards_carry_the_guardrails_cautions(client, store, monkeypatch):
+    from api import main
+
+    monkeypatch.setattr(main, "forecast", FakeForecast())
+    area_id = area(client)
+    seasonal = [0.5 + 0.3 * math.sin(2 * math.pi * i / 12) for i in range(180)]
+    ndvi = cache_years(store, "ndvi", None, seasonal)
+    lst = cache_years(
+        store, "lst", None, [20 - 10 * math.sin(2 * math.pi * i / 12) for i in range(180)]
+    )
+    body = {
+        "response": {**ndvi, "area_id": area_id, "masking": "pixel"},
+        "drivers": [{**lst, "area_id": area_id, "masking": "pixel"}],
+        "deseasonalise": False,
+    }
+    lagged = client.post("/lags", json=body).json()
+    assert any("the seasonal cycle was kept" in c for c in lagged["cautions"])
+    assert client.post("/lags", json={**body, "deseasonalise": True}).json()["cautions"] == []
+
+    models = {"response": body["response"], "own_lags": [1]}
+    client.post("/models", json=models)
+    assert client.post("/models", json=models).json()["cautions"] == []

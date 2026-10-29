@@ -4,6 +4,7 @@ import type { Decomposition } from "../analyses";
 import { decomposeSeries, type SeriesOptions, type Variable, type VariableKey } from "../api";
 import { useAnalysis } from "../useAnalysis";
 import type { Entry } from "./ChartCard";
+import Cautions from "./Cautions";
 import { CloseIcon } from "./Icons";
 
 type Props = {
@@ -170,6 +171,7 @@ export default function DecompositionCard({ analysis, onChange, onRemove, variab
           ) : null,
         )}
       </ul>
+      <Cautions items={parts.flatMap(({ result }) => (result?.status === "done" ? (result.data.cautions ?? []) : []))} />
       {method && (
         <span className="meta">
           The wavelet uses later data too, so the trend describes the past and is not a forecast.
