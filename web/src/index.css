@@ -1602,3 +1602,32 @@ button:disabled {
     opacity: 1;
   }
 }
+
+/* The guardrails' cautions on a card */
+.cautions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cautions li {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border-left: 3px solid var(--warning);
+  background: color-mix(in srgb, var(--warning) 9%, var(--card));
+  color: var(--ink);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.cautions svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--warning);
+}

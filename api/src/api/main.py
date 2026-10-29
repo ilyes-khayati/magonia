@@ -8,7 +8,7 @@ from typing import Annotated, Literal
 
 import engine
 import pandas as pd
-from engine import assistant, facts
+from engine import assistant, facts, guardrails
 from engine.areas import AreaError, make_area
 from engine.catalogue import CATALOGUE, get_variable
 from engine.decompose import DecompositionError, decompose
@@ -418,8 +418,15 @@ def decomposition(body: SeriesRequest, store: StoreDep) -> dict:
     except DecompositionError as exc:
         raise HTTPException(422, str(exc)) from exc
     series = facts.Series(area["name"], body.variable, result["name"], result["units"], points)
-    summary = [f.text for f in facts.decomposition_facts("", series)]
-    return {**parts.to_dict(), "area_id": area["id"], "summary": summary}
+    summary, cautions = split_cautions(facts.decomposition_facts("", series))
+    return {**parts.to_dict(), "area_id": area["id"], "summary": summary, "cautions": cautions}
+
+
+def split_cautions(found: list[facts.Fact]) -> tuple[list[str], list[str]]:
+    """A card's sentences, and apart from them the guardrails' cautions (AI-03)."""
+    summary = [f.text for f in found if not f.text.startswith("Caution. ")]
+    cautions = [f.text.removeprefix("Caution. ") for f in found if f.text.startswith("Caution. ")]
+    return summary, cautions
 
 
 class LagsRequest(BaseModel):
@@ -435,7 +442,12 @@ def cached_series(body: SeriesRequest, store: Store) -> facts.Series:
     if result is None:
         raise HTTPException(409, "this series has not been extracted yet")
     return facts.Series(
-        area["name"], body.variable, result["name"], result["units"], result["points"]
+        area["name"],
+        body.variable,
+        result["name"],
+        result["units"],
+        result["points"],
+        warnings=result.get("warnings", []),
     )
 
 
@@ -453,7 +465,13 @@ def lags(body: LagsRequest, store: StoreDep) -> dict:
         [(d.title, d.key, facts.monthly_series(d)) for d in drivers],
         body.deseasonalise,
     )
-    return {"area_id": body.response.area_id, **found.to_dict()}
+    cautions = guardrails.lags(
+        response.area,
+        (response.title, facts.monthly_series(response)),
+        [(d.title, facts.monthly_series(d), d.warnings) for d in drivers],
+        body.deseasonalise,
+    )
+    return {"area_id": body.response.area_id, **found.to_dict(), "cautions": cautions}
 
 
 class ModelsRequest(BaseModel):
@@ -493,6 +511,12 @@ def models_key(body: ModelsRequest, store: Store) -> str:
     return fingerprint({"forecast": series, **choices, **later, "engine": engine.__version__})
 
 
+def forecast_cautions(result: dict, response: facts.Series, drivers: list[facts.Series]) -> list:
+    """The guardrails on a forecast, worked out when read, so earlier results gain them too."""
+    warnings = [w for d in drivers for w in guardrails.footprint(d.title, d.warnings)]
+    return guardrails.models(response.area, result, warnings)
+
+
 def fit_forecast(store: Store, key: str, response: facts.Series, drivers: list[facts.Series], body):
     try:
         found = forecast(
@@ -527,7 +551,11 @@ def models(body: ModelsRequest, store: StoreDep, runner: RunnerDep, reply: Respo
     drivers = [cached_series(d, store) for d in body.drivers]
     key = models_key(body, store)
     if (result := store.result(key)) is not None:
-        return {"status": "done", **result}
+        return {
+            "status": "done",
+            **result,
+            "cautions": forecast_cautions(result, response, drivers),
+        }
     if key in FAILED:
         return {"status": "failed", "error": FAILED.pop(key)}
     if key not in FITTING:
@@ -655,6 +683,7 @@ def workspace_view(store: Store, workspace_id: int, view: View) -> facts.View:
                 result["units"],
                 result["points"],
                 s.resolution,
+                result.get("warnings", []),
             )
         )
     context = [f"The researcher is on the {view.page} page."]
@@ -673,6 +702,13 @@ def workspace_view(store: Store, workspace_id: int, view: View) -> facts.View:
         context.append("Still loading, so not described: " + ", ".join(loading) + ".")
     extra = forecast_facts(store, view, areas)
     return facts.View(context, series, view.charts, view.analyses, view.resolution, extra)
+
+
+def series_warnings(store: Store, request: SeriesRequest | None) -> list[str]:
+    if request is None:
+        return []
+    result = store.result(cache_key(series_request(request, store)[1]))
+    return result.get("warnings", []) if result else []
 
 
 def forecast_facts(store: Store, view: View, areas: dict[int, dict]) -> list[facts.Fact]:
@@ -711,6 +747,13 @@ def forecast_facts(store: Store, view: View, areas: dict[int, dict]) -> list[fac
             key = models_key(body, store)
             if (result := store.result(key)) is not None:
                 found += [facts.Fact(card, line) for line in result["summary"]]
+                footprints = [
+                    w
+                    for k in analysis.get("drivers", [])
+                    for w in guardrails.footprint(k.upper(), series_warnings(store, mine.get(k)))
+                ]
+                cautions = guardrails.models(area["name"], result, footprints)
+                found += facts.caution_facts(card, cautions)
             elif key in FITTING:
                 found.append(
                     facts.Fact(card, f"{area['name']}: the models are still being fitted.")

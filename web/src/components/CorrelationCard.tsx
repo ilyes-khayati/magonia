@@ -11,8 +11,9 @@ import {
 } from "recharts";
 import type { Correlation } from "../analyses";
 import type { Variable, VariableKey } from "../api";
-import { describeLink, lagCorrelation, type Lag } from "../correlation";
+import { correlationCautions, describeLink, lagCorrelation, type Lag } from "../correlation";
 import type { Entry } from "./ChartCard";
+import Cautions from "./Cautions";
 import { CloseIcon } from "./Icons";
 
 type Props = {
@@ -36,7 +37,14 @@ export default function CorrelationCard({ analysis, onChange, onRemove, variable
   const areas = entries(response).flatMap(({ area, colour, state }) => {
     const other = drivers.find((d) => d.area.id === area.id)?.state;
     if (state?.status !== "done" || other?.status !== "done") return [];
-    return [{ area, colour, lags: lagCorrelation(state.data.points, other.data.points, 12, deseasonalise) }];
+    return [
+      {
+        area,
+        colour,
+        lags: lagCorrelation(state.data.points, other.data.points, 12, deseasonalise),
+        cautions: correlationCautions(area.name, name(response), name(driver), state.data.points, other.data.points, deseasonalise),
+      },
+    ];
   });
 
   // One row per lag, one column per area; the band is drawn for the area with the fewest months
@@ -156,6 +164,7 @@ export default function CorrelationCard({ analysis, onChange, onRemove, variable
               <li key={area.id}>{describeLink(area.name, name(response), name(driver), lags, deseasonalise)}</li>
             ))}
           </ul>
+          <Cautions items={areas.flatMap((a) => a.cautions)} />
           <span className="meta">
             Grey band: correlations that could arise by chance (95%, ignoring autocorrelation, so a little
             optimistic).

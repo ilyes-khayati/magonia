@@ -18,6 +18,7 @@ import { exploreLags, type LagsBody, type SeriesOptions, type Variable, type Var
 import { areaColour, type Theme } from "../theme";
 import { useAnalysis } from "../useAnalysis";
 import type { Entry } from "./ChartCard";
+import Cautions from "./Cautions";
 import { CloseIcon } from "./Icons";
 
 type Props = {
@@ -226,6 +227,7 @@ export default function LagsCard(props: Props) {
               <li key={line}>{line}</li>
             ))}
           </ul>
+          <Cautions items={found.cautions} />
           <span className="meta">
             As anomalies, part of a driver&apos;s link can run through {name(analysis.response)}&apos;s own memory. The paper
             also removes that memory first; that comes with the models.

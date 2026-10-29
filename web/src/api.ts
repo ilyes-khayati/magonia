@@ -121,6 +121,7 @@ export type DecompositionResponse = {
   area_id: number;
   points: { date: string; value: number | null; trend: number | null; seasonal: number | null }[];
   summary: string[]; // the sentences Magonia is given about it
+  cautions?: string[]; // the guardrails' (AI-03)
 };
 
 export const decomposeSeries = (options: SeriesOptions) =>
@@ -137,7 +138,14 @@ export type LagEvidence = {
   decision: "stands out" | "not significant" | "implausible sign";
 };
 
-export type LagsResponse = { area_id: number; acf: number[]; acf_band: number; drivers: LagEvidence[]; summary: string[] };
+export type LagsResponse = {
+  area_id: number;
+  acf: number[];
+  acf_band: number;
+  drivers: LagEvidence[];
+  summary: string[];
+  cautions?: string[]; // the guardrails' (AI-03)
+};
 
 export type LagsBody = { response: SeriesOptions; drivers: SeriesOptions[]; deseasonalise: boolean };
 
@@ -162,6 +170,7 @@ export type ModelsResponse = {
   models: FittedModel[];
   baselines: Record<"persistence" | "climatology", { RMSE: number; R2: number; MAE: number }>;
   summary: string[];
+  cautions?: string[]; // the guardrails' (AI-03)
 };
 
 export type ModelsBody = {
