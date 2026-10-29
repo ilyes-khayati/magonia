@@ -16,6 +16,7 @@ from engine.earth_engine import EarthEngineError, check
 from engine.explain import Explanation, Pair, describe, explain, stability
 from engine.lags import explore
 from engine.models import ForecastError, design, forecast
+from engine.phenology import PhenologyError, phenology
 from engine.pipeline import Request, fingerprint
 from engine.prepare import Resolution
 from engine.series import Masking, band_name
@@ -428,6 +429,20 @@ def split_cautions(found: list[facts.Fact]) -> tuple[list[str], list[str]]:
     summary = [f.text for f in found if not f.text.startswith("Caution. ")]
     cautions = [f.text.removeprefix("Caution. ") for f in found if f.text.startswith("Caution. ")]
     return summary, cautions
+
+
+@app.post("/phenology")
+def season_dates(body: SeriesRequest, store: StoreDep) -> dict:
+    """Start, peak and end of the growing season, year by year, from NDVI at its native
+    step (ANA-05)."""
+    if body.resolution != "native":
+        raise HTTPException(422, "season dates need the series at its native time step")
+    s = cached_series(body, store)
+    try:
+        found = phenology(s.area, s.title, s.key, s.points)
+    except PhenologyError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return {"area_id": body.area_id, **found.to_dict()}
 
 
 @app.post("/trend")
