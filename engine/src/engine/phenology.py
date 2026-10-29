@@ -60,8 +60,10 @@ def day(d: pd.Timestamp) -> str:
 
 
 def phenology(area: str, title: str, key: str, points: list[dict]) -> Phenology:
-    if key != "ndvi":
-        raise PhenologyError("Season dates are computed from NDVI, the greenness of vegetation.")
+    if key not in ("ndvi", "savi"):
+        raise PhenologyError(
+            "Season dates are computed from NDVI or SAVI, the greenness of vegetation."
+        )
     frame = pd.DataFrame(points)
     values = frame["value"].where(~frame["masked"] | frame["filled"])
     s = smooth(frame["date"], values)

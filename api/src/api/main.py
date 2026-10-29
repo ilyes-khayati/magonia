@@ -90,7 +90,7 @@ class SeriesRequest(BaseModel):
     workspace_id: int | None = None  # keep the result with this workspace
     start: date
     end: date
-    variable: Literal["ndvi", "lst", "spei"] = "ndvi"
+    variable: Literal["ndvi", "savi", "lst", "spei"] = "ndvi"
     masking: Masking = "pixel"  # how flagged observations are removed
     scale: int | None = Field(None, ge=1, le=48)  # SPEI time scale in months
     resolution: Resolution = "native"

@@ -7,8 +7,8 @@ from engine.catalogue import CATALOGUE, get_variable
 from engine.earth_engine import connect
 
 
-def test_ndvi_lst_and_spei_are_described():
-    assert set(CATALOGUE) == {"ndvi", "lst", "spei"}
+def test_ndvi_savi_lst_and_spei_are_described():
+    assert set(CATALOGUE) == {"ndvi", "savi", "lst", "spei"}
     for variable in CATALOGUE.values():
         assert variable.product and variable.licence and variable.citation
 
@@ -24,7 +24,7 @@ def test_lst_is_converted_to_celsius():
 
 
 def test_unknown_variable_names_the_choices():
-    with pytest.raises(KeyError, match="ndvi, lst, spei"):
+    with pytest.raises(KeyError, match="ndvi, savi, lst, spei"):
         get_variable("rainfall")
 
 
@@ -34,4 +34,6 @@ def test_live_every_band_exists():
     for variable in CATALOGUE.values():
         bands = ee.ImageCollection(variable.collection).first().bandNames().getInfo()
         names = [variable.band.format(scale=s) for s in variable.scales] or [variable.band]
+        if variable.key == "savi":  # computed from the red and near-infrared reflectances
+            names = ["sur_refl_b01", "sur_refl_b02"]
         assert set(names) <= set(bands), variable.key

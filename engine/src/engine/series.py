@@ -13,7 +13,7 @@ COLUMNS = ["date", "value", "sd", "n_pixels", "masked"]
 
 def flagged(key: str, image: ee.Image) -> ee.Image:
     """1 where the variable's quality flag says the pixel should not be used."""
-    if key == "ndvi":
+    if key in ("ndvi", "savi"):
         # SummaryQA: 0 good, 1 marginal, 2 snow or ice, 3 cloudy
         return image.select("SummaryQA").gte(2)
     if key == "lst":
@@ -86,7 +86,7 @@ def fetch(
 
     def summarise(image):
         bad = flagged(key, image)
-        values = image.select(band)
+        values = derived(key, image) if key in DERIVED else image.select(band)
         if masking == "pixel":
             values = values.updateMask(bad.Not())
         result = values.reduceRegion(stats, area, scale=variable.pixel_m)
@@ -103,6 +103,18 @@ def fetch(
         )
 
     return ee.FeatureCollection(images.map(summarise)).getInfo()["features"]
+
+
+DERIVED = {"savi"}
+
+
+def derived(key: str, image: ee.Image) -> ee.Image:
+    """A band computed from others: SAVI from MOD13Q1's red and near-infrared reflectance."""
+    if key == "savi":
+        red = image.select("sur_refl_b01").multiply(0.0001)
+        nir = image.select("sur_refl_b02").multiply(0.0001)
+        return nir.subtract(red).multiply(1.5).divide(nir.add(red).add(0.5)).rename("SAVI")
+    raise ValueError(f"{key} is not computed")
 
 
 def check_scale(variable: Variable, scale: int | None) -> int:

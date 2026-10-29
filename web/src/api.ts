@@ -1,7 +1,7 @@
 // Typed calls to the Magonia API (served under /api by the Vite proxy)
 
 export type Masking = "pixel" | "date" | "none";
-export type VariableKey = "ndvi" | "lst" | "spei";
+export type VariableKey = "ndvi" | "savi" | "lst" | "spei";
 export type Resolution = "native" | "monthly" | "seasonal";
 
 export type Variable = {

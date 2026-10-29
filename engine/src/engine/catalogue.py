@@ -83,7 +83,28 @@ SPEI = Variable(
     sampling="centre",
 )
 
-CATALOGUE = {variable.key: variable for variable in (NDVI, LST, SPEI)}
+# Soil-adjusted vegetation index (Huete 1988): like NDVI, but less raised by bright bare soil
+# between trees, which matters in sparse orchards. Computed from the same product's red and
+# near-infrared reflectances, with the same quality flags.
+SAVI = Variable(
+    key="savi",
+    name="SAVI",
+    units="",
+    product="MODIS Terra MOD13Q1 v6.1",
+    collection="MODIS/061/MOD13Q1",
+    band="SAVI",  # computed: 1.5 (NIR - red) / (NIR + red + 0.5), reflectances scaled by 0.0001
+    scale=1.0,
+    offset=0.0,
+    resolution="250 m",
+    pixel_m=250,
+    cadence="16 days",
+    quality="Pixels with SummaryQA of 2 (snow or ice) or 3 (cloudy) are removed.",
+    licence="NASA LP DAAC: no restrictions on use or redistribution",
+    citation="Huete, A.R. (1988). A soil-adjusted vegetation index (SAVI). Remote Sensing of "
+    "Environment 25, 295-309. Bands from Didan, K. (2021), MOD13Q1 V061.",
+)
+
+CATALOGUE = {variable.key: variable for variable in (NDVI, SAVI, LST, SPEI)}
 
 
 def get_variable(key: str) -> Variable:
