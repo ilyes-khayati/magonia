@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import type { CardLayout } from "../cards";
 import { saveChartImage } from "../chartImage";
-import { ChevronIcon, GripIcon, ImageIcon, WidthIcon } from "./Icons";
+import { ChevronIcon, GripIcon, ImageIcon, NotebookIcon, WidthIcon } from "./Icons";
 
 type Props = {
   id: string;
@@ -10,12 +10,13 @@ type Props = {
   onLayout: (layout: CardLayout) => void;
   onMove: (step: -1 | 1) => void; // with the keyboard: one place earlier or later
   onDrop: (from: string) => void; // another card dropped on this one takes its place
+  onNotebook?: () => void; // export the analysis as a notebook that reproduces it
   children: React.ReactNode;
 };
 
 // A card's place on the page: dragged by its grip (or moved with the arrow keys on it),
 // half or full width, and folded to its title
-export default function CardSlot({ id, label, layout, onLayout, onMove, onDrop, children }: Props) {
+export default function CardSlot({ id, label, layout, onLayout, onMove, onDrop, onNotebook, children }: Props) {
   const slot = useRef<HTMLDivElement>(null);
   const [over, setOver] = useState(false);
   return (
@@ -78,6 +79,16 @@ export default function CardSlot({ id, label, layout, onLayout, onMove, onDrop, 
         >
           <ImageIcon size={14} />
         </button>
+        {onNotebook && (
+          <button
+            className="tool-button"
+            aria-label={`Export ${label} as a notebook`}
+            title="Export as a Python notebook that reproduces it"
+            onClick={onNotebook}
+          >
+            <NotebookIcon size={14} />
+          </button>
+        )}
         <button
           className="tool-button fold"
           aria-expanded={!layout.collapsed}

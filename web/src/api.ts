@@ -392,3 +392,20 @@ export async function ask(
   }
   if (pending.trim()) onEvent(JSON.parse(pending));
 }
+
+// An analysis as a Jupyter notebook that reproduces it from the data it used (REP-01)
+export type NotebookBody = {
+  title: string;
+  kind: "experiment" | "decomposition" | "trend" | "phenology" | "lags" | "correlation";
+  options: Record<string, unknown>;
+  series: SeriesOptions[];
+};
+
+export async function downloadNotebook(body: NotebookBody): Promise<void> {
+  const notebook = await call<unknown>("/notebook", send("POST", body));
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(new Blob([JSON.stringify(notebook, null, 1)], { type: "application/x-ipynb+json" }));
+  link.download = `${body.title.replace(/\W+/g, "-").replace(/^-|-$/g, "").toLowerCase() || "magonia"}.ipynb`;
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
