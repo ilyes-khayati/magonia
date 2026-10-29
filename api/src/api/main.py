@@ -8,7 +8,7 @@ from typing import Annotated, Literal
 
 import engine
 import pandas as pd
-from engine import assistant, facts, guardrails
+from engine import assistant, facts, guardrails, notebook
 from engine.areas import AreaError, make_area
 from engine.catalogue import CATALOGUE, get_variable
 from engine.decompose import DecompositionError, decompose
@@ -444,6 +444,39 @@ def season_dates(body: SeriesRequest, store: StoreDep) -> dict:
     except PhenologyError as exc:
         raise HTTPException(422, str(exc)) from exc
     return {"area_id": body.area_id, **found.to_dict()}
+
+
+class NotebookRequest(BaseModel):
+    title: str = Field("Magonia analysis", max_length=120)
+    kind: Literal["experiment", "decomposition", "trend", "phenology", "lags", "correlation"]
+    options: dict = {}  # the analysis' own choices, as the interface saves them
+    series: list[SeriesRequest] = Field(min_length=1)  # in the order the analysis uses them
+
+
+@app.post("/notebook")
+def export_notebook(body: NotebookRequest, store: StoreDep) -> Response:
+    """The analysis as a Jupyter notebook that reproduces it from the data it used (REP-01)."""
+    used = []
+    for request in body.series:
+        s = cached_series(request, store)
+        used.append(
+            {
+                "area": s.area,
+                "key": s.key,
+                "title": s.title,
+                "units": s.units,
+                "points": s.points,
+                "product": get_variable(s.key).product,
+                "resolution": request.resolution,
+            }
+        )
+    nb = notebook.notebook(body.title, body.kind, body.options, used)
+    name = "".join(c if c.isalnum() else "-" for c in body.title.lower()).strip("-") or "magonia"
+    return Response(
+        notebook.dumps(nb),
+        media_type="application/x-ipynb+json",
+        headers={"Content-Disposition": f'attachment; filename="{name}.ipynb"'},
+    )
 
 
 @app.post("/trend")

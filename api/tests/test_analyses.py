@@ -379,3 +379,20 @@ def test_season_dates_need_ndvi_at_its_own_step(client, store):
     ndvi = cache_years(store, "ndvi", None, [0.5] * 60)
     body = {**ndvi, "area_id": area(client), "masking": "pixel"}
     assert client.post("/phenology", json=body).status_code == 422  # monthly, not native
+
+
+def test_an_analysis_is_exported_as_a_notebook_with_its_data(client, store):
+    ndvi = cache_years(store, "ndvi", None, [0.5 + 0.2 * math.sin(i / 1.9) for i in range(36)])
+    body = {
+        "title": "Orchard trend",
+        "kind": "trend",
+        "series": [{**ndvi, "area_id": area(client), "masking": "pixel"}],
+    }
+    reply = client.post("/notebook", json=body)
+    assert reply.status_code == 200
+    assert reply.headers["content-disposition"] == 'attachment; filename="orchard-trend.ipynb"'
+    nb = reply.json()
+    assert nb["nbformat"] == 4 and nb["metadata"]["magonia"]["kind"] == "trend"
+    sources = ["".join(c["source"]) for c in nb["cells"]]
+    assert any("MODIS Terra MOD13Q1" in s for s in sources)
+    assert any("from engine.trend import trend" in s for s in sources)

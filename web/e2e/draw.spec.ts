@@ -12,6 +12,7 @@ let asked: {
 // The series the interface asked to extract
 let jobs: { variable: string; resolution: string }[] = [];
 let phenologyAsked: { variable: string; resolution: string }[] = [];
+let exported: { title: string; kind: string; series: { variable: string }[] }[] = [];
 let modelled: {
   response: { variable: string };
   own_lags: number[] | null;
@@ -25,6 +26,7 @@ async function fakeApi(page: Page, connected = true) {
   asked = [];
   modelled = [];
   phenologyAsked = [];
+  exported = [];
   jobs = [];
   lagged = [];
   const areas: { id: number; workspace_id: number; name: string; geometry: unknown; area_km2: number }[] = [];
@@ -57,6 +59,10 @@ async function fakeApi(page: Page, connected = true) {
         cautions: [],
       },
     });
+  });
+  await page.route("**/api/notebook", (route) => {
+    exported.push(route.request().postDataJSON());
+    return route.fulfill({ json: { cells: [], metadata: {}, nbformat: 4, nbformat_minor: 5 } });
   });
   await page.route("**/api/trend", (route) =>
     route.fulfill({
@@ -435,6 +441,10 @@ test("a trend card tests the annual means and warns about short records", async 
   await expect(card.getByRole("row", { name: /Orchard/ })).toContainText("+0.210");
   await expect(card.getByRole("row", { name: /Orchard/ })).toContainText("significant");
   await expect(card.getByRole("list", { name: "Cautions" })).toContainText("only 4 complete years");
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export Long-term trend as a notebook" }).click();
+  expect((await download).suggestedFilename()).toBe("long-term-trend.ipynb");
+  expect(exported.at(-1)).toMatchObject({ kind: "trend", series: [{ variable: "ndvi" }] });
   const results = await new AxeBuilder({ page }).include("[aria-label='Trend chart']").analyze();
   expect(results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? "")).map((v) => v.id)).toEqual([]);
 });

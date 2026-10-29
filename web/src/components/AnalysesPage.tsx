@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { KINDS, type Analysis, type Kind } from "../analyses";
 import { moved } from "../cards";
-import type { Area, SeriesOptions, Variable, VariableKey } from "../api";
+import { downloadNotebook, type Area, type SeriesOptions, type Variable, type VariableKey } from "../api";
 import { variableTitle, type Settings } from "../settings";
 import CardSlot from "./CardSlot";
 import type { Entry } from "./ChartCard";
@@ -91,6 +91,42 @@ export default function AnalysesPage(props: Props) {
     CLOUDS[settings.masking],
     settings.fill ? `gaps up to ${settings.maxGap} filled` : "gaps left empty",
   ].join(" · ");
+
+  // The series an analysis used, in its order, for a notebook that reproduces it
+  function exportNotebook(analysis: Analysis) {
+    const ready = (variable: VariableKey, native = false) =>
+      entries(variable, native)
+        .filter((e) => e.state?.status === "done")
+        .map((e) => e.area.id);
+    const label = KINDS.find((k) => k.kind === analysis.kind)!.label;
+    let series: SeriesOptions[] = [];
+    let choices: Record<string, unknown> = {};
+    switch (analysis.kind) {
+      case "decomposition":
+        series = ready(analysis.variable, true).map((id) => options(id, analysis.variable, true));
+        break;
+      case "trend":
+        series = ready(analysis.variable).map((id) => options(id, analysis.variable));
+        break;
+      case "phenology":
+        series = ready("ndvi", true).map((id) => options(id, "ndvi", true));
+        break;
+      case "correlation": {
+        const both = ready(analysis.response).filter((id) => ready(analysis.driver).includes(id));
+        series = both.flatMap((id) => [options(id, analysis.response), options(id, analysis.driver)]);
+        choices = { deseasonalise: analysis.deseasonalise };
+        break;
+      }
+      case "lags": {
+        const id = analysis.area ?? ready(analysis.response)[0];
+        if (id !== undefined) series = [analysis.response, ...analysis.drivers].map((k) => options(id, k));
+        choices = { deseasonalise: analysis.deseasonalise };
+        break;
+      }
+    }
+    if (!series.length) return;
+    downloadNotebook({ title: label, kind: analysis.kind, options: choices, series }).catch(() => undefined);
+  }
 
   function card(analysis: Analysis) {
     switch (analysis.kind) {
@@ -199,6 +235,7 @@ export default function AnalysesPage(props: Props) {
               onLayout={(layout) => onSettings({ cards: { ...settings.cards, [`analysis:${analysis.id}`]: layout } })}
               onMove={(step) => onReorder(moved(analyses, i, i + step))}
               onDrop={(from) => onReorder(moved(analyses, analyses.findIndex((a) => String(a.id) === from), i))}
+              onNotebook={() => exportNotebook(analysis)}
             >
               {card(analysis)}
             </CardSlot>
