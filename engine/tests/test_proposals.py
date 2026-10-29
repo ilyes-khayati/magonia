@@ -33,7 +33,13 @@ def test_an_experiment_gets_its_area_models_and_defaults():
     )
     assert p["area"] == "Orchard" and p["models"] == ["Ridge", "RandomForest"]
     assert p["drivers"] == ["lst", "spei"] and p["test_years"] == 3
-    assert describe(p) == "Forecast experiment: NDVI with LST, SPEI, Orchard"
+    assert describe(p) == (
+        "Forecast experiment: NDVI with LST, SPEI, Orchard; Ridge, Random Forest; last 3 years held out"
+    )
+    period = proposal(
+        {"kind": "experiment", "start": "2017", "end": "2020", "test_years": 4, "why": ""}, AREAS
+    )
+    assert "period" not in period and period["test_years"] == 4
 
 
 @pytest.mark.parametrize(
@@ -49,3 +55,21 @@ def test_an_experiment_gets_its_area_models_and_defaults():
 def test_proposals_that_do_not_fit_are_refused_with_a_reason(arguments, message):
     with pytest.raises(ProposalError, match=message):
         proposal({"why": "", **arguments}, AREAS)
+
+
+def test_the_words_a_model_reaches_for_are_understood():
+    assert proposal({"kind": "forecast", "why": ""}, AREAS)["kind"] == "experiment"
+    assert proposal({"kind": "Season dates", "why": ""}, AREAS)["kind"] == "phenology"
+
+
+def test_variables_are_read_from_the_words_a_model_uses():
+    p = proposal(
+        {
+            "kind": "experiment",
+            "variable": "NDVI",
+            "drivers": ["Land surface temperature", "Orchard"],
+            "why": "",
+        },
+        AREAS,
+    )
+    assert p["variable"] == "ndvi" and p["drivers"] == ["lst"]

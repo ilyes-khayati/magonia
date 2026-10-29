@@ -16,7 +16,30 @@ KINDS = {
     "lags": "Memory and lags",
     "experiment": "Forecast experiment",
 }
+# The words a model reaches for, mapped to the kinds above
+ALIASES = {
+    "forecast": "experiment",
+    "forecasting": "experiment",
+    "model": "experiment",
+    "models": "experiment",
+    "prediction": "experiment",
+    "wavelet": "decomposition",
+    "decompose": "decomposition",
+    "season": "phenology",
+    "seasons": "phenology",
+    "season dates": "phenology",
+    "lag": "lags",
+    "memory": "lags",
+    "trends": "trend",
+    "mann-kendall": "trend",
+}
 VARIABLES = {"ndvi", "lst", "spei"}
+# how a model may name each variable
+WORDS = {
+    "ndvi": ("ndvi", "greenness", "vegetation index"),
+    "lst": ("lst", "land surface temperature", "temperature"),
+    "spei": ("spei", "drought"),
+}
 MODELS = {
     "ridge": "Ridge",
     "randomforest": "RandomForest",
@@ -31,7 +54,10 @@ PROPOSE_TOOL = {
         "name": "propose_analysis",
         "description": (
             "Propose an analysis for the researcher to add with one click: nothing runs until "
-            "they confirm. Use it when they ask for an analysis, a forecast or another period."
+            "they confirm. Kinds: trend (is it rising or falling over the years), phenology (when "
+            "the growing season starts, peaks and ends), decomposition (trend and seasonal part), "
+            "correlation (does one variable follow another), lags (which past months matter), "
+            "experiment (forecast models, which models and how many years held out for testing)."
         ),
         "parameters": {
             "type": "object",
@@ -89,16 +115,18 @@ def month(text: str, end: bool) -> str:
 
 def proposal(arguments: dict, areas: list[str]) -> dict:
     """The proposal, checked and in the interface's terms."""
-    kind = str(arguments.get("kind", "")).lower()
+    kind = str(arguments.get("kind", "")).lower().strip()
+    kind = ALIASES.get(kind, kind)
     if kind not in KINDS:
         raise ProposalError(f"kind must be one of {', '.join(KINDS)}")
     out: dict = {"kind": kind, "label": KINDS[kind], "why": str(arguments.get("why", "")).strip()}
 
     def variable(name: str, value) -> str:
         v = str(value or "").lower()
-        if v not in VARIABLES:
-            raise ProposalError(f"{name} must be ndvi, lst or spei")
-        return v
+        for key, words in WORDS.items():
+            if any(w in v for w in words):
+                return key
+        raise ProposalError(f"{name} must be ndvi, lst or spei")
 
     if kind in ("correlation", "decomposition", "trend", "lags", "experiment"):
         out["variable"] = variable("variable", arguments.get("variable") or "ndvi")
@@ -107,10 +135,17 @@ def proposal(arguments: dict, areas: list[str]) -> dict:
     if kind == "correlation":
         out["driver"] = variable("driver", arguments.get("driver"))
     if kind in ("lags", "experiment"):
-        drivers = arguments.get("drivers") or [v for v in ("lst", "spei") if v != out["variable"]]
-        out["drivers"] = [
-            variable("a driver", d) for d in drivers if str(d).lower() != out["variable"]
+        given = arguments.get("drivers") or [v for v in ("lst", "spei") if v != out["variable"]]
+        if isinstance(given, str):
+            given = [given]
+        # names that are not variables (an area, a model) are left out rather than refused
+        known = [
+            k
+            for d in given
+            for k, words in WORDS.items()
+            if any(w in str(d).lower() for w in words)
         ]
+        out["drivers"] = list(dict.fromkeys(k for k in known if k != out["variable"]))
     if area := str(arguments.get("area") or "").strip():
         found = [a for a in areas if a.lower() == area.lower()]
         if not found:
@@ -127,8 +162,9 @@ def proposal(arguments: dict, areas: list[str]) -> dict:
         ]
         years = arguments.get("test_years")
         out["test_years"] = min(max(int(years), 1), 10) if str(years or "").isdigit() else 3
+    # an experiment runs on the workspace's period; its test years are its own choice
     start, end = arguments.get("start"), arguments.get("end")
-    if start or end:
+    if (start or end) and kind != "experiment":
         out["period"] = {
             "start": month(str(start), False) if start else None,
             "end": month(str(end), True) if end else None,
@@ -148,6 +184,9 @@ def describe(p: dict) -> str:
         what += f" with {', '.join(words[d] for d in p['drivers'])}"
     if p.get("area"):
         what += f", {p['area']}"
+    if p["kind"] == "experiment":
+        names = {"RandomForest": "Random Forest"}
+        what += f"; {', '.join(names.get(m, m) for m in p['models'])}; last {p['test_years']} years held out"
     if period := p.get("period"):
         what += f", period {period['start'] or '…'} to {period['end'] or '…'}"
     return what

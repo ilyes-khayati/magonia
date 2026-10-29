@@ -407,6 +407,18 @@ def monthly_series(s: Series) -> pd.Series:
     return pd.Series(list(months.values()), index=index).asfreq("MS")
 
 
+def season_facts(s: Series) -> list[Fact]:
+    """When the growing season starts, peaks and ends, so that the start is not taken for the
+    peak; said on the NDVI chart when NDVI is charted at its own time step."""
+    from engine.phenology import PhenologyError, phenology  # builds on this module
+
+    try:
+        found = phenology(s.area, s.title, s.key, s.points)
+    except PhenologyError:
+        return []
+    return [Fact(f"{s.title} chart", line) for line in found.summary[:1]]
+
+
 def caution_facts(card: str, cautions: list[str]) -> list[Fact]:
     """A guardrail's warning, said on the card it concerns."""
     return [Fact(card, f"Caution. {line}") for line in cautions]
@@ -461,7 +473,11 @@ class View:
         for key in self.charts:
             charted = [s for area in areas if (s := self.find(area, key))]
             for s in charted:
-                facts.extend(series_facts(s))
+                said = series_facts(s)
+                if key == "ndvi" and s.resolution == "native":
+                    # next to the average year, so the start is not taken for the peak
+                    said[3:3] = season_facts(s)
+                facts.extend(said)
             if len(charted) >= 2 and key != "spei" and (fact := comparison_fact(*charted[:2])):
                 facts.append(fact)
         for n, analysis in enumerate(self.analyses, start=1):

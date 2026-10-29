@@ -117,7 +117,7 @@ def phenology(area: str, title: str, key: str, points: list[dict]) -> Phenology:
     earliest = min(seasons, key=lambda x: pd.Timestamp(x.start) - pd.Timestamp(x.year, 1, 1))
     latest = max(seasons, key=lambda x: pd.Timestamp(x.start) - pd.Timestamp(x.year, 1, 1))
     dates = (
-        f"{who}: over {len(seasons)} seasons the season starts around "
+        f"{who}: over {len(seasons)} seasons the growing season starts around "
         f"{when([x.start for x in seasons])}, peaks around {when([x.peak for x in seasons])} and "
         f"ends around {when([x.end for x in seasons])}, lasting {np.mean(lengths):.0f} days on "
         f"average (from {min(lengths)} to {max(lengths)})."
