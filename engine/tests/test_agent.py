@@ -189,7 +189,7 @@ def test_without_a_workspace_the_read_tool_is_not_offered():
 
     list(answer(Recorder("Hi."), [{"role": "user", "content": "Hello"}]))
     list(answer(Recorder("Hi."), [{"role": "user", "content": "Hello"}], view=orchard_view()))
-    assert seen_tools == [["search_papers"], ["search_papers", "read_series"]]
+    assert seen_tools == [["search_papers"], ["search_papers", "read_series", "propose_analysis"]]
 
 
 def test_numbers_in_a_data_answer_are_checked_against_facts_and_readings():
@@ -223,3 +223,46 @@ def test_rules_for_the_data_go_with_the_facts_not_with_every_question():
     model = Scripted("Fine.")
     list(answer(model, [{"role": "user", "content": "Peak?"}], view=orchard_view()))
     assert DATA_RULES in model.seen[-1]["content"]
+
+
+def test_magonia_proposes_an_analysis_and_runs_nothing():
+    model = Scripted(
+        ToolCall(
+            "propose_analysis",
+            {
+                "kind": "trend",
+                "variable": "ndvi",
+                "start": "2010",
+                "end": "2020",
+                "why": "Greening?",
+            },
+        ),
+        "I proposed a trend of NDVI from 2010 to 2020; add it to see it.",
+    )
+    events = list(
+        answer(model, [{"role": "user", "content": "Trend 2010-2020?"}], view=orchard_view())
+    )
+    proposed = [e["proposal"] for e in events if e["type"] == "proposal"]
+    assert proposed == [
+        {
+            "kind": "trend",
+            "label": "Long-term trend",
+            "why": "Greening?",
+            "variable": "ndvi",
+            "period": {"start": "2010-01", "end": "2020-12"},
+            "title": "Long-term trend: NDVI, period 2010-01 to 2020-12",
+        }
+    ]
+    told = model.seen[-1]
+    assert told["role"] == "tool" and "nothing has run" in told["content"]
+
+
+def test_a_proposal_that_does_not_fit_is_sent_back_to_the_model():
+    model = Scripted(
+        ToolCall("propose_analysis", {"kind": "lags", "area": "Tunis", "why": ""}), "Sorry."
+    )
+    events = list(
+        answer(model, [{"role": "user", "content": "Lags in Tunis"}], view=orchard_view())
+    )
+    assert not any(e["type"] == "proposal" for e in events)
+    assert "no area is called 'Tunis'" in model.seen[-1]["content"]

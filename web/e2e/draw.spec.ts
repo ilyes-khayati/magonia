@@ -131,7 +131,8 @@ async function fakeApi(page: Page, connected = true) {
   await page.route("**/api/workspaces/1/messages", (route) => route.fulfill({ json: [] }));
   await page.route("**/api/workspaces/1/chat", (route) => {
     asked.push(route.request().postDataJSON());
-    const answer = asked.at(-1).view?.series.length ? DATA_ANSWER : ANSWER;
+    const question = asked.at(-1)!.content;
+    const answer = question.startsWith("Propose") ? PROPOSING : asked.at(-1)!.view?.series.length ? DATA_ANSWER : ANSWER;
     return route.fulfill({
       contentType: "application/x-ndjson",
       body: answer.map((event) => JSON.stringify(event)).join("\n") + "\n",
@@ -760,6 +761,62 @@ test("Magonia is sent what is open and says which cards it read", async ({ page 
   expect(view?.page).toBe("data");
   expect(view?.charts).toEqual(["ndvi"]);
   expect(view?.series.map((s) => [s.area_id, s.variable])).toEqual([[1, "ndvi"]]);
+});
+
+const PROPOSING = [
+  {
+    type: "proposal",
+    proposal: {
+      kind: "trend",
+      label: "Long-term trend",
+      title: "Long-term trend: LST, period 2010-01 to 2020-12",
+      why: "Whether the area has warmed.",
+      variable: "lst",
+      period: { start: "2010-01", end: "2020-12" },
+    },
+  },
+  {
+    type: "proposal",
+    proposal: {
+      kind: "experiment",
+      label: "Forecast experiment",
+      title: "Forecast experiment: NDVI with LST, Orchard",
+      why: "",
+      variable: "ndvi",
+      drivers: ["lst"],
+      area: "Orchard",
+      models: ["Ridge"],
+      test_years: 2,
+    },
+  },
+  { type: "text", text: "I proposed two analyses; add them to see them." },
+  { type: "check", text: "I proposed two analyses; add them to see them.", cited: [], removed: [], unverified: [] },
+];
+
+test("Magonia proposes analyses, and nothing is added until the researcher clicks", async ({ page }) => {
+  await page.getByTestId("upload").setInputFiles({
+    name: "fields.geojson",
+    mimeType: "application/geo+json",
+    buffer: Buffer.from(JSON.stringify(SQUARE)),
+  });
+  await page.getByRole("button", { name: "Magonia", exact: true }).click();
+  const assistant = page.getByRole("region", { name: "Magonia assistant" });
+  await assistant.getByRole("textbox", { name: "Ask Magonia" }).fill("Propose a trend of LST from 2010 to 2020 and a forecast");
+  await assistant.getByRole("button", { name: "Send" }).click();
+  const trend = assistant.getByRole("group", { name: /Proposed: Long-term trend/ });
+  await expect(trend).toContainText("Whether the area has warmed.");
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Analyses" }).click();
+  await expect(page.getByRole("region", { name: "Suggested analyses" })).toBeVisible(); // nothing added yet
+
+  await trend.getByRole("button", { name: "Add it" }).click();
+  await expect(page.getByRole("region", { name: "Trend chart" })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Variable" })).toHaveValue("lst");
+  await expect(page.getByText(/^Data: Jan 2010 to Dec 2020/)).toBeVisible();
+  await expect(trend).toContainText("Added");
+
+  await assistant.getByRole("group", { name: /Proposed: Forecast experiment/ }).getByRole("button", { name: "Add it" }).click();
+  await expect(page).toHaveURL(/\/model$/);
+  await expect.poll(() => modelled.at(-1)).toMatchObject({ models: ["Ridge"], test_years: 2 });
 });
 
 test("an answer shows its checked sources and what the check removed", async ({ page }) => {

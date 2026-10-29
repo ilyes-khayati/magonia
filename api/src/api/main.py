@@ -853,6 +853,7 @@ def chat(
 
     With a view of what is open, the assistant is given facts computed from the researcher's
     cached results. Events: view (the cards it was given), read (a closer look at a series),
+    proposal (an analysis it proposes, which the researcher may add),
     text (a piece of the answer), search, search_failed, papers, check (the final answer after
     its citations were checked) and error.
     """
@@ -868,7 +869,7 @@ def chat(
     store.add_message(workspace_id, "user", body.content)
 
     def stream() -> Iterator[str]:
-        said, searches, papers, verdict, cards, reads = [], [], [], None, [], []
+        said, searches, papers, verdict, cards, reads, proposals = [], [], [], None, [], [], []
         try:
             for event in itertools.chain([first], events):
                 match event["type"]:
@@ -884,11 +885,15 @@ def chat(
                         cards = event["cards"]
                     case "read":
                         reads.append({k: event[k] for k in ("area", "variable", "year")})
+                    case "proposal":
+                        proposals.append(event["proposal"])
                 yield json.dumps(event) + "\n"
         except assistant.ProviderError as exc:
             yield json.dumps({"type": "error", "message": f"The model stopped: {exc}"}) + "\n"
         finally:  # keep what was said, even if the reader left early
             details = {"searches": searches, "papers": papers, "cards": cards, "reads": reads}
+            if proposals:
+                details["proposals"] = proposals
             if verdict:
                 details["check"] = {k: verdict[k] for k in ("cited", "removed", "unverified")}
                 if "numbers" in verdict:

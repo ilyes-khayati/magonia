@@ -12,6 +12,7 @@ import {
   updateWorkspace,
   type Area,
   type EarthEngineStatus,
+  type Proposal,
   type Variable,
   type VariableKey,
   type Workspace,
@@ -19,7 +20,7 @@ import {
 } from "./api";
 import { addAnalysis, needsOf, readAnalyses, type Analysis, type Kind, type Models, type Need } from "./analyses";
 import { describeDisplay } from "./display";
-import { readExperiments, type Experiment } from "./experiments";
+import { MODEL_NAMES, newExperiment, PAPER, readExperiments, type Experiment } from "./experiments";
 import { readAreaFile } from "./areaFiles";
 import AnalysesPage from "./components/AnalysesPage";
 import AssistantCard from "./components/AssistantCard";
@@ -333,6 +334,49 @@ export default function App() {
     save({ experiments: next });
   }
 
+  // What Magonia proposed, added because the researcher clicked (AI-07): its card, and the
+  // period if one was asked for
+  function adopt(p: Proposal) {
+    if (workspaceId === null) return;
+    const nextSettings = p.period
+      ? { ...settings, start: p.period.start ?? settings.start, end: p.period.end ?? settings.end }
+      : settings;
+    setSettings(nextSettings);
+    const visible = areas.filter((a) => !hidden.has(a.id));
+    const areaId = (p.area ? areas.find((a) => a.name === p.area)?.id : undefined) ?? visible[0]?.id ?? null;
+    if (p.kind === "experiment") {
+      const recipe = {
+        ...structuredClone(PAPER),
+        area: areaId,
+        response: p.variable ?? "ndvi",
+        drivers: p.drivers ?? PAPER.drivers,
+        models: p.models ?? [...MODEL_NAMES],
+        test_years: p.test_years ?? 3,
+      };
+      const e = newExperiment(experiments, areaId, recipe);
+      const next = [...experiments, { ...e, name: p.title, ran: structuredClone(recipe) }];
+      setExperiments(next);
+      save({ settings: nextSettings, experiments: next });
+      navigate(pagePath(workspaceId, "model"));
+      return;
+    }
+    const added = addAnalysis(analyses, p.kind, settings.variables);
+    const last = added[added.length - 1];
+    const v = p.variable ?? "ndvi";
+    const shaped: Analysis =
+      last.kind === "correlation"
+        ? { ...last, response: v, driver: p.driver ?? last.driver }
+        : last.kind === "lags"
+          ? { ...last, response: v, drivers: p.drivers ?? last.drivers, ...(p.area ? { area: areaId ?? undefined } : {}) }
+          : last.kind === "decomposition" || last.kind === "trend"
+            ? { ...last, variable: v }
+            : last;
+    const next = [...added.slice(0, -1), shaped];
+    setAnalyses(next);
+    save({ settings: nextSettings, analyses: next });
+    navigate(pagePath(workspaceId, "analyses"));
+  }
+
   const colours = useMemo(
     () => new Map(areas.map((area, index) => [area.id, areaColour(theme, index)])),
     [areas, theme],
@@ -548,6 +592,7 @@ export default function App() {
           key={workspaceId}
           workspaceId={workspaceId}
           view={view}
+          onPropose={adopt}
           loading={{
             opening: earthEngine === null || workspaceId === null,
             series: progress.total - progress.done - progress.failed,
