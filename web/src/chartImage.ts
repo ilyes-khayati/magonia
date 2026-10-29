@@ -27,7 +27,12 @@ function load(svg: string): Promise<HTMLImageElement> {
   });
 }
 
-export async function chartImage(card: HTMLElement, title: string, subtitle = ""): Promise<Blob | null> {
+export async function chartImage(
+  card: HTMLElement,
+  title: string,
+  subtitle = "",
+  { scale = 2, type = "image/png", quality }: { scale?: number; type?: string; quality?: number } = {},
+): Promise<Blob | null> {
   const svgs = [...card.querySelectorAll<SVGSVGElement>("svg.recharts-surface")];
   if (!svgs.length) return null;
   const page = getComputedStyle(document.documentElement);
@@ -35,7 +40,6 @@ export async function chartImage(card: HTMLElement, title: string, subtitle = ""
   const muted = page.getPropertyValue("--muted").trim() || "#56605a";
   const background = page.getPropertyValue("--card").trim() || "#ffffff";
   const images = await Promise.all(svgs.map((s) => load(inline(s))));
-  const scale = 2;
   const pad = 16;
   const head = subtitle ? 48 : 32;
   const width = Math.max(...svgs.map((s) => s.clientWidth)) + 2 * pad;
@@ -60,7 +64,7 @@ export async function chartImage(card: HTMLElement, title: string, subtitle = ""
     ctx.drawImage(img, pad, y, svgs[i].clientWidth, svgs[i].clientHeight);
     y += svgs[i].clientHeight + 8;
   });
-  return new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+  return new Promise((resolve) => canvas.toBlob(resolve, type, quality));
 }
 
 export async function saveChartImage(card: HTMLElement, title: string, subtitle = "") {
@@ -71,4 +75,15 @@ export async function saveChartImage(card: HTMLElement, title: string, subtitle 
   link.download = `${title.replace(/\W+/g, "-").toLowerCase()}.png`;
   link.click();
   URL.revokeObjectURL(link.href);
+}
+
+// A small picture of a card for the board: JPEG at screen resolution, as a data URL
+export async function chartSnapshot(card: HTMLElement, title: string): Promise<string | undefined> {
+  const blob = await chartImage(card, title, "", { scale: 1, type: "image/jpeg", quality: 0.82 });
+  if (!blob) return undefined;
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.readAsDataURL(blob);
+  });
 }

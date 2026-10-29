@@ -338,6 +338,7 @@ export type View = {
   analyses: unknown[];
   series: SeriesOptions[];
   display?: string | null; // how the Data page shows the series, if changed
+  board?: { title: string; text: string }[]; // what the researcher pinned
 };
 
 export type ChatMessage = {

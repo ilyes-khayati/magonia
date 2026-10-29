@@ -204,9 +204,10 @@ type Props = {
   // until the workspace has opened, a question would reach Magonia without the data
   loading?: { opening: boolean; series: number }; // series: how many are still loading
   onPropose?: (proposal: Proposal) => void; // the researcher adds what Magonia proposed
+  onPin?: (question: string, answer: string) => void; // keep an answer on the board
 };
 
-export default function AssistantCard({ workspaceId, view, actions, loading, onPropose }: Props) {
+export default function AssistantCard({ workspaceId, view, actions, loading, onPropose, onPin }: Props) {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -311,6 +312,14 @@ export default function AssistantCard({ workspaceId, view, actions, loading, onP
                   <ProposalCard key={k} proposal={p} onAdd={onPropose} />
                 ))}
                 {!last && <Sources turn={turn} anchor={anchor} />}
+                {turn.role === "assistant" && turn.content && !(busy && last) && onPin && (
+                  <button
+                    className="link pin-answer"
+                    onClick={() => onPin(turns[i - 1]?.content ?? "", turn.content)}
+                  >
+                    Pin to the board
+                  </button>
+                )}
               </div>
             );
           })}

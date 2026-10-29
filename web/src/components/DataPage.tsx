@@ -14,9 +14,10 @@ type Props = {
   areas: Area[];
   entries: (variable: VariableKey) => Entry[];
   mapPath: string | null;
+  onPin?: (card: HTMLElement, title: string) => void;
 };
 
-export default function DataPage({ catalogue, settings, onChange, areas, entries, mapPath }: Props) {
+export default function DataPage({ catalogue, settings, onChange, areas, entries, mapPath, onPin }: Props) {
   const keys = ordered(
     catalogue.filter((v) => settings.variables.includes(v.key)).map((v) => v.key),
     settings.chartOrder,
@@ -79,6 +80,7 @@ export default function DataPage({ catalogue, settings, onChange, areas, entries
               onLayout={(layout) => onChange({ cards: { ...settings.cards, [`chart:${v.key}`]: layout } })}
               onMove={(step) => move(i, i + step)}
               onDrop={(from) => move(keys.indexOf(from as typeof v.key), i)}
+              onPin={onPin && ((card) => onPin(card, variableTitle(v, settings)))}
             >
               <ChartCard
                 variable={v}

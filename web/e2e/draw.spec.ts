@@ -696,6 +696,45 @@ test("the Data page can smooth, show anomalies and keep some months, without ask
   await expect.poll(() => asked.at(-1)?.view?.display).toMatch(/^anomalies against/);
 });
 
+test("cards, answers and notes are pinned to the board, and Magonia is told about them", async ({ page }) => {
+  await page.getByTestId("upload").setInputFiles({
+    name: "fields.geojson",
+    mimeType: "application/geo+json",
+    buffer: Buffer.from(JSON.stringify(SQUARE)),
+  });
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Data" }).click();
+  await expect(page.getByRole("region", { name: "NDVI chart" }).locator(".recharts-line")).toBeVisible();
+  await page.getByRole("button", { name: "Pin NDVI to the board" }).click();
+  await expect(page.getByText("Pinned NDVI to the board.")).toBeVisible();
+
+  await page.getByRole("button", { name: "Magonia", exact: true }).click();
+  const assistant = page.getByRole("region", { name: "Magonia assistant" });
+  await assistant.getByRole("textbox", { name: "Ask Magonia" }).fill("When does it peak?");
+  await assistant.getByRole("button", { name: "Send" }).click();
+  await expect(assistant.getByText(/Orchard NDVI peaks in Aug/)).toBeVisible();
+  await assistant.getByRole("button", { name: "Pin to the board" }).click();
+
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Board" }).click();
+  const ndvi = page.getByRole("region", { name: "NDVI", exact: true });
+  await expect(ndvi.getByRole("img", { name: "NDVI, as pinned" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Magonia: When does it peak?" })).toContainText("Orchard NDVI peaks in Aug");
+
+  await page.getByRole("button", { name: "Add a note" }).click();
+  await page.getByRole("textbox", { name: "Note", exact: true }).fill("Check the 2024 dip.");
+  await page.getByRole("textbox", { name: "Note", exact: true }).blur();
+  await assistant.getByRole("textbox", { name: "Ask Magonia" }).fill("What did I note?");
+  await assistant.getByRole("button", { name: "Send" }).click();
+  await expect.poll(() => (asked.at(-1)?.view as { board?: { text: string }[] } | undefined)?.board?.at(-1)?.text).toBe("Check the 2024 dip.");
+
+  await page.waitForTimeout(700);
+  await page.reload();
+  await expect(page.getByRole("region", { name: "NDVI", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Remove NDVI from the board" }).click();
+  await expect(page.getByRole("region", { name: "NDVI", exact: true })).toHaveCount(0);
+  const results = await new AxeBuilder({ page }).exclude(".maplibregl-canvas").analyze();
+  expect(results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? "")).map((v) => v.id)).toEqual([]);
+});
+
 test("each page has its own address, and back and reload keep it", async ({ page }) => {
   await expect(page).toHaveURL(/\/workspaces\/1\/map$/);
   await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Data" }).click();
