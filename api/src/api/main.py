@@ -13,8 +13,9 @@ from engine.areas import AreaError, make_area
 from engine.catalogue import CATALOGUE, get_variable
 from engine.decompose import DecompositionError, decompose
 from engine.earth_engine import EarthEngineError, check
+from engine.explain import describe, explain
 from engine.lags import explore
-from engine.models import ForecastError, forecast
+from engine.models import ForecastError, design, forecast
 from engine.pipeline import Request, fingerprint
 from engine.prepare import Resolution
 from engine.series import Masking, band_name
@@ -515,6 +516,50 @@ def models(body: ModelsRequest, store: StoreDep, runner: RunnerDep, reply: Respo
     return {"status": "running"}
 
 
+def explain_forecast(store, key, models_result, response, drivers, body) -> None:
+    try:
+        X, y, _, test_start = design(
+            (response.title, response.key, facts.monthly_series(response)),
+            [(d.title, d.key, facts.monthly_series(d)) for d in drivers],
+            body.own_lags,
+            body.driver_lags,
+            body.test_years,
+        )
+        train = X.index < test_start
+        params = {m["name"]: m["params"] for m in models_result["models"]}
+        found = explain(X[train], y[train], params)
+        store.save_result(key, {**found.to_dict(), "summary": describe(response.area, found)})
+    except Exception as exc:  # noqa: BLE001 - any failure must reach the user, not vanish
+        FAILED[key] = f"The models could not be explained: {exc}"
+    finally:
+        FITTING.discard(key)
+
+
+def explanations_key(body: ModelsRequest, store: Store) -> str:
+    return fingerprint({"explain": models_key(body, store)})
+
+
+@app.post("/explanations")
+def explanations(body: ModelsRequest, store: StoreDep, runner: RunnerDep, reply: Response) -> dict:
+    """Permutation importance, family shares and agreement of fitted models, on their
+    training years. Runs in the background like the models: ask again until done."""
+    fitted = store.result(models_key(body, store))
+    if fitted is None:
+        raise HTTPException(409, "fit the models first")
+    key = explanations_key(body, store)
+    if (result := store.result(key)) is not None:
+        return {"status": "done", **result}
+    if key in FAILED:
+        return {"status": "failed", "error": FAILED.pop(key)}
+    if key not in FITTING:
+        FITTING.add(key)
+        response = cached_series(body.response, store)
+        drivers = [cached_series(d, store) for d in body.drivers]
+        runner.submit(explain_forecast, store, key, fitted, response, drivers, body)
+    reply.status_code = 202
+    return {"status": "running"}
+
+
 # The assistant
 
 
@@ -624,6 +669,9 @@ def forecast_facts(store: Store, view: View, areas: dict[int, dict]) -> list[fac
                 found.append(
                     facts.Fact(card, f"{area['name']}: the models are still being fitted.")
                 )
+            if (why := store.result(explanations_key(body, store))) is not None:
+                card = f"Models {n}: what the models lean on"
+                found += [facts.Fact(card, line) for line in why["summary"]]
     return found
 
 

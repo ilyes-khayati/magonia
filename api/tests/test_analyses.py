@@ -229,3 +229,23 @@ def test_magonia_reads_a_finished_forecast(client, store, monkeypatch):
     ws = client.get("/workspaces").json()[0]["id"]
     client.post(f"/workspaces/{ws}/chat", json={"content": "Which model won?", "view": view})
     assert "[Models 1: NDVI forecast]\n- Orchard: fitted." in model.seen[-1]["content"]
+
+
+def test_explanations_need_fitted_models_then_run_in_the_background(client, store, monkeypatch):
+    from api import main
+
+    class Found:
+        def to_dict(self):
+            return {"importance": {}, "families": {}, "agreement": [], "seeds": 5}
+
+    monkeypatch.setattr(main, "forecast", FakeForecast())
+    monkeypatch.setattr(main, "explain", lambda X, y, params: Found())
+    monkeypatch.setattr(main, "describe", lambda area, found: [f"{area}: explained."])
+    ndvi = cache_years(store, "ndvi", None, [0.5 + 0.1 * math.sin(i) for i in range(180)])
+    body = {"response": {**ndvi, "area_id": area(client), "masking": "pixel"}, "own_lags": [1]}
+
+    assert client.post("/explanations", json=body).status_code == 409  # no models yet
+    client.post("/models", json=body)
+    assert client.post("/explanations", json=body).json() == {"status": "running"}
+    done = client.post("/explanations", json=body).json()
+    assert done["status"] == "done" and done["summary"] == ["Orchard: explained."]
