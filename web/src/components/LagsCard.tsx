@@ -229,8 +229,8 @@ export default function LagsCard(props: Props) {
           </ul>
           <Cautions items={found.cautions} />
           <span className="meta">
-            As anomalies, part of a driver&apos;s link can run through {name(analysis.response)}&apos;s own memory. The paper
-            also removes that memory first; that comes with the models.
+            As anomalies, part of a driver&apos;s link can run through {name(analysis.response)}&apos;s own memory. A
+            forecast experiment on the Model page, with both as predictors, tells them apart.
           </span>
         </>
       )}

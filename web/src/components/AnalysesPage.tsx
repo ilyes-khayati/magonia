@@ -1,16 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { KINDS, type Analysis, type Kind } from "../analyses";
+import type { Source } from "../board";
 import { moved } from "../cards";
 import { downloadNotebook, type Area, type SeriesOptions, type Variable, type VariableKey } from "../api";
-import { variableTitle, type Settings } from "../settings";
+import type { Settings } from "../settings";
+import AnalysisCard from "./AnalysisCard";
 import CardSlot from "./CardSlot";
 import type { Entry } from "./ChartCard";
-import CorrelationCard from "./CorrelationCard";
-import DecompositionCard from "./DecompositionCard";
-import LagsCard from "./LagsCard";
-import PhenologyCard from "./PhenologyCard";
-import TrendCard from "./TrendCard";
 import { PlusIcon } from "./Icons";
 
 type Props = {
@@ -27,7 +24,7 @@ type Props = {
   onSettings: (change: Partial<Settings>) => void;
   dataPath: string | null;
   mapPath: string | null;
-  onPin?: (card: HTMLElement, title: string) => void;
+  onPin?: (card: HTMLElement, title: string, source: Source) => void;
 };
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -85,7 +82,6 @@ function AddAnalysis({ onAdd }: { onAdd: (kind: Kind) => void }) {
 export default function AnalysesPage(props: Props) {
   const { catalogue, settings, areas, entries, options, analyses, onAdd, onChange, onRemove, onReorder, onSettings, dataPath, mapPath } =
     props;
-  const title = (v: Variable) => variableTitle(v, settings);
   const data = [
     `${month(settings.start)} to ${month(settings.end)}`,
     STEPS[settings.resolution],
@@ -129,67 +125,6 @@ export default function AnalysesPage(props: Props) {
     downloadNotebook({ title: label, kind: analysis.kind, options: choices, series }).catch(() => undefined);
   }
 
-  function card(analysis: Analysis) {
-    switch (analysis.kind) {
-      case "correlation":
-        return (
-          <CorrelationCard
-            analysis={analysis}
-            onChange={(change) => onChange(analysis.id, change)}
-            onRemove={() => onRemove(analysis.id)}
-            variables={catalogue}
-            title={title}
-            entries={entries}
-            seasonal={settings.resolution === "seasonal"}
-          />
-        );
-      case "decomposition":
-        return (
-          <DecompositionCard
-            analysis={analysis}
-            onChange={(change) => onChange(analysis.id, change)}
-            onRemove={() => onRemove(analysis.id)}
-            variables={catalogue}
-            title={title}
-            entries={entries(analysis.variable, true)}
-            options={(areaId) => options(areaId, analysis.variable, true)}
-          />
-        );
-      case "phenology":
-        return (
-          <PhenologyCard
-            onRemove={() => onRemove(analysis.id)}
-            entries={entries("ndvi", true)}
-            options={(areaId) => options(areaId, "ndvi", true)}
-          />
-        );
-      case "trend":
-        return (
-          <TrendCard
-            analysis={analysis}
-            onChange={(change) => onChange(analysis.id, change)}
-            onRemove={() => onRemove(analysis.id)}
-            variables={catalogue}
-            title={title}
-            entries={entries(analysis.variable)}
-            options={(areaId) => options(areaId, analysis.variable)}
-          />
-        );
-      case "lags":
-        return (
-          <LagsCard
-            analysis={analysis}
-            onChange={(change) => onChange(analysis.id, change)}
-            onRemove={() => onRemove(analysis.id)}
-            variables={catalogue}
-            title={title}
-            entries={(variable) => entries(variable)}
-            options={(areaId, variable) => options(areaId, variable)}
-            seasonal={settings.resolution === "seasonal"}
-          />
-        );
-    }
-  }
 
   return (
     <div className="page">
@@ -237,9 +172,24 @@ export default function AnalysesPage(props: Props) {
               onMove={(step) => onReorder(moved(analyses, i, i + step))}
               onDrop={(from) => onReorder(moved(analyses, analyses.findIndex((a) => String(a.id) === from), i))}
               onNotebook={() => exportNotebook(analysis)}
-              onPin={props.onPin && ((card) => props.onPin!(card, card.querySelector("h3")?.textContent ?? "Analysis"))}
+              onPin={
+                props.onPin &&
+                ((card) =>
+                  props.onPin!(card, card.querySelector("h3")?.textContent ?? "Analysis", {
+                    type: "analysis",
+                    analysis: structuredClone(analysis),
+                  }))
+              }
             >
-              {card(analysis)}
+              <AnalysisCard
+                analysis={analysis}
+                onChange={(change) => onChange(analysis.id, change)}
+                onRemove={() => onRemove(analysis.id)}
+                catalogue={catalogue}
+                settings={settings}
+                entries={entries}
+                options={options}
+              />
             </CardSlot>
           ))}
         </div>

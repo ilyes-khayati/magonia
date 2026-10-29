@@ -75,7 +75,7 @@ export const KINDS: KindInfo[] = [
     kind: "decomposition",
     label: "Trend and season",
     question: "Is it changing over the years, beyond the yearly cycle?",
-    description: "Splits a variable into its slow trend and its seasonal cycle with a wavelet, as in the paper.",
+    description: "Splits a variable into its slow trend and its seasonal cycle with a wavelet (discrete Meyer).",
     create: (chosen) => ({ kind: "decomposition", variable: chosen[0] ?? "ndvi" }),
   },
   {
@@ -96,7 +96,7 @@ export const KINDS: KindInfo[] = [
     kind: "lags",
     label: "Memory and lags",
     question: "Which past months matter?",
-    description: "Which past months of a variable, and of its drivers, stand out, tested as in the paper.",
+    description: "Which past months of a variable, and of its drivers, stand out beyond chance and autocorrelation.",
     create: (chosen) => {
       const response = chosen[0] ?? "ndvi";
       const others = ALL.filter((k) => k !== response);
