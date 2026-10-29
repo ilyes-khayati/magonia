@@ -28,6 +28,7 @@ type Props = {
   dataPath: string | null;
   mapPath: string | null;
   onShown: (ids: number[]) => void; // the experiments on screen, which Magonia is told about
+  onPin?: (card: HTMLElement, title: string) => void;
 };
 
 // Forecasting experiments, kept like the runs of a notebook: each has its recipe and its
@@ -179,6 +180,7 @@ export default function ModelPage(props: Props) {
               onChange={(change) => update(open.id, change)}
               onDuplicate={() => add({ ...open.recipe }, `${open.name} (copy)`)}
               onRemove={() => remove(open.id)}
+              onPin={props.onPin}
               areas={areas}
               variables={variables}
               title={title}
@@ -206,6 +208,7 @@ type ViewProps = {
   onChange: (change: Partial<Experiment>) => void;
   onDuplicate: () => void;
   onRemove: () => void;
+  onPin?: (card: HTMLElement, title: string) => void;
   areas: Area[];
   variables: Variable[];
   title: (v: Variable) => string;
@@ -214,7 +217,7 @@ type ViewProps = {
 };
 
 function ExperimentView(props: ViewProps) {
-  const { experiment: e, resolve, onChange, onDuplicate, onRemove, areas, variables, title, entries, options } = props;
+  const { experiment: e, resolve, onChange, onDuplicate, onRemove, onPin, areas, variables, title, entries, options } = props;
   const recipe = resolve(e.recipe)!;
   const ran = resolve(e.ran);
   const changed = !sameRecipe(recipe, ran);
@@ -235,6 +238,18 @@ function ExperimentView(props: ViewProps) {
           <button className="button" onClick={onDuplicate} title="A copy to change one thing and compare">
             Duplicate
           </button>
+          {ran && ready && fit?.status === "done" && onPin && (
+            <button
+              className="button"
+              title="Keep this run's results on the board, as they are now"
+              onClick={(ev) => {
+                const card = (ev.currentTarget as HTMLElement).closest<HTMLElement>(".experiment");
+                if (card) onPin(card, e.name);
+              }}
+            >
+              Pin
+            </button>
+          )}
           {ran && ready && (
             <button
               className="button"

@@ -168,6 +168,7 @@ class View(BaseModel):
     analyses: list[dict] = []  # as the interface saves them
     series: list[SeriesRequest] = []  # every series shown or used, each with its area_id
     display: str | None = None  # how the Data page shows the series, if changed
+    board: list[dict] = []  # what the researcher pinned: title and text
 
 
 class Question(BaseModel):
@@ -810,7 +811,13 @@ def workspace_view(store: Store, workspace_id: int, view: View) -> facts.View:
         )
     if loading:
         context.append("Still loading, so not described: " + ", ".join(loading) + ".")
-    extra = forecast_facts(store, view, areas)
+    # what the researcher pinned comes first: they chose it
+    pinned = [
+        facts.Fact(f"Board: {str(b.get('title', ''))[:80]}", str(b.get("text", ""))[:1500])
+        for b in view.board[:20]
+        if b.get("text")
+    ]
+    extra = pinned + forecast_facts(store, view, areas)
     return facts.View(context, series, view.charts, view.analyses, view.resolution, extra)
 
 
