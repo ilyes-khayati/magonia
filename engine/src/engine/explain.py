@@ -228,3 +228,73 @@ def describe(area: str, explained: Explanation) -> list[str]:
             )
         lines.append(f"{area}: {line}")
     return lines + details
+
+
+@dataclass
+class Stability:
+    """What each model leans on when its training years end earlier."""
+
+    windows: list[dict]  # train_end, and each model's share by family
+    leading: dict[str, list[str]]  # model -> the family it leans on most, window by window
+    summary: list[str]
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+def stability(
+    area: str,
+    X: pd.DataFrame,
+    y: pd.Series,
+    params: dict[str, dict],
+    test_start: str,
+    windows: int = 4,
+    seeds: int = 3,
+    min_train_years: int = 8,
+) -> Stability:
+    """Explain the models again on training years that end 0, 1, 2… years before the test,
+    and say which models keep the same story. Seed noise is one null for an explanation; the
+    years it was trained on are another, which the paper's comparison does not include."""
+    found = []
+    for back in range(windows):
+        end = pd.Timestamp(test_start) - pd.DateOffset(years=back)
+        train = X.index < end
+        if train.sum() < 12 * min_train_years:
+            break
+        fam = {
+            name: shares(
+                pd.concat(
+                    [oof_family(name, params[name], X[train], y[train], s) for s in range(seeds)],
+                    axis=1,
+                ).mean(axis=1)
+            ).to_dict()
+            for name in ORDER
+            if name in params
+        }
+        last = X.index[train][-1]
+        found.append({"train_end": f"{last:%Y-%m}", "families": fam})
+    found.reverse()  # oldest first
+    names = [n for n in ORDER if n in params]
+    leading = {n: [max(w["families"][n], key=w["families"][n].get) for w in found] for n in names}
+    summary = []
+    if len(found) < 2:
+        summary.append(
+            f"{area}: too few years to train on in earlier windows; stability cannot be checked."
+        )
+    else:
+        span = f"{len(found)} training windows ending {found[0]['train_end']} to {found[-1]['train_end']}"
+        for n in names:
+            kinds = list(dict.fromkeys(leading[n]))
+            if len(kinds) == 1:
+                share = [100 * w["families"][n][kinds[0]] for w in found]
+                summary.append(
+                    f"{area}: across {span}, {LABELS[n]} always leans most on {kinds[0]} "
+                    f"({min(share):.0f}–{max(share):.0f}%)."
+                )
+            else:
+                counts = ", ".join(f"{k} in {leading[n].count(k)}" for k in kinds)
+                summary.append(
+                    f"{area}: across {span}, {LABELS[n]} changes what it leans on most: {counts}; "
+                    "its explanation depends on the years it was trained on."
+                )
+    return Stability(found, leading, summary)

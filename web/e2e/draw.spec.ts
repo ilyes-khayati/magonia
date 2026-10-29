@@ -56,6 +56,27 @@ async function fakeApi(page: Page, connected = true) {
     }
     return route.fulfill({ json: { status: "done", ...EXPLANATION } });
   });
+  await page.route("**/api/stability", (route) =>
+    route.fulfill({
+      json: {
+        status: "done",
+        windows: ["2018-12", "2019-12", "2020-12"].map((train_end, i) => ({
+          train_end,
+          families: {
+            XGBoost: { LST: 0.6, "own history": 0.3 },
+            RandomForest: i === 1 ? { LST: 0.4, "own history": 0.57 } : { LST: 0.78, "own history": 0.2 },
+            Ridge: { LST: 0.2, "own history": 0.7 },
+          },
+        })),
+        leading: {
+          XGBoost: ["LST", "LST", "LST"],
+          RandomForest: ["LST", "own history", "LST"],
+          Ridge: ["own history", "own history", "own history"],
+        },
+        summary: ["Orchard: across 3 training windows ending 2018-12 to 2020-12, Random Forest changes what it leans on most."],
+      },
+    }),
+  );
   await page.route("**/api/lags", (route) => {
     lagged.push(route.request().postDataJSON());
     return route.fulfill({ json: LAGS });
@@ -421,6 +442,10 @@ test("an experiment runs a recipe, keeps its results, and two runs can be compar
   await expect(families).toBeVisible({ timeout: 10_000 });
   await expect(families.getByRole("row", { name: /LST/ })).toContainText("61%");
   await expect(experiment.getByText(/XGBoost and Ridge explain the data differently/)).toBeVisible();
+  await experiment.getByRole("button", { name: "Check across training windows" }).click();
+  const held = experiment.getByRole("table", { name: "What each model leans on most, by training window" });
+  await expect(held.getByRole("row", { name: /2019-12/ })).toContainText("own history 57%");
+  await expect(experiment.getByText(/Random Forest changes what it leans on most/)).toBeVisible();
 
   // the explanation is kept with the experiment, so it is back after a reload
   await page.waitForTimeout(700);

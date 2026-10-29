@@ -51,6 +51,7 @@ export type Experiment = {
   recipe: Recipe;
   ran: Recipe | null;
   explain: boolean; // explanations asked for, for the run
+  stability?: boolean; // the explanations checked across training windows, for the run
 };
 
 // The paper's method: the three models tuned on the training years, lags chosen by the tests,

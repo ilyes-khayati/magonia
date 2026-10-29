@@ -1631,3 +1631,8 @@ button:disabled {
   margin-top: 2px;
   color: var(--warning);
 }
+
+.stats td.unstable {
+  color: var(--warning);
+  font-weight: 600;
+}
