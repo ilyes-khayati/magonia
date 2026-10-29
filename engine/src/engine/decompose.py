@@ -19,7 +19,7 @@ import pywt
 
 WAVELET = "dmey"
 TARGET_DAYS = 365.25  # the trend keeps cycles longer than about a year
-CADENCE_DAYS = {"ndvi": 16.0, "lst": 8.0, "spei": 365.25 / 12}
+CADENCE_DAYS = {"ndvi": 16.0, "savi": 16.0, "lst": 8.0, "spei": 365.25 / 12}
 PAD = 0.5  # share of the series mirrored at each end
 
 

@@ -33,9 +33,10 @@ ALIASES = {
     "trends": "trend",
     "mann-kendall": "trend",
 }
-VARIABLES = {"ndvi", "lst", "spei"}
+VARIABLES = {"ndvi", "savi", "lst", "spei"}
 # how a model may name each variable
 WORDS = {
+    "savi": ("savi", "soil-adjusted", "soil adjusted"),
     "ndvi": ("ndvi", "greenness", "vegetation index"),
     "lst": ("lst", "land surface temperature", "temperature"),
     "spei": ("spei", "drought"),
@@ -174,7 +175,7 @@ def proposal(arguments: dict, areas: list[str]) -> dict:
 
 def describe(p: dict) -> str:
     """The proposal in one line, as the researcher will see it on the button."""
-    words = {"ndvi": "NDVI", "lst": "LST", "spei": "SPEI"}
+    words = {"ndvi": "NDVI", "savi": "SAVI", "lst": "LST", "spei": "SPEI"}
     what = p["label"]
     if p["kind"] == "correlation":
         what += f": {words[p['variable']]} and {words[p['driver']]}"

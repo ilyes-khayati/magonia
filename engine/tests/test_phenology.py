@@ -38,3 +38,7 @@ def test_a_weak_cycle_is_cautioned_and_other_variables_refused():
         phenology("Desert", "LST", "lst", points())
     with pytest.raises(PhenologyError):
         phenology("Desert", "NDVI", "ndvi", points(years=1))
+
+
+def test_savi_has_seasons_like_ndvi():
+    assert phenology("Orchard", "SAVI", "savi", points()).seasons

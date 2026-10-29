@@ -31,6 +31,7 @@ type Row = Record<string, string | number | boolean | [number, number] | null>;
 
 const AXES: Record<string, { domain: [number | string, number | string]; digits: number; ticks?: number[] }> = {
   ndvi: { domain: [0, 1], digits: 2 },
+  savi: { domain: [0, 1], digits: 2 },
   lst: { domain: ["dataMin - 2", "dataMax + 2"], digits: 0 },
   spei: { domain: [-3, 3], digits: 0, ticks: [-3, -2, -1, 0, 1, 2, 3] },
 };
