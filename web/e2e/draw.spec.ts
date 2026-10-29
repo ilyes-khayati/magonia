@@ -210,6 +210,8 @@ const EXPLANATION = {
   },
   agreement: [],
   seeds: 5,
+  family_range: { XGBoost: { LST: [0.58, 0.65] } },
+  dropped: { XGBoost: { LST: 0.18, "own history": 0.4 }, RandomForest: { LST: 0.05 }, Ridge: { LST: -0.01 } },
   summary: [
     "Orchard: XGBoost and Ridge explain the data differently, beyond what refitting with another seed changes (weighted τ 0.46, against at least 0.89 for a model with itself; 67% of the importance would have to move).",
   ],
@@ -440,7 +442,10 @@ test("an experiment runs a recipe, keeps its results, and two runs can be compar
   await experiment.getByRole("button", { name: "Explain the models" }).click();
   const families = experiment.getByRole("table", { name: "Share of each model's importance by family of inputs" });
   await expect(families).toBeVisible({ timeout: 10_000 });
-  await expect(families.getByRole("row", { name: /LST/ })).toContainText("61%");
+  await expect(families.getByRole("row", { name: /LST/ })).toContainText("61% 58–65");
+  const dropped = experiment.getByRole("table", { name: "Refitted without it: how much the error rises" });
+  await expect(dropped.getByRole("row", { name: /LST/ })).toContainText("+18%");
+  await expect(dropped.getByRole("row", { name: /LST/ })).toContainText("−1%");
   await expect(experiment.getByText(/XGBoost and Ridge explain the data differently/)).toBeVisible();
   await experiment.getByRole("button", { name: "Check across training windows" }).click();
   const held = experiment.getByRole("table", { name: "What each model leans on most, by training window" });

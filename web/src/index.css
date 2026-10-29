@@ -1636,3 +1636,16 @@ button:disabled {
   color: var(--warning);
   font-weight: 600;
 }
+
+.stats .range {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.stats .caption {
+  caption-side: top;
+  text-align: left;
+  font-size: 12px;
+  color: var(--muted);
+  padding: 6px 0 4px;
+}
