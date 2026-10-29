@@ -220,7 +220,7 @@ function ExperimentView(props: ViewProps) {
   const changed = !sameRecipe(recipe, ran);
   const runnable = recipe.models.length > 0;
   const ready = readyFor(ran, entries);
-  const { fit, why } = useRun(ready && ran ? bodyOf(ran, options) : null, e.explain);
+  const { fit, why, held } = useRun(ready && ran ? bodyOf(ran, options) : null, e.explain, e.stability);
 
   return (
     <section className="card experiment" aria-label="Experiment">
@@ -256,7 +256,7 @@ function ExperimentView(props: ViewProps) {
         <button
           className="primary"
           disabled={!runnable || (!changed && !!ran)}
-          onClick={() => onChange({ ran: structuredClone(recipe), explain: false })}
+          onClick={() => onChange({ ran: structuredClone(recipe), explain: false, stability: false })}
         >
           {!ran ? "Run experiment" : changed ? "Run with these changes" : "Up to date"}
         </button>
@@ -278,6 +278,9 @@ function ExperimentView(props: ViewProps) {
             why={why}
             explain={e.explain}
             onExplain={() => onChange({ explain: true })}
+            held={held}
+            stable={e.stability}
+            onStable={() => onChange({ stability: true })}
             digits={ran.response === "lst" ? 2 : 4}
           />
         ) : (

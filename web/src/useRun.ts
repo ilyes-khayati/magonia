@@ -1,9 +1,9 @@
 import { useMemo } from "react";
-import { explainModels, fitModels, type ModelsBody } from "./api";
+import { checkStability, explainModels, fitModels, type ModelsBody } from "./api";
 import { useAnalysis } from "./useAnalysis";
 
 // A run's results, fitted (or read from the cache) when its body is known
-export function useRun(body: ModelsBody | null, explain: boolean) {
+export function useRun(body: ModelsBody | null, explain: boolean, stable = false) {
   const signature = JSON.stringify(body);
   const requests = useMemo(
     () => (signature === "null" ? [] : [{ key: signature, body: JSON.parse(signature) as ModelsBody }]),
@@ -14,5 +14,7 @@ export function useRun(body: ModelsBody | null, explain: boolean) {
   // explaining takes about a minute more, so it is asked for
   const explainRequests = useMemo(() => (explain && fitted ? requests : []), [explain, fitted, requests]);
   const why = useAnalysis(explainRequests, explainModels).get(signature);
-  return { fit, why };
+  const stableRequests = useMemo(() => (stable && fitted ? requests : []), [stable, fitted, requests]);
+  const held = useAnalysis(stableRequests, checkStability).get(signature);
+  return { fit, why, held };
 }

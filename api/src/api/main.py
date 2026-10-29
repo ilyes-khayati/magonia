@@ -13,7 +13,7 @@ from engine.areas import AreaError, make_area
 from engine.catalogue import CATALOGUE, get_variable
 from engine.decompose import DecompositionError, decompose
 from engine.earth_engine import EarthEngineError, check
-from engine.explain import Explanation, Pair, describe, explain
+from engine.explain import Explanation, Pair, describe, explain, stability
 from engine.lags import explore
 from engine.models import ForecastError, design, forecast
 from engine.pipeline import Request, fingerprint
@@ -623,6 +623,51 @@ def explanations(body: ModelsRequest, store: StoreDep, runner: RunnerDep, reply:
     return {"status": "running"}
 
 
+def check_stability(store, key, models_result, response, drivers, body) -> None:
+    try:
+        X, y, _, test_start = design(
+            (response.title, response.key, facts.monthly_series(response)),
+            [(d.title, d.key, facts.monthly_series(d)) for d in drivers],
+            body.own_lags,
+            body.driver_lags,
+            body.test_years,
+            body.calendar,
+        )
+        params = {m["name"]: m["params"] for m in models_result["models"]}
+        store.save_result(key, stability(response.area, X, y, params, test_start).to_dict())
+    except Exception as exc:  # noqa: BLE001 - any failure must reach the user, not vanish
+        FAILED[key] = f"Stability could not be checked: {exc}"
+    finally:
+        FITTING.discard(key)
+
+
+def stability_key(body: ModelsRequest, store: Store) -> str:
+    return fingerprint({"stability": models_key(body, store)})
+
+
+@app.post("/stability")
+def explanation_stability(
+    body: ModelsRequest, store: StoreDep, runner: RunnerDep, reply: Response
+) -> dict:
+    """What each fitted model leans on when its training years end earlier: whether its
+    explanation holds across training windows. Runs in the background: ask again until done."""
+    fitted = store.result(models_key(body, store))
+    if fitted is None:
+        raise HTTPException(409, "fit the models first")
+    key = stability_key(body, store)
+    if (result := store.result(key)) is not None:
+        return {"status": "done", **result}
+    if key in FAILED:
+        return {"status": "failed", "error": FAILED.pop(key)}
+    if key not in FITTING:
+        FITTING.add(key)
+        response = cached_series(body.response, store)
+        drivers = [cached_series(d, store) for d in body.drivers]
+        runner.submit(check_stability, store, key, fitted, response, drivers, body)
+    reply.status_code = 202
+    return {"status": "running"}
+
+
 # The assistant
 
 
@@ -762,6 +807,9 @@ def forecast_facts(store: Store, view: View, areas: dict[int, dict]) -> list[fac
                 card = f"{name}: what the models lean on"
                 lines = explanation_summary(why, area["name"])
                 found += [facts.Fact(card, line) for line in lines]
+            if (held := store.result(stability_key(body, store))) is not None:
+                card = f"{name}: stability across training windows"
+                found += [facts.Fact(card, line) for line in held["summary"]]
     return found
 
 

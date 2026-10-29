@@ -1,5 +1,5 @@
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import type { ExplanationResponse, ModelsResponse } from "../api";
+import type { ExplanationResponse, ModelsResponse, StabilityResponse } from "../api";
 import { MODEL_LABEL, type ModelName } from "../experiments";
 import { areaColour, type Theme } from "../theme";
 import Cautions from "./Cautions";
@@ -14,11 +14,14 @@ type Props = {
   why: AnalysisState<ExplanationResponse> | undefined;
   explain: boolean;
   onExplain: () => void;
+  held?: AnalysisState<StabilityResponse> | undefined;
+  stable?: boolean; // the stability check asked for
+  onStable?: () => void;
   digits: number; // decimals of the forecast variable
   compact?: boolean; // side by side with another run: no chart, no predictors
 };
 
-export default function Results({ fit, why, explain, onExplain, digits, compact }: Props) {
+export default function Results({ fit, why, explain, onExplain, held, stable, onStable, digits, compact }: Props) {
   const theme = (document.documentElement.dataset.theme as Theme) ?? "light";
   if (!fit || fit.status === "loading")
     return (
@@ -151,6 +154,26 @@ export default function Results({ fit, why, explain, onExplain, digits, compact 
         </button>
       )}
 
+      {why?.status === "done" && onStable && (
+        <>
+          <h4 className="results-head">Does the explanation hold across training years?</h4>
+          {held?.status === "done" ? (
+            <Stability data={held.data} />
+          ) : held?.status === "failed" ? (
+            <p className="placeholder">{held.error}</p>
+          ) : stable ? (
+            <p className="placeholder" role="status">
+              Explaining the models again on training years that end one, two and three years earlier. This takes a few
+              minutes.
+            </p>
+          ) : (
+            <button className="button" onClick={onStable}>
+              Check across training windows
+            </button>
+          )}
+        </>
+      )}
+
       {!compact && (
         <>
           <details>
@@ -223,6 +246,51 @@ function Explanations({ data }: { data: ExplanationResponse }) {
         Permutation importance on held-out training years, {data.seeds} seeds. Two models disagree beyond noise when their
         whole range lies outside how much each one varies with itself.
       </span>
+    </>
+  );
+}
+
+// The family each model leans on most when its training years end earlier
+function Stability({ data }: { data: StabilityResponse }) {
+  const models = (["XGBoost", "RandomForest", "Ridge"] as const).filter((m) => data.leading[m]);
+  return (
+    <>
+      <div className="table-scroll">
+        <table className="stats models">
+          <caption className="visually-hidden">What each model leans on most, by training window</caption>
+          <thead>
+            <tr>
+              <th scope="col">Trained up to</th>
+              {models.map((m) => (
+                <th key={m} scope="col">
+                  {label(m)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {data.windows.map((w, i) => (
+              <tr key={w.train_end}>
+                <th scope="row">{w.train_end}</th>
+                {models.map((m) => {
+                  const family = data.leading[m][i];
+                  const changed = new Set(data.leading[m]).size > 1;
+                  return (
+                    <td key={m} className={changed ? "unstable" : undefined}>
+                      {family} {Math.round(100 * (w.families[m]?.[family] ?? 0))}%
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <ul className="summary">
+        {data.summary.map((line) => (
+          <li key={line}>{line}</li>
+        ))}
+      </ul>
     </>
   );
 }
