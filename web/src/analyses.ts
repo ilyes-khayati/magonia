@@ -15,6 +15,11 @@ export type Decomposition = {
   variable: VariableKey;
 };
 
+export type Trend = {
+  kind: "trend";
+  variable: VariableKey;
+};
+
 export type Lags = {
   kind: "lags";
   response: VariableKey;
@@ -33,7 +38,7 @@ export type Models = {
   test_years: number;
 };
 
-export type AnalysisBody = Correlation | Decomposition | Lags;
+export type AnalysisBody = Correlation | Decomposition | Trend | Lags;
 
 export type Analysis = { id: number } & AnalysisBody;
 
@@ -72,6 +77,13 @@ export const KINDS: KindInfo[] = [
     create: (chosen) => ({ kind: "decomposition", variable: chosen[0] ?? "ndvi" }),
   },
   {
+    kind: "trend",
+    label: "Long-term trend",
+    question: "Is it rising or falling over the years, and is that real?",
+    description: "The slope of the annual means (Sen) and whether it could be chance (Mann–Kendall).",
+    create: (chosen) => ({ kind: "trend", variable: chosen[0] ?? "ndvi" }),
+  },
+  {
     kind: "lags",
     label: "Memory and lags",
     question: "Which past months matter?",
@@ -94,6 +106,8 @@ export function needsOf(analysis: Analysis): Need[] {
       return [analysis.response, analysis.driver].map((variable) => ({ variable, native: false }));
     case "decomposition":
       return [{ variable: analysis.variable, native: true }];
+    case "trend":
+      return [{ variable: analysis.variable, native: false }];
     case "lags":
       return [analysis.response, ...analysis.drivers].map((variable) => ({ variable, native: false }));
   }

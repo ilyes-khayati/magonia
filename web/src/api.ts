@@ -127,6 +127,20 @@ export type DecompositionResponse = {
 export const decomposeSeries = (options: SeriesOptions) =>
   call<DecompositionResponse>("/decomposition", send("POST", options));
 
+// The slope of a series' annual means and whether it could be chance (ANA-04)
+export type TrendResponse = {
+  area_id: number;
+  years: Record<string, number>;
+  months: string[];
+  slope: number | null; // per decade
+  intercept: number | null;
+  p: number | null;
+  change: number | null;
+  summary: string[];
+  cautions: string[];
+};
+export const trendOf = (options: SeriesOptions) => call<TrendResponse>("/trend", send("POST", options));
+
 // How a series remembers itself and which past months of its drivers stand out
 export type LagEvidence = {
   driver: string;

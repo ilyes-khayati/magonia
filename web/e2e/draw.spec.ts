@@ -39,6 +39,21 @@ async function fakeApi(page: Page, connected = true) {
     return route.fulfill({ status: 202, json: { id: 1, status: "done", error: null, result: RESULT } });
   });
   await page.route("**/api/decomposition", (route) => route.fulfill({ json: DECOMPOSITION }));
+  await page.route("**/api/trend", (route) =>
+    route.fulfill({
+      json: {
+        area_id: 1,
+        years: { "2021": 0.5, "2022": 0.52, "2023": 0.55, "2024": 0.56 },
+        months: ["Jan"],
+        slope: 0.21,
+        intercept: 0.5,
+        p: 0.04,
+        change: 0.06,
+        summary: ["Orchard, NDVI: annual means rising by +0.210 per decade (Sen's slope) over 4 years (2021 to 2024)."],
+        cautions: ["Orchard, NDVI: only 4 complete years; a trend test needs about 8 to find anything but a strong trend."],
+      },
+    }),
+  );
   let fitted = false; // the first request starts fitting, the next one finds the result
   await page.route("**/api/models", (route) => {
     modelled.push(route.request().postDataJSON());
@@ -386,6 +401,22 @@ test("a decomposition asks for the series at its own time step and shows trend a
   const results = await new AxeBuilder({ page }).include("[aria-label='Decomposition chart']").analyze();
   const serious = results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? ""));
   expect(serious.map((v) => v.id)).toEqual([]);
+});
+
+test("a trend card tests the annual means and warns about short records", async ({ page }) => {
+  await page.getByTestId("upload").setInputFiles({
+    name: "fields.geojson",
+    mimeType: "application/geo+json",
+    buffer: Buffer.from(JSON.stringify(SQUARE)),
+  });
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Analyses" }).click();
+  await page.getByRole("region", { name: "Suggested analyses" }).getByRole("button", { name: /rising or falling/ }).click();
+  const card = page.getByRole("region", { name: "Trend chart" });
+  await expect(card.getByRole("row", { name: /Orchard/ })).toContainText("+0.210");
+  await expect(card.getByRole("row", { name: /Orchard/ })).toContainText("significant");
+  await expect(card.getByRole("list", { name: "Cautions" })).toContainText("only 4 complete years");
+  const results = await new AxeBuilder({ page }).include("[aria-label='Trend chart']").analyze();
+  expect(results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? "")).map((v) => v.id)).toEqual([]);
 });
 
 test("the lag explorer tests drivers and says which stand out", async ({ page }) => {
