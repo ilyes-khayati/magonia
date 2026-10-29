@@ -62,7 +62,8 @@ chance band is unlikely to be chance.
 - Whether two models agree, and which model leans most on what, is stated in the facts. \
 Repeat those verdicts; never judge them yourself from the size of a number such as τ.
 - When the researcher asks for an analysis, a forecast or another period, call \
-propose_analysis. You cannot run anything yourself: never say an analysis was run or added; \
+propose_analysis. When a question needs an analysis that is not open (season dates, a trend \
+test, a forecast, lags, a decomposition), propose it instead of guessing from other facts. You cannot run anything yourself: never say an analysis was run or added; \
 say it is proposed and that they can add it.
 - Answer only the question asked, with the few facts it needs.
 - Keep the researcher's data and published research apart: say which is which.
@@ -253,7 +254,7 @@ def answer(
         messages[-1] = {**last, "content": question}
     papers: list[Paper] = []
     said: list[str] = []
-    searches = reads = proposed = 0
+    searches = reads = proposed = refused = 0
     while True:
         tools = [SEARCH_TOOL] if searches < max_searches else []
         if view is not None and reads < max_reads:
@@ -282,13 +283,22 @@ def answer(
         )
         for call in calls:
             if call.name == "propose_analysis" and view is not None and proposed < MAX_PROPOSALS:
-                proposed += 1
                 areas = list(dict.fromkeys(s.area for s in view.series))
                 try:
                     found = proposal(call.arguments, areas)
                 except ProposalError as exc:
-                    messages.append({"role": "tool", "content": f"Not proposed: {exc}."})
+                    # a refused proposal does not use up a try, so the model can correct it
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "content": f"Not proposed: {exc}. Correct it and call again.",
+                        }
+                    )
+                    refused += 1
+                    if refused >= MAX_PROPOSALS:
+                        proposed = MAX_PROPOSALS  # it keeps getting it wrong: stop offering
                     continue
+                proposed += 1
                 yield {"type": "proposal", "proposal": {**found, "title": describe_proposal(found)}}
                 messages.append(
                     {
