@@ -20,7 +20,7 @@ type Props = {
   onAdd: (kind: Kind) => void;
   onChange: (id: number, change: Partial<Analysis>) => void;
   onRemove: (id: number) => void;
-  chartsPath: string | null;
+  dataPath: string | null;
   mapPath: string | null;
 };
 
@@ -77,7 +77,7 @@ function AddAnalysis({ onAdd }: { onAdd: (kind: Kind) => void }) {
 }
 
 export default function AnalysesPage(props: Props) {
-  const { catalogue, settings, areas, entries, options, analyses, onAdd, onChange, onRemove, chartsPath, mapPath } = props;
+  const { catalogue, settings, areas, entries, options, analyses, onAdd, onChange, onRemove, dataPath, mapPath } = props;
   const title = (v: Variable) => variableTitle(v, settings);
   const data = [
     `${month(settings.start)} to ${month(settings.end)}`,
@@ -94,10 +94,10 @@ export default function AnalysesPage(props: Props) {
       </div>
       <p className="meta data-line">
         Data: {data}
-        {chartsPath && (
+        {dataPath && (
           <>
             {" · "}
-            <Link to={chartsPath}>change on Charts</Link>
+            <Link to={dataPath}>change on Data</Link>
           </>
         )}
       </p>

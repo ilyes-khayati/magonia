@@ -21,16 +21,16 @@ import { addAnalysis, needsOf, readAnalyses, type Analysis, type Kind, type Need
 import { readAreaFile } from "./areaFiles";
 import AnalysesPage from "./components/AnalysesPage";
 import AssistantCard from "./components/AssistantCard";
-import ChartsPage from "./components/ChartsPage";
+import DataPage from "./components/DataPage";
 import DataPanel from "./components/DataPanel";
 import EarthEngineSetup from "./components/EarthEngineSetup";
-import { CloseIcon, ExpandIcon } from "./components/Icons";
+import { CloseIcon, ExpandIcon, ShrinkIcon } from "./components/Icons";
 import MapView, { type Target, type Tool } from "./components/MapView";
 import Rail from "./components/Rail";
 import Sidebar from "./components/Sidebar";
 import Toolbar from "./components/Toolbar";
 import TopBar from "./components/TopBar";
-import { PAGES, isPage, pagePath } from "./pages";
+import { PAGES, isPage, pagePath, type Page } from "./pages";
 import { DEFAULTS, readSettings, seriesKey, seriesOptions, type Settings } from "./settings";
 import { applyTheme, areaColour, initialTheme, type Theme } from "./theme";
 import { useSeries } from "./useSeries";
@@ -122,6 +122,16 @@ export default function App() {
 
   const docked = panel.open && page !== "assistant";
   const setDocked = (open: boolean) => setPanel((p) => ({ ...p, open }));
+
+  // Magonia opens full size from its panel, and goes back to the page it came from
+  const lastPage = useRef<Page>("map");
+  useEffect(() => {
+    if (page !== "assistant") lastPage.current = page;
+  }, [page]);
+  function magoniaSmaller() {
+    setDocked(true);
+    if (workspaceId !== null) navigate(pagePath(workspaceId, lastPage.current));
+  }
 
   // Magonia's panel is widened by dragging its edge, or with the arrow keys on it
   function resize(e: React.PointerEvent<HTMLDivElement>) {
@@ -391,11 +401,14 @@ export default function App() {
         onRename={renameWorkspace}
         earthEngine={earthEngine}
         onEarthEngine={() => setSetupOpen(true)}
-        magonia={page === "assistant" ? null : { open: docked, onToggle: () => setDocked(!docked) }}
+        magonia={{
+          open: docked || page === "assistant",
+          onToggle: () => (page === "assistant" ? magoniaSmaller() : setDocked(!docked)),
+        }}
       />
       <Rail workspaceId={workspaceId} />
 
-      {page === "charts" && (
+      {page === "data" && (
         <Sidebar>
           <DataPanel catalogue={catalogue} settings={settings} onChange={change} progress={progress} />
         </Sidebar>
@@ -426,8 +439,8 @@ export default function App() {
           />
         </div>
 
-        {page === "charts" && (
-          <ChartsPage
+        {page === "data" && (
+          <DataPage
             catalogue={catalogue}
             settings={settings}
             onChange={change}
@@ -443,7 +456,7 @@ export default function App() {
             areas={shown}
             entries={entries}
             options={optionsFor}
-            chartsPath={workspaceId === null ? null : pagePath(workspaceId, "charts")}
+            dataPath={workspaceId === null ? null : pagePath(workspaceId, "data")}
             mapPath={workspaceId === null ? null : pagePath(workspaceId, "map")}
             analyses={analyses}
             onAdd={(kind: Kind) => changeAnalyses(addAnalysis(analyses, kind, settings.variables))}
@@ -489,12 +502,21 @@ export default function App() {
           workspaceId={workspaceId}
           view={view}
           actions={
-            page !== "assistant" && (
+            page === "assistant" ? (
+              <button
+                className="icon-button"
+                aria-label="Make Magonia smaller"
+                title="Back to the side panel"
+                onClick={magoniaSmaller}
+              >
+                <ShrinkIcon size={14} />
+              </button>
+            ) : (
               <>
                 <button
                   className="icon-button"
-                  aria-label="Open Magonia on its own page"
-                  title="Open Magonia on its own page"
+                  aria-label="Make Magonia bigger"
+                  title="Open Magonia full size"
                   onClick={() => workspaceId !== null && navigate(pagePath(workspaceId, "assistant"))}
                 >
                   <ExpandIcon size={14} />

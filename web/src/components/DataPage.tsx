@@ -13,7 +13,7 @@ type Props = {
   mapPath: string | null;
 };
 
-export default function ChartsPage({ catalogue, settings, onChange, areas, entries, mapPath }: Props) {
+export default function DataPage({ catalogue, settings, onChange, areas, entries, mapPath }: Props) {
   const chosen = catalogue.filter((v) => settings.variables.includes(v.key));
 
   const summary = chosen.flatMap((v) =>
@@ -30,7 +30,7 @@ export default function ChartsPage({ catalogue, settings, onChange, areas, entri
   return (
     <div className="page">
       <div className="page-head">
-        <h1>Charts</h1>
+        <h1>Data</h1>
         <div className="segmented" role="group" aria-label="Chart type">
           <button aria-pressed={settings.mode === "series"} onClick={() => onChange({ mode: "series" })}>
             Time series

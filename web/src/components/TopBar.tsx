@@ -13,7 +13,7 @@ type Props = {
   onRename: (name: string) => void;
   earthEngine: EarthEngineStatus | null;
   onEarthEngine: () => void;
-  magonia: { open: boolean; onToggle: () => void } | null; // null on Magonia's own page
+  magonia: { open: boolean; onToggle: () => void };
 };
 
 // The workspace is named once, like a file, and switched from its menu; the menu closes on a
@@ -127,17 +127,15 @@ export default function TopBar(props: Props) {
       >
         {theme === "light" ? <MoonIcon size={16} /> : <SunIcon size={16} />}
       </button>
-      {magonia && (
-        <button
-          className="magonia-toggle row"
-          aria-pressed={magonia.open}
-          title={magonia.open ? "Close Magonia" : "Open Magonia beside this page"}
-          onClick={magonia.onToggle}
-        >
-          <SparkIcon size={16} />
-          Magonia
-        </button>
-      )}
+      <button
+        className="magonia-toggle"
+        aria-label="Magonia"
+        aria-pressed={magonia.open}
+        title={magonia.open ? "Close Magonia" : "Ask Magonia about your data"}
+        onClick={magonia.onToggle}
+      >
+        <SparkIcon size={18} />
+      </button>
     </header>
   );
 }

@@ -79,7 +79,7 @@ button:disabled {
   white-space: nowrap;
 }
 
-/* Layout: the top bar over pages | data (charts only) | the open page | Magonia beside it */
+/* Layout: the top bar over pages | data choices (Data page only) | the open page | Magonia beside it */
 .workbench {
   --data-width: 0px;
   --dock-width: 0px;
@@ -93,7 +93,7 @@ button:disabled {
   overflow: hidden;
 }
 
-.workbench.page-charts {
+.workbench.page-data {
   --data-width: 280px;
 }
 
@@ -207,19 +207,84 @@ button:disabled {
   align-self: flex-end;
 }
 
+/* Magonia's button: a slow green shimmer, still when motion is reduced */
 .magonia-toggle {
-  gap: 6px;
-  border: 1px solid var(--line);
-  background: var(--card);
-  color: var(--ink);
-  border-radius: 8px;
-  padding: 6px 12px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: 999px;
+  padding: 0;
+  color: #ffffff;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  background: linear-gradient(115deg, #0b3f2a, #12663f 35%, #178055 55%, #0d5a4e);
+  background-size: 220% 100%;
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 14%),
+    0 4px 14px rgb(23 128 85 / 35%);
+  animation: magic-drift 7s ease-in-out infinite;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.magonia-toggle::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgb(255 255 255 / 28%) 50%, transparent 70%);
+  transform: translateX(-120%);
+  animation: magic-sheen 5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.magonia-toggle:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 22%),
+    0 6px 22px rgb(60 196 138 / 50%);
 }
 
 .magonia-toggle[aria-pressed="true"] {
-  background: var(--selected);
-  color: var(--on-selected);
-  border-color: var(--selected);
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 30%),
+    0 0 0 3px rgb(60 196 138 / 35%),
+    0 6px 22px rgb(60 196 138 / 45%);
+}
+
+.magonia-toggle svg {
+  filter: drop-shadow(0 0 4px rgb(160 255 200 / 70%));
+}
+
+@keyframes magic-drift {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes magic-sheen {
+  0%,
+  60% {
+    transform: translateX(-120%);
+  }
+  85%,
+  100% {
+    transform: translateX(120%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .magonia-toggle,
+  .magonia-toggle::after {
+    animation: none;
+  }
 }
 
 .dock-handle {
