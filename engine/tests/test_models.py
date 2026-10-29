@@ -164,3 +164,63 @@ def test_gaps_leave_baselines_scored_where_they_exist():
     found = forecast("Field", ("NDVI", "ndvi", snowy), [], [1], seeds=1, draws=1)
     assert found.baselines["persistence"]["months"] < len(found.observed)
     assert "persistence" in found.summary[1] and "months)" in found.summary[1]
+
+
+def test_the_researcher_chooses_the_models_their_settings_and_the_predictors():
+    from engine.models import forecast
+
+    d = pd.read_csv(
+        DATA / "reference_decomposition.csv", index_col="date", parse_dates=True
+    ).asfreq("MS")
+    found = forecast(
+        "Orchard",
+        ("NDVI", "ndvi", d.NDVI),
+        [],
+        [1, 12],
+        seeds=2,
+        models=["XGBoost", "Ridge"],
+        params={"Ridge": {"alpha": 2.5}, "XGBoost": {"n_estimators": 50, "max_depth": 3}},
+        calendar=False,
+        rolling=False,
+    )
+    assert [m.name for m in found.models] == ["Ridge", "XGBoost"]  # in the usual order
+    assert found.models[0].params == {"ridge__alpha": 2.5}
+    assert found.models[1].params == {"n_estimators": 50, "max_depth": 3}
+    assert [f["name"] for f in found.features] == ["NDVI lag 1", "NDVI lag 12"]
+    assert all(not m.rolling or len(m.rolling) == 1 for m in found.models)
+    assert not any("test windows" in line for line in found.summary)
+
+
+def test_one_model_alone_is_reported_without_a_ranking():
+    from engine.models import forecast
+
+    d = pd.read_csv(
+        DATA / "reference_decomposition.csv", index_col="date", parse_dates=True
+    ).asfreq("MS")
+    found = forecast("Orchard", ("NDVI", "ndvi", d.NDVI), [], [1], models=["Ridge"], rolling=False)
+    assert "lowest test error Ridge (RMSE" in found.summary[1] and ", then" not in found.summary[1]
+    assert not any("seeds" in line for line in found.summary)
+    assert (
+        found.summary[-1].startswith("Orchard: Ridge beats both baselines")
+        or "does not" in (found.summary[-1])
+    )
+
+
+@pytest.mark.parametrize(
+    ("choice", "message"),
+    [
+        ({"models": []}, "at least one model"),
+        ({"params": {"Ridge": {"depth": 3}}, "models": ["Ridge"]}, "no setting 'depth'"),
+        ({"params": {"XGBoost": {"learning_rate": 5}}, "models": ["XGBoost"]}, "between"),
+        ({"calendar": False, "own_lags": []}, "at least one predictor"),
+    ],
+)
+def test_impossible_choices_are_refused_with_a_reason(choice, message):
+    from engine.models import ForecastError, forecast
+
+    d = pd.read_csv(
+        DATA / "reference_decomposition.csv", index_col="date", parse_dates=True
+    ).asfreq("MS")
+    own = choice.pop("own_lags", [1])
+    with pytest.raises(ForecastError, match=message):
+        forecast("Orchard", ("NDVI", "ndvi", d.NDVI), [], own, seeds=1, draws=1, **choice)

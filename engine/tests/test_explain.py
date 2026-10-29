@@ -69,3 +69,37 @@ def test_families_and_measures():
     assert shares(a).tolist() == [0.75, 0.25, 0.0]
     assert allocation(a, a) == 0 and tau(a, a) == pytest.approx(1)
     assert allocation(pd.Series({"x": 1.0, "y": 0.0}), pd.Series({"x": 0.0, "y": 1.0})) == 1
+
+
+def test_comparisons_between_models_are_written_by_code():
+    from engine.explain import Explanation, Pair, describe
+
+    found = Explanation(
+        importance={
+            "XGBoost": {"LST_lag1": 0.6, "NDVI_lag1": 0.3},
+            "Ridge": {"LST_lag1": 0.2, "NDVI_lag1": 0.7},
+        },
+        families={
+            "XGBoost": {"LST": 0.62, "own history": 0.29, "calendar": 0.09},
+            "Ridge": {"LST": 0.19, "own history": 0.70, "calendar": 0.11},
+        },
+        agreement=[
+            Pair("XGBoost vs itself", 0.97, 0.96, 0.99, 0.02, 0.01, 0.03),
+            Pair("Ridge vs itself", 0.98, 0.97, 0.99, 0.01, 0.0, 0.02),
+            Pair("XGBoost vs Ridge", 0.54, 0.5, 0.6, 0.40, 0.38, 0.42, True),
+        ],
+        seeds=5,
+    )
+    lines = describe("Orchard", found)
+    assert "Orchard: of the models, XGBoost leans most on LST (62%) and Ridge least (19%)." in lines
+    assert (
+        "Orchard: of the models, Ridge leans most on own history (70%) and XGBoost least (29%)."
+        in lines
+    )
+    assert (
+        "Orchard: of the models, Ridge leans most on calendar (11%) and XGBoost least (9%)."
+        in lines
+    )
+    assert any(
+        line.startswith("Orchard: XGBoost and Ridge explain the data differently") for line in lines
+    )

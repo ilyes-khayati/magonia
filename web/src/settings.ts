@@ -1,4 +1,5 @@
 import type { Masking, Resolution, SeriesOptions, Variable, VariableKey } from "./api";
+import type { CardLayout } from "./cards";
 
 // Everything the researcher chooses in the data panel. Saved with the workspace.
 export type Settings = {
@@ -11,6 +12,8 @@ export type Settings = {
   fill: boolean;
   maxGap: number;
   mode: "series" | "seasonal";
+  cards: Record<string, CardLayout>; // by card: "chart:ndvi", "analysis:3"
+  chartOrder: VariableKey[];
 };
 
 export const DEFAULTS: Settings = {
@@ -23,6 +26,8 @@ export const DEFAULTS: Settings = {
   fill: true,
   maxGap: 2,
   mode: "series",
+  cards: {},
+  chartOrder: [],
 };
 
 // A saved workspace may predate a setting, so missing or odd values fall back

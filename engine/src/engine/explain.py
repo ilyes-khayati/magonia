@@ -164,7 +164,7 @@ def explain(X: pd.DataFrame, y: pd.Series, params: dict[str, dict], seeds: int =
     """Permutation importance, family shares and agreement of the three models, on the
     training years only. Ridge fits the same every time, but its shuffles vary by seed."""
     runs, families = {}, {}
-    for name in ORDER:
+    for name in [n for n in ORDER if n in params]:
         runs[name] = [oof_permutation(name, params[name], X, y, s) for s in range(seeds)]
         fam = [oof_family(name, params[name], X, y, s) for s in range(seeds)]
         families[name] = shares(pd.concat(fam, axis=1).mean(axis=1))
@@ -183,7 +183,7 @@ LABELS = {"Ridge": "Ridge", "RandomForest": "Random Forest", "XGBoost": "XGBoost
 def describe(area: str, explained: Explanation) -> list[str]:
     """What each model leans on, by input and by family, and whether the models agree."""
     lines = []
-    for name in ORDER:
+    for name in [n for n in ORDER if n in explained.importance]:
         top = shares(pd.Series(explained.importance[name])).sort_values(ascending=False)[:3]
         fam = pd.Series(explained.families[name]).sort_values(ascending=False)
         fam = fam[fam >= 0.05]
@@ -194,20 +194,37 @@ def describe(area: str, explained: Explanation) -> list[str]:
             + ", ".join(f"{f} {100 * v:.0f}%" for f, v in fam.items())
             + "."
         )
+    # the comparisons are written here, so the assistant does not have to rank numbers itself;
+    # they come first, before each model's details
+    details, lines = lines, []
+    names = [n for n in ORDER if n in explained.families]
+    if len(names) > 1:
+        for fam in ("own history", "LST", "drought", "calendar"):
+            share = {n: explained.families[n].get(fam, 0.0) for n in names}
+            if max(share.values()) < 0.10:
+                continue
+            most, least = max(share, key=share.get), min(share, key=share.get)
+            lines.append(
+                f"{area}: of the models, {LABELS[most]} leans most on {fam} "
+                f"({100 * share[most]:.0f}%) and {LABELS[least]} least ({100 * share[least]:.0f}%)."
+            )
     for pair in explained.agreement:
-        if pair.separable is None:
+        if pair.separable is None or len(explained.importance) < 2:
             continue
         m1, m2 = (LABELS[m] for m in pair.pair.split(" vs "))
         itself = min(p.tau_lo for p in explained.agreement if p.separable is None)
+        moved = f"{100 * pair.dist:.0f}% of the importance would have to move"
         if pair.separable:
-            verdict = (
-                "explain the data differently, beyond what refitting with another seed changes"
+            line = (
+                f"{m1} and {m2} explain the data differently: their rankings agree less (weighted "
+                f"τ {pair.tau:.2f}) than either model agrees with itself refitted with another "
+                f"seed (at least {itself:.2f}), and {moved}."
             )
         else:
-            verdict = "agree within what refitting with another seed changes"
-        lines.append(
-            f"{area}: {m1} and {m2} {verdict} (weighted τ {pair.tau:.2f}, against at least "
-            f"{itself:.2f} for a model with itself; {100 * pair.dist:.0f}% of the importance "
-            "would have to move)."
-        )
-    return lines
+            line = (
+                f"{m1} and {m2} agree within what refitting with another seed changes: their "
+                f"rankings (weighted τ {pair.tau:.2f}) are as close as a model is to itself "
+                f"(at least {itself:.2f}); {moved}."
+            )
+        lines.append(f"{area}: {line}")
+    return lines + details

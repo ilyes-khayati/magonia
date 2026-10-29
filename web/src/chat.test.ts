@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { PaperCard } from "./api";
-import { answerParts, applyEvent, citationParts, type Turn } from "./chat";
+import type { CheckedNumber, PaperCard } from "./api";
+import { answerParts, applyEvent, citationParts, styled, type Turn } from "./chat";
 
 const empty: Turn = { role: "assistant", content: "", details: {} };
 const card = (n: number): PaperCard => ({
@@ -101,5 +101,30 @@ describe("checked numbers", () => {
 
   it("ignores numbers that do not match the text", () => {
     expect(answerParts("Peak 0.89.", [n(0, "0.89")])).toEqual([{ text: "Peak 0.89." }]);
+  });
+});
+
+describe("styled", () => {
+  const number = { start: 0, end: 0, text: "63", status: "verified", source: "card" } as CheckedNumber;
+
+  it("shows bold, headings and bullets without their markers", () => {
+    expect(styled([{ text: "### Models\n- **XGBoost** leans on LST\n* Ridge on its past" }])).toEqual([
+      { text: "Models", bold: true },
+      { text: "\n• ", bold: false },
+      { text: "XGBoost", bold: true },
+      { text: " leans on LST\n• Ridge on its past", bold: false },
+    ]);
+  });
+
+  it("keeps numbers and citations in place, bold when inside bold", () => {
+    expect(styled([{ text: "LST **at " }, { number }, { text: "%** [" }, { cites: [1] }, { text: "]" }])).toEqual([
+      { text: "LST ", bold: false },
+      { text: "at ", bold: true },
+      { number, bold: true },
+      { text: "%", bold: true },
+      { text: " [", bold: false },
+      { cites: [1], bold: false },
+      { text: "]", bold: false },
+    ]);
   });
 });
