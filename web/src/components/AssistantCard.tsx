@@ -8,7 +8,7 @@ import {
   type PaperCard,
   type View,
 } from "../api";
-import { answerParts, applyEvent, fromSaved, type Turn } from "../chat";
+import { answerParts, applyEvent, fromSaved, styled, type Turn } from "../chat";
 import { SendIcon } from "./Icons";
 
 const FLAG = {
@@ -40,24 +40,26 @@ function AnswerText(props: { text: string; papers: PaperCard[]; numbers?: Checke
   const { text, papers, numbers, anchor } = props;
   return (
     <>
-      {answerParts(text, numbers).map((part, i) =>
-        "text" in part ? (
-          <span key={i}>{part.text}</span>
-        ) : "number" in part ? (
-          <Num key={i} n={part.number} />
-        ) : (
-          <span key={i} className="cites">
-            {part.cites.map((n) => {
-              const paper = papers.find((p) => p.n === n);
-              return (
-                <a key={n} className="cite" href={`#${anchor}-${n}`} title={paper ? `${paper.short}. ${paper.title}` : undefined}>
-                  {n}
-                </a>
-              );
-            })}
-          </span>
-        ),
-      )}
+      {styled(answerParts(text, numbers)).map((part, i) => {
+        const shown =
+          "text" in part ? (
+            part.text
+          ) : "number" in part ? (
+            <Num n={part.number} />
+          ) : (
+            <span className="cites">
+              {part.cites.map((n) => {
+                const paper = papers.find((p) => p.n === n);
+                return (
+                  <a key={n} className="cite" href={`#${anchor}-${n}`} title={paper ? `${paper.short}. ${paper.title}` : undefined}>
+                    {n}
+                  </a>
+                );
+              })}
+            </span>
+          );
+        return part.bold ? <strong key={i}>{shown}</strong> : <span key={i}>{shown}</span>;
+      })}
     </>
   );
 }
@@ -170,9 +172,11 @@ type Props = {
   workspaceId: number | null;
   view?: View; // what is open, sent with each question so the assistant can discuss it
   actions?: React.ReactNode; // controls for where the card is shown, next to its own
+  // until the workspace has opened, a question would reach Magonia without the data
+  loading?: { opening: boolean; series: number }; // series: how many are still loading
 };
 
-export default function AssistantCard({ workspaceId, view, actions }: Props) {
+export default function AssistantCard({ workspaceId, view, actions, loading }: Props) {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -203,7 +207,7 @@ export default function AssistantCard({ workspaceId, view, actions }: Props) {
 
   async function submit() {
     const question = draft.trim();
-    if (!question || busy || workspaceId === null) return;
+    if (!question || busy || workspaceId === null || loading?.opening) return;
     setDraft("");
     setError(null);
     setBusy(true);
@@ -287,6 +291,15 @@ export default function AssistantCard({ workspaceId, view, actions }: Props) {
         </p>
       )}
 
+      {loading?.opening ? (
+        <p className="meta" role="status">
+          Opening your workspace, so that Magonia can see it…
+        </p>
+      ) : loading?.series ? (
+        <p className="meta" role="status">
+          {loading.series} {loading.series === 1 ? "series is" : "series are"} still loading; Magonia sees what has loaded.
+        </p>
+      ) : null}
       <div className="composer">
         <label htmlFor="ask" className="visually-hidden">
           Ask Magonia
@@ -310,7 +323,7 @@ export default function AssistantCard({ workspaceId, view, actions }: Props) {
           aria-label="Send"
           title="Send (Enter)"
           onClick={submit}
-          disabled={busy || !draft.trim()}
+          disabled={busy || !draft.trim() || loading?.opening}
         >
           <SendIcon size={15} />
         </button>

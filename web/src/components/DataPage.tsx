@@ -2,6 +2,8 @@ import { Link } from "react-router";
 import type { Area, Variable, VariableKey } from "../api";
 import { variableTitle, type Settings } from "../settings";
 import { summarise } from "../stats";
+import { moved, ordered } from "../cards";
+import CardSlot from "./CardSlot";
 import ChartCard, { type Entry } from "./ChartCard";
 
 type Props = {
@@ -14,7 +16,12 @@ type Props = {
 };
 
 export default function DataPage({ catalogue, settings, onChange, areas, entries, mapPath }: Props) {
-  const chosen = catalogue.filter((v) => settings.variables.includes(v.key));
+  const keys = ordered(
+    catalogue.filter((v) => settings.variables.includes(v.key)).map((v) => v.key),
+    settings.chartOrder,
+  );
+  const chosen = keys.map((k) => catalogue.find((v) => v.key === k)!);
+  const move = (from: number, to: number) => onChange({ chartOrder: moved(keys, from, to) });
 
   const summary = chosen.flatMap((v) =>
     summarise(
@@ -62,14 +69,18 @@ export default function DataPage({ catalogue, settings, onChange, areas, entries
         </section>
       ) : (
         <div className="page-grid">
-          {chosen.map((v) => (
-            <ChartCard
+          {chosen.map((v, i) => (
+            <CardSlot
               key={v.key}
-              variable={v}
-              title={variableTitle(v, settings)}
-              entries={entries(v.key)}
-              mode={settings.mode}
-            />
+              id={v.key}
+              label={variableTitle(v, settings)}
+              layout={settings.cards[`chart:${v.key}`] ?? {}}
+              onLayout={(layout) => onChange({ cards: { ...settings.cards, [`chart:${v.key}`]: layout } })}
+              onMove={(step) => move(i, i + step)}
+              onDrop={(from) => move(keys.indexOf(from as typeof v.key), i)}
+            >
+              <ChartCard variable={v} title={variableTitle(v, settings)} entries={entries(v.key)} mode={settings.mode} />
+            </CardSlot>
           ))}
         </div>
       )}

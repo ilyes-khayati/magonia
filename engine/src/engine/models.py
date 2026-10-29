@@ -51,6 +51,41 @@ SPACES = {
     "Ridge": {"ridge__alpha": np.logspace(-4, 3, 50)},
 }
 
+# What a researcher may set by hand instead of tuning, by its plain name, with its range
+SETTABLE = {
+    "Ridge": {"alpha": (1e-6, 1e6)},
+    "RandomForest": {
+        "n_estimators": (10, 2000),
+        "max_depth": (1, 50),
+        "min_samples_leaf": (1, 50),
+        "max_features": (0.05, 1.0),
+    },
+    "XGBoost": {
+        "n_estimators": (10, 3000),
+        "max_depth": (1, 15),
+        "learning_rate": (0.001, 1.0),
+        "subsample": (0.1, 1.0),
+        "colsample_bytree": (0.1, 1.0),
+        "min_child_weight": (0, 50),
+    },
+}
+INTEGER = {"n_estimators", "max_depth", "min_samples_leaf", "min_child_weight"}
+
+
+def manual_params(name: str, given: dict) -> dict:
+    """Settings typed by the researcher, checked and named as the estimator expects; what is
+    left out keeps the library's default."""
+    out = {}
+    for key, value in given.items():
+        if key not in SETTABLE[name]:
+            raise ForecastError(f"{LABELS[name]} has no setting {key!r}.")
+        low, high = SETTABLE[name][key]
+        if not low <= float(value) <= high:
+            raise ForecastError(f"{LABELS[name]} {key} must be between {low:g} and {high:g}.")
+        value = int(value) if key in INTEGER else float(value)
+        out["ridge__alpha" if name == "Ridge" else key] = value
+    return out
+
 
 def features(
     target: pd.Series,
@@ -137,11 +172,11 @@ def evaluate(
     seeds: int = 20,
     windows: list[tuple[str, str]] | None = None,
 ) -> tuple[list[Fitted], dict[str, dict]]:
-    """Fit each model on the years before test_start and score it on the years from it; the
-    baselines are scored on the same months."""
+    """Fit each model in params on the years before test_start and score it on the years
+    from it; the baselines are scored on the same months."""
     train, test = X.index < test_start, X.index >= test_start
     fitted = []
-    for name in NAMES:
+    for name in [n for n in NAMES if n in params]:
         model = estimator(name, params[name]).fit(X[train], y[train])
         p = model.predict(X[test])
         f = Fitted(name, params[name], scores(y[test], p), predictions=[float(v) for v in p])
@@ -238,6 +273,7 @@ def design(
     own_lags: list[int] | None = None,
     driver_lags: dict[str, list[int]] | None = None,
     test_years: int = 3,
+    calendar: bool = True,
 ) -> tuple[pd.DataFrame, pd.Series, list[dict], str]:
     """The predictors, the target, why each predictor is there, and the first test month."""
     title, _, y = target
@@ -260,9 +296,14 @@ def design(
         if lags:
             lagged[name] = (x, lags)
             chosen += [{"name": f"{name} lag {k}", "reason": why} for k in lags]
-    chosen.append({"name": "calendar month", "reason": "the seasonal cycle, as sine and cosine"})
+    if calendar:
+        chosen.append(
+            {"name": "calendar month", "reason": "the seasonal cycle, as sine and cosine"}
+        )
 
-    X = features(y, own_lags, lagged)
+    X = features(y, own_lags, lagged, calendar)
+    if X.empty:
+        raise ForecastError("Choose at least one predictor: a lag, a driver or the calendar.")
     table = pd.concat([X, y.rename("target")], axis=1).dropna()
     X, y = table.drop(columns="target"), table["target"]
     end = y.index.max()
@@ -281,10 +322,18 @@ def forecast(
     test_years: int = 3,
     seeds: int = 20,
     draws: int = 12,
+    models: list[str] | tuple[str, ...] = NAMES,
+    params: dict[str, dict] | None = None,
+    calendar: bool = True,
+    rolling: bool = True,
 ) -> Forecast:
-    """Forecast a monthly target one month ahead; lags not given are recommended by code."""
+    """Forecast a monthly target one month ahead; lags not given are recommended by code, and
+    each chosen model is tuned unless its settings are given."""
     title, key, _ = target
-    X, y_, chosen, test_start = design(target, drivers, own_lags, driver_lags, test_years)
+    models = [n for n in NAMES if n in models]
+    if not models:
+        raise ForecastError("Choose at least one model.")
+    X, y_, chosen, test_start = design(target, drivers, own_lags, driver_lags, test_years, calendar)
     end = y_.index.max()
     train = X.index < test_start
     if train.sum() < 12 * MIN_TRAIN_YEARS or (~train).sum() < 12:
@@ -292,7 +341,13 @@ def forecast(
             f"A forecast needs {MIN_TRAIN_YEARS} years to train and {test_years} to test, without "
             "gaps in the predictors; choose a longer period."
         )
-    params = {name: tune(name, X[train], y_[train], draws) for name in NAMES}
+    given = params or {}
+    params = {
+        name: manual_params(name, given[name])
+        if name in given
+        else tune(name, X[train], y_[train], draws)
+        for name in models
+    }
 
     # earlier test windows of the same length, back while enough years remain to train on
     windows, start = [], pd.Timestamp(test_start)
@@ -300,7 +355,7 @@ def forecast(
         window_end = start + pd.DateOffset(years=test_years) - pd.DateOffset(months=1)
         windows.insert(0, (start.strftime("%Y-%m-01"), min(window_end, end).strftime("%Y-%m-01")))
         start -= pd.DateOffset(years=test_years)
-        if (X.index < start).sum() < 12 * MIN_TRAIN_YEARS or len(windows) == 5:
+        if not rolling or (X.index < start).sum() < 12 * MIN_TRAIN_YEARS or len(windows) == 5:
             break
     fitted, base = evaluate(X, y_, test_start, params, seeds, windows)
 
@@ -318,8 +373,12 @@ def forecast(
     )
     ranking = (
         f"{area}: lowest test error {LABELS[order[0].name]} (RMSE {fmt(order[0].test['RMSE'])}, "
-        f"R² {order[0].test['R2']:.2f}), then "
-        + ", ".join(f"{LABELS[f.name]} {fmt(f.test['RMSE'])}" for f in order[1:])
+        f"R² {order[0].test['R2']:.2f})"
+        + (
+            ", then " + ", ".join(f"{LABELS[f.name]} {fmt(f.test['RMSE'])}" for f in order[1:])
+            if len(order) > 1
+            else ""
+        )
         + "; "
         + ", ".join(
             f"{b} {fmt(base[b]['RMSE'])}"
@@ -333,22 +392,26 @@ def forecast(
         + "."
     )
     summary = [span, ranking]
-    floor = max(f.seeds["RMSE_sd"] for f in fitted)
-    gap = order[1].test["RMSE"] - order[0].test["RMSE"]
-    within = "within" if gap <= 2 * floor else "beyond"
-    summary.append(
-        f"{area}: refitting the tree models with {seeds} seeds moves their RMSE by up to "
-        f"±{fmt(floor)}, so the gap between the best two ({fmt(gap)}) is {within} that noise."
-    )
+    trees = [f for f in fitted if f.name != "Ridge"]
+    if trees and len(order) > 1:
+        floor = max(f.seeds["RMSE_sd"] for f in trees)
+        gap = order[1].test["RMSE"] - order[0].test["RMSE"]
+        within = "within" if gap <= 2 * floor else "beyond"
+        summary.append(
+            f"{area}: refitting the tree models with {seeds} seeds moves their RMSE by up to "
+            f"±{fmt(floor)}, so the gap between the best two ({fmt(gap)}) is {within} that noise."
+        )
     beaten = [
         LABELS[f.name] for f in fitted if f.test["RMSE"] >= min(b["RMSE"] for b in base.values())
     ]
     summary.append(
         f"{area}: "
         + (
-            "every model beats both baselines."
+            ("every model beats" if len(fitted) > 1 else f"{LABELS[fitted[0].name]} beats")
+            + " both baselines."
             if not beaten
-            else f"{', '.join(beaten)} do not beat the better baseline, so they add little."
+            else f"{', '.join(beaten)} {'do' if len(beaten) > 1 else 'does'} not beat the better "
+            "baseline, so " + ("they add" if len(beaten) > 1 else "it adds") + " little."
         )
     )
     if len(windows) > 1:
