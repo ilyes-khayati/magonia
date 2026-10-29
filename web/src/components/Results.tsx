@@ -2,6 +2,7 @@ import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YA
 import type { ExplanationResponse, ModelsResponse } from "../api";
 import { MODEL_LABEL, type ModelName } from "../experiments";
 import { areaColour, type Theme } from "../theme";
+import Cautions from "./Cautions";
 import type { AnalysisState } from "../useAnalysis";
 
 const TICK = { fill: "var(--muted)", fontSize: 10, fontFamily: "var(--mono)" };
@@ -132,6 +133,7 @@ export default function Results({ fit, why, explain, onExplain, digits, compact 
           <li key={line}>{line}</li>
         ))}
       </ul>
+      <Cautions items={found.cautions} />
 
       <h4 className="results-head">What each model leans on</h4>
       {why?.status === "done" ? (

@@ -319,6 +319,7 @@ test("a correlation is shown only once added, and is saved with the workspace", 
   await expect(card.getByText(/Orchard: NDVI anomalies are most closely linked to LST anomalies from the same month \(r = 1\.00\)/)).toBeVisible();
 
   await card.getByRole("checkbox", { name: "Remove seasonal cycle" }).uncheck();
+  await expect(card.getByRole("list", { name: "Cautions" })).toContainText("months in common"); // a guardrail
   await page.waitForTimeout(700); // saving waits half a second after the last change
   await page.reload();
   await expect(card.locator(".recharts-line")).toBeVisible();

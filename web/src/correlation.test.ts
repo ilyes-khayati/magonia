@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SeriesPoint } from "./api";
-import { anomalies, describeLink, lagCorrelation, monthly, pearson } from "./correlation";
+import { anomalies, describeLink, lagCorrelation, monthly, pearson, correlationCautions } from "./correlation";
 
 // Monthly points from 2010-01, one per value
 const series = (values: (number | null)[], start = 2010): SeriesPoint[] =>
@@ -81,5 +81,33 @@ describe("correlation", () => {
     expect(describeLink("Sfax", "NDVI", "LST", [{ lag: 1, r: 0.1, n: 100, band: 0.196 }], true)).toMatch(
       /no lag stands out from chance/,
     );
+  });
+});
+
+describe("guardrails on a correlation", () => {
+  const months = (n: number, f: (i: number) => number) =>
+    Array.from({ length: n }, (_, i) => ({
+      date: `${2010 + Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, "0")}-01`,
+      value: f(i),
+      sd: null,
+      n_pixels: 1,
+      masked: false,
+      filled: false,
+      n_obs: 1,
+      n_valid: 1,
+    }));
+  const season = months(60, (i) => Math.sin((2 * Math.PI * i) / 12) + 0.01 * (i % 5));
+  const heat = months(60, (i) => -Math.sin((2 * Math.PI * i) / 12) + 0.01 * (i % 3));
+
+  it("warns when two seasonal series keep their cycle", () => {
+    const [caution] = correlationCautions("Orchard", "NDVI", "LST", season, heat, false);
+    expect(caution).toMatch(/^Orchard: NDVI and LST both follow a yearly cycle \(\d+% and \d+% of their variance\)/);
+    expect(correlationCautions("Orchard", "NDVI", "LST", season, heat, true)).toEqual([]);
+  });
+
+  it("warns when there are too few months", () => {
+    expect(correlationCautions("Orchard", "NDVI", "LST", season.slice(0, 20), heat.slice(0, 20), true)).toEqual([
+      "Orchard: only 20 months in common; a correlation needs about 36 to mean much.",
+    ]);
   });
 });

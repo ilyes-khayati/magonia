@@ -11,6 +11,7 @@ from statistics import fmean, median, pstdev
 
 import pandas as pd
 
+from engine import guardrails
 from engine.decompose import DecompositionError, decompose
 from engine.lags import explore
 
@@ -29,6 +30,7 @@ class Series:
     units: str
     points: list[dict]  # date, value, masked, filled, ...
     resolution: str = "monthly"  # native, monthly or seasonal
+    warnings: list[str] = field(default_factory=list)  # the product's own, e.g. pixel size
 
 
 @dataclass
@@ -358,6 +360,7 @@ def decomposition_facts(card: str, s: Series) -> list[Fact]:
     except DecompositionError as exc:
         return [Fact(card, f"{who}: {exc}")]
     m = result.monthly.dropna()
+    cautions = caution_facts(card, guardrails.decomposition(s.area, s.title, len(m) / 12))
     trend = m.set_index("date")["trend"]
     years = trend.groupby(trend.index.year).mean()
     first, last = years.index[0], years.index[-1]
@@ -394,7 +397,7 @@ def decomposition_facts(card: str, s: Series) -> list[Fact]:
             "straight lines first. The filter uses later data too, so the trend describes the "
             "past and is not a forecast.",
         ),
-    ]
+    ] + cautions
 
 
 def monthly_series(s: Series) -> pd.Series:
@@ -404,16 +407,36 @@ def monthly_series(s: Series) -> pd.Series:
     return pd.Series(list(months.values()), index=index).asfreq("MS")
 
 
+def caution_facts(card: str, cautions: list[str]) -> list[Fact]:
+    """A guardrail's warning, said on the card it concerns."""
+    return [Fact(card, f"Caution. {line}") for line in cautions]
+
+
 def lag_facts(
     card: str, response: Series, drivers: list[Series], deseasonalise: bool
 ) -> list[Fact]:
+    y = monthly_series(response)
     found = explore(
         response.area,
-        (response.title, response.key, monthly_series(response)),
+        (response.title, response.key, y),
         [(d.title, d.key, monthly_series(d)) for d in drivers],
         deseasonalise,
     )
-    return [Fact(card, line) for line in found.summary]
+    cautions = guardrails.lags(
+        response.area,
+        (response.title, y),
+        [(d.title, monthly_series(d), d.warnings) for d in drivers],
+        deseasonalise,
+    )
+    return [Fact(card, line) for line in found.summary] + caution_facts(card, cautions)
+
+
+def correlation_cautions(response: Series, driver: Series, deseasonalise: bool) -> list[str]:
+    a, b = monthly_series(response), monthly_series(driver)
+    months = int(pd.concat([a, b], axis=1).dropna().shape[0])
+    return guardrails.correlation(
+        response.area, (response.title, a), (driver.title, b), deseasonalise, months
+    )
 
 
 @dataclass
@@ -464,11 +487,9 @@ class View:
                 driver = self.find(area, analysis["driver"])
                 if response and driver:
                     card = f"Correlation {n}: {response.title} and {driver.title}"
-                    facts.append(
-                        correlation_fact(
-                            card, response, driver, analysis.get("deseasonalise", True)
-                        )
-                    )
+                    kept = analysis.get("deseasonalise", True)
+                    facts.append(correlation_fact(card, response, driver, kept))
+                    facts += caution_facts(card, correlation_cautions(response, driver, kept))
         return facts + self.extra
 
     def cards(self) -> list[str]:
