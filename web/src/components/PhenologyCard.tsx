@@ -85,7 +85,7 @@ export default function PhenologyCard({ onRemove, entries, options }: Props) {
               <span className="dot" style={{ background: "var(--warning)" }} /> end
             </span>
           </div>
-          <div className="table-scroll">
+          <div className="table-scroll" tabIndex={0}>
             <table className="stats models">
               <caption className="visually-hidden">Each growing season</caption>
               <thead>
