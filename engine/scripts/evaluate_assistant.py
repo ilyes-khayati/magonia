@@ -14,6 +14,9 @@ the answer took. Each question starts a new conversation. Questions are of four 
 - trap: questions about papers that do not exist, which must not be "confirmed"
 - data: questions about a fixed workspace, the reference Jendouba orchard replayed from
   recorded Earth Engine answers, to be answered from the facts and readings
+- run: requests, on that workspace, to run an analysis, which should be proposed
+- talk: questions on that workspace that must be answered, not met with a proposal (taken
+  from a conversation where proposals drowned the questions)
 """
 
 import json
@@ -45,6 +48,11 @@ QUESTIONS = [
     ("data", "What were the monthly NDVI values of my orchard in 2012?"),
     ("data", "Does drought, measured by SPEI-3, affect NDVI in my orchard, and with what lag?"),
     ("data", "Which year had the lowest NDVI in my orchard?"),
+    ("run", "Can you run a trend test on my orchard's NDVI?"),
+    ("run", "Add a season-dates analysis for my orchard's NDVI."),
+    ("talk", "What hyperparameters should I try for Random Forest and XGBoost?"),
+    ("talk", "no don't propose anything, just give me a list of hyperparameters"),
+    ("talk", "Let's just chat: why might olive and forest respond differently to drought?"),
 ]
 
 
@@ -84,12 +92,14 @@ def jendouba_view() -> View:
 
 def run(kind: str, question: str, provider, view: View | None = None) -> dict:
     start = time.time()
-    searches, papers, reads, final = [], [], [], {}
+    searches, papers, reads, proposals, final = [], [], [], [], {}
     for event in answer(provider, [{"role": "user", "content": question}], view=view):
         if event["type"] == "search":
             searches.append(event["query"])
         elif event["type"] == "read":
             reads.append(event)
+        elif event["type"] == "proposal":
+            proposals.append(event["proposal"]["title"])
         elif event["type"] == "papers":
             papers.extend(event["papers"])
         elif event["type"] == "check":
@@ -103,6 +113,7 @@ def run(kind: str, question: str, provider, view: View | None = None) -> dict:
         "removed": final.get("removed", []),
         "unverified": final.get("unverified", []),
         "reads": reads,
+        "proposals": proposals,
         "numbers": final.get("numbers", []),
         "seconds": round(time.time() - start, 1),
         "answer": final.get("text", ""),
@@ -127,6 +138,14 @@ def summary(results: list[dict]) -> dict:
             f"{sum(bool(r['reads']) for r in results if r['kind'] == 'data')}"
             f"/{sum(r['kind'] == 'data' for r in results)}"
         ),
+        "run requests that got a proposal": (
+            f"{sum(bool(r['proposals']) for r in results if r['kind'] == 'run')}"
+            f"/{sum(r['kind'] == 'run' for r in results)}"
+        ),
+        "talk questions that got a proposal (should be 0)": (
+            f"{sum(bool(r['proposals']) for r in results if r['kind'] == 'talk')}"
+            f"/{sum(r['kind'] == 'talk' for r in results)}"
+        ),
         "median seconds per answer": sorted(r["seconds"] for r in results)[len(results) // 2],
     }
 
@@ -136,12 +155,12 @@ if __name__ == "__main__":
     view = jendouba_view()
     results = []
     for kind, question in QUESTIONS:
-        result = run(kind, question, provider, view if kind == "data" else None)
+        result = run(kind, question, provider, view if kind in ("data", "run", "talk") else None)
         results.append(result)
         print(
             f"[{kind}] {question}\n  searched {result['searches']}, cited {result['cited']}, "
             f"removed {result['removed']}, unverified {result['unverified']}, read "
-            f"{len(result['reads'])}, numbers "
+            f"{len(result['reads'])}, proposed {len(result['proposals'])}, numbers "
             f"{sum(n['status'] == 'verified' for n in result['numbers'])}/{len(result['numbers'])} "
             f"verified, {result['seconds']} s"
         )
