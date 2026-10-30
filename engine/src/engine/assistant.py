@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -13,11 +14,17 @@ from dotenv import load_dotenv
 from engine.citations import check
 from engine.facts import View
 from engine.literature import LiteratureError, Paper, search_papers
+from engine.models import LABELS, SETTABLE
 from engine.numbers import check_numbers
 from engine.proposals import PROPOSE_TOOL, ProposalError, proposal
 from engine.proposals import describe as describe_proposal
 
 NAME = "Magonia"
+
+SETTINGS = "; ".join(
+    f"{LABELS[name]}: {', '.join(f'{k} ({low:g} to {high:g})' for k, (low, high) in keys.items())}"
+    for name, keys in SETTABLE.items()
+)
 
 RULES = f"""You are {NAME}, the research assistant inside the Magonia platform, which researchers \
 use to study vegetation, land surface temperature and drought from satellite data.
@@ -27,6 +34,8 @@ methods around it. Politely decline anything else.
 - Never invent a reference, a number or a result. If you do not know, say so.
 - Say how sure you are, and say when evidence is thin or studies disagree.
 - Be concise and plain. Researchers are busy.
+- Questions on methods, such as models, their settings or statistics, may be answered from \
+general knowledge: say it is general advice, and relate it to what Magonia lets them set.
 
 The literature:
 - When a question is about what research has found, call search_papers first, with short \
@@ -44,10 +53,33 @@ come back. Earlier messages in it are shown to you.
 titles and abstracts.
 - You can see the areas, variables and analyses open in Magonia, as facts computed by code, \
 when the researcher has some open. You cannot see the map or the charts as pictures, and \
-you cannot run new analyses yet."""
+you cannot run new analyses yet.
+- On the Model page the researcher chooses the models (Ridge, Random Forest, XGBoost), the \
+lags, the test years, the calendar and the rolling evaluation. A model given no settings is \
+tuned automatically on the training years; one given settings uses those, and the library's \
+defaults for the rest. The settings they can give: {SETTINGS}."""
 
 # Sent with the facts only, so that questions asked without a workspace are not steered by them
 MAX_PROPOSALS = 2
+
+# The researcher chooses what runs: proposing is offered only when the message asks for
+# something to be run, and never when it says not to
+RUN = re.compile(
+    r"\b(run|add|propose|compute|calculate|start|set up|build|fit|train)\b"
+    r"|\b(can you|could you|please|let'?s)\b.{0,20}\b(forecast|predict|decompose)",
+    re.IGNORECASE,
+)
+NOT_RUN = re.compile(
+    r"\b(don'?t|do not|no|never|stop|without|not)\b.{0,25}"
+    r"\b(propos\w*|run\w*|add\w*|analys[ie]s|suggest\w*|work)\b"
+    r"|\bjust (chat|talk|brainstorm)",
+    re.IGNORECASE,
+)
+
+
+def asks_to_run(text: str) -> bool:
+    return bool(RUN.search(text)) and not NOT_RUN.search(text)
+
 
 DATA_RULES = """How to use these facts:
 - If the question is about the researcher's areas or results, answer from the facts. Copy \
@@ -61,10 +93,8 @@ that is not statistically significant is not evidence of a trend. A correlation 
 chance band is unlikely to be chance.
 - Whether two models agree, and which model leans most on what, is stated in the facts. \
 Repeat those verdicts; never judge them yourself from the size of a number such as τ.
-- When the researcher asks for an analysis, a forecast or another period, call \
-propose_analysis. When a question needs an analysis that is not open (season dates, a trend \
-test, a forecast, lags, a decomposition), propose it instead of guessing from other facts. You cannot run anything yourself: never say an analysis was run or added; \
-say it is proposed and that they can add it.
+- You cannot run analyses yourself. If an analysis the question needs is not open, say \
+so and which one would answer it; never say an analysis was run or added.
 - Answer only the question asked, with the few facts it needs.
 - Keep the researcher's data and published research apart: say which is which.
 - If the question is about published research rather than these data, search the \
@@ -255,6 +285,8 @@ def answer(
     papers: list[Paper] = []
     said: list[str] = []
     searches = reads = proposed = refused = 0
+    if not asks_to_run(str(conversation[-1]["content"])):
+        proposed = MAX_PROPOSALS
     while True:
         tools = [SEARCH_TOOL] if searches < max_searches else []
         if view is not None and reads < max_reads:
@@ -305,7 +337,8 @@ def answer(
                         "role": "tool",
                         "content": (
                             f"Proposed: {describe_proposal(found)}. The researcher sees a button to "
-                            "add it; nothing has run. Say in one sentence what it will show."
+                            "add it; nothing has run. Now answer their question; mention the "
+                            "proposal in one sentence at most."
                         ),
                     }
                 )
