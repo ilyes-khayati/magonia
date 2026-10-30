@@ -1,3 +1,5 @@
+import pytest
+
 from engine.assistant import SEARCH_TOOL, Scripted, ToolCall, answer
 from engine.literature import LiteratureError, Paper
 
@@ -189,7 +191,7 @@ def test_without_a_workspace_the_read_tool_is_not_offered():
 
     list(answer(Recorder("Hi."), [{"role": "user", "content": "Hello"}]))
     list(answer(Recorder("Hi."), [{"role": "user", "content": "Hello"}], view=orchard_view()))
-    assert seen_tools == [["search_papers"], ["search_papers", "read_series", "propose_analysis"]]
+    assert seen_tools == [["search_papers"], ["search_papers", "read_series"]]
 
 
 def test_numbers_in_a_data_answer_are_checked_against_facts_and_readings():
@@ -240,7 +242,11 @@ def test_magonia_proposes_an_analysis_and_runs_nothing():
         "I proposed a trend of NDVI from 2010 to 2020; add it to see it.",
     )
     events = list(
-        answer(model, [{"role": "user", "content": "Trend 2010-2020?"}], view=orchard_view())
+        answer(
+            model,
+            [{"role": "user", "content": "Can you run a trend for 2010-2020?"}],
+            view=orchard_view(),
+        )
     )
     proposed = [e["proposal"] for e in events if e["type"] == "proposal"]
     assert proposed == [
@@ -262,7 +268,56 @@ def test_a_proposal_that_does_not_fit_is_sent_back_to_the_model():
         ToolCall("propose_analysis", {"kind": "lags", "area": "Tunis", "why": ""}), "Sorry."
     )
     events = list(
-        answer(model, [{"role": "user", "content": "Lags in Tunis"}], view=orchard_view())
+        answer(model, [{"role": "user", "content": "Add lags in Tunis"}], view=orchard_view())
     )
     assert not any(e["type"] == "proposal" for e in events)
     assert "no area is called 'Tunis'" in model.seen[-1]["content"]
+
+
+@pytest.mark.parametrize(
+    "question, offered",
+    [
+        ("Can you run a trend test on NDVI?", True),
+        ("Add a season-dates analysis for NDVI.", True),
+        ("Please forecast NDVI for 2025", True),
+        ("Let's build an experiment with XGBoost only", True),
+        # from a conversation where proposals drowned the questions
+        ("no don't propose anything, just give me a list of hyperparameters", False),
+        ("What hyperparameters should I try for Random Forest?", False),
+        ("Is there a trend in my orchard's NDVI?", False),
+        ("Let's just chat: why would olive and forest differ?", False),
+        ("Don't run anything, add it to my notes later", False),
+    ],
+)
+def test_proposing_is_offered_only_when_asked_to_run_something(question, offered):
+    seen_tools = []
+
+    class Recorder(Scripted):
+        def stream(self, messages, tools=None):
+            seen_tools.append([t["function"]["name"] for t in tools or []])
+            yield from super().stream(messages, tools)
+
+    list(answer(Recorder("Fine."), [{"role": "user", "content": question}], view=orchard_view()))
+    assert ("propose_analysis" in seen_tools[0]) is offered
+
+
+def test_a_proposal_not_offered_is_not_made():
+    model = Scripted(
+        ToolCall("propose_analysis", {"kind": "trend", "variable": "ndvi", "why": ""}), "Fine."
+    )
+    question = "no don't propose anything, just give me a list of hyperparameters"
+    events = list(answer(model, [{"role": "user", "content": question}], view=orchard_view()))
+    assert not any(e["type"] == "proposal" for e in events)
+
+
+def test_after_a_proposal_the_question_is_still_answered():
+    model = Scripted(
+        ToolCall("propose_analysis", {"kind": "trend", "variable": "ndvi", "why": "Greening?"}),
+        "Here is the answer.",
+    )
+    list(
+        answer(
+            model, [{"role": "user", "content": "Run a trend and tell me why"}], view=orchard_view()
+        )
+    )
+    assert "Now answer their question" in model.seen[-1]["content"]
