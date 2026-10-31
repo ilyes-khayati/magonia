@@ -115,6 +115,9 @@ function Paper({ paper, anchor }: { paper: PaperCard; anchor: string }) {
           {paper.cited_by > 0 && ` · cited by ${paper.cited_by}`}
           {paper.countries.length > 0 && ` · ${paper.countries.join(", ")}`}
         </span>
+        {paper.matched && paper.matched.length > 0 && (
+          <span className="meta matched">Chosen because it mentions {paper.matched.join(", ")}</span>
+        )}
         {paper.abstract && (
           <details>
             <summary>Abstract</summary>

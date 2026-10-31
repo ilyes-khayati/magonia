@@ -45,11 +45,11 @@ def library(monkeypatch):
     """OpenAlex replaced by two fixed papers."""
     queries = []
 
-    def search(query, limit=6, from_year=None):
+    def search(query, question, keep=6, embed=None):
         queries.append(query)
         return [paper("Sghaier", 2022), paper("Crespo", 2025)]
 
-    monkeypatch.setattr(engine_assistant, "search_papers", search)
+    monkeypatch.setattr(engine_assistant, "find_papers", search)
     return queries
 
 

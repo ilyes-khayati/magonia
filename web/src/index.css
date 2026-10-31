@@ -1238,6 +1238,11 @@ button:disabled {
   color: inherit;
 }
 
+.paper .matched {
+  display: block;
+  font-style: italic;
+}
+
 .paper details p {
   margin: 4px 0 0;
   color: var(--muted);
