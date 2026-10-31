@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 import type { BoardItem } from "../board";
 import { moved } from "../cards";
+import { AnswerText, Sources } from "./Answer";
 import CardSlot from "./CardSlot";
 import Cautions from "./Cautions";
 import { CloseIcon, PlusIcon } from "./Icons";
@@ -141,6 +142,19 @@ export default function BoardPage({ board, onChange, onNote, pagePath, live }: P
                     placeholder="What you noticed, what to check next…"
                     onBlur={(e) => update(b.id, { lines: e.target.value.split("\n").filter((l) => l.trim()) })}
                   />
+                ) : b.answer ? (
+                  // a pinned answer keeps its citations, paper links and checked numbers
+                  <div className="board-answer">
+                    <p className="answer-text">
+                      <AnswerText
+                        text={b.answer.text}
+                        papers={b.answer.details.papers ?? []}
+                        numbers={b.answer.details.numbers}
+                        anchor={`board-${b.id}`}
+                      />
+                    </p>
+                    <Sources turn={{ role: "assistant", content: b.answer.text, details: b.answer.details }} anchor={`board-${b.id}`} />
+                  </div>
                 ) : (
                   <ul className="summary">
                     {b.lines.map((line, k) => (
