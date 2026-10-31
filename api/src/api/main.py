@@ -14,8 +14,9 @@ from engine.catalogue import CATALOGUE, get_variable
 from engine.decompose import DecompositionError, decompose
 from engine.earth_engine import EarthEngineError, check
 from engine.explain import Explanation, Pair, describe, explain, stability
+from engine.fulltext import FullTextError
 from engine.lags import explore
-from engine.library import Library
+from engine.library import Library, Uploads
 from engine.library import default_path as library_path
 from engine.models import ForecastError, design, forecast
 from engine.phenology import PhenologyError, phenology
@@ -23,7 +24,7 @@ from engine.pipeline import Request, fingerprint
 from engine.prepare import Resolution
 from engine.series import Masking, band_name
 from engine.trend import trend
-from fastapi import Depends, FastAPI, HTTPException, Response
+from fastapi import Depends, FastAPI, HTTPException, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -893,6 +894,56 @@ def forecast_facts(store: Store, view: View, areas: dict[int, dict]) -> list[fac
     return found
 
 
+# The researcher's library: their own PDFs, which Magonia reads and cites like papers
+
+MAX_UPLOAD = 30_000_000
+
+
+class Instructions(BaseModel):
+    text: str = Field(max_length=assistant.MAX_INSTRUCTIONS)
+
+
+@app.get("/library")
+def list_files(library: LibraryDep) -> list[dict]:
+    return Uploads(library).all()
+
+
+@app.post("/library", status_code=201)
+async def add_file(file: UploadFile, library: LibraryDep) -> dict:
+    """Read an uploaded PDF into the library: its passages, their pages and embeddings."""
+    data = await file.read(MAX_UPLOAD + 1)
+    if len(data) > MAX_UPLOAD:
+        raise HTTPException(413, "The PDF is larger than 30 MB.")
+    if not data.startswith(b"%PDF"):
+        raise HTTPException(400, f"{file.filename} is not a PDF.")
+    try:
+        return Uploads(library).add(file.filename or "file.pdf", data)
+    except FullTextError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@app.delete("/library/{file_id}", status_code=204)
+def remove_file(file_id: str, library: LibraryDep) -> None:
+    try:
+        Uploads(library).remove(file_id)
+    except KeyError as exc:
+        raise HTTPException(404, "No such file.") from exc
+
+
+@app.get("/workspaces/{workspace_id}/instructions")
+def get_instructions(workspace_id: int, store: StoreDep) -> Instructions:
+    """How the researcher wants Magonia to answer in this workspace."""
+    existing_workspace(store, workspace_id)
+    return Instructions(text=store.setting(f"instructions:{workspace_id}") or "")
+
+
+@app.put("/workspaces/{workspace_id}/instructions")
+def set_instructions(workspace_id: int, body: Instructions, store: StoreDep) -> Instructions:
+    existing_workspace(store, workspace_id)
+    store.set_setting(f"instructions:{workspace_id}", body.text)
+    return body
+
+
 @app.post("/workspaces/{workspace_id}/chat")
 def chat(
     workspace_id: int,
@@ -915,7 +966,10 @@ def chat(
     history = [{"role": m["role"], "content": m["content"]} for m in store.messages(workspace_id)]
     view = workspace_view(store, workspace_id, body.view) if body.view else None
     question = {"role": "user", "content": body.content}
-    events = assistant.answer(provider, [*history, question], view=view, library=library)
+    instructions = store.setting(f"instructions:{workspace_id}") or ""
+    events = assistant.answer(
+        provider, [*history, question], view=view, library=library, instructions=instructions
+    )
     # fail with a clear status before streaming starts, if the model cannot be reached: the
     # route and view events come before the model is asked anything
     head = []
