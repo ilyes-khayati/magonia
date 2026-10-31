@@ -1763,3 +1763,59 @@ button:disabled {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+
+/* What each variable is, for researchers learning it */
+.learn {
+  border-left: 3px solid var(--accent);
+  background: var(--panel);
+  border-radius: 0 8px 8px 0;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.learn p {
+  margin: 0;
+}
+
+.learn .formula {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.learn ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+.learn-lists {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: 8px;
+}
+
+.variable-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.group-name {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 11px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.tile-group {
+  margin-bottom: 16px;
+}
+
+.tile-group .group-name {
+  margin-bottom: 8px;
+}

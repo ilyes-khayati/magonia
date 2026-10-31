@@ -1,7 +1,21 @@
 // Typed calls to the Magonia API (served under /api by the Vite proxy)
 
 export type Masking = "pixel" | "date" | "none";
-export type VariableKey = "ndvi" | "savi" | "lst" | "spei";
+export type VariableKey =
+  | "ndvi"
+  | "savi"
+  | "evi"
+  | "lai"
+  | "fpar"
+  | "gpp"
+  | "ndmi"
+  | "et"
+  | "soil_moisture"
+  | "nbr"
+  | "lst"
+  | "air_temperature"
+  | "rain"
+  | "spei";
 export type Resolution = "native" | "monthly" | "seasonal";
 
 export type Variable = {
@@ -12,6 +26,20 @@ export type Variable = {
   resolution: string;
   cadence: string;
   scales: number[];
+  sampling: "mean" | "centre";
+  quality: string;
+  citation: string;
+  group: string;
+  learn: Learn | null;
+};
+
+// What a researcher needs to know to use a variable well
+export type Learn = {
+  what: string;
+  formula: string;
+  reading: string;
+  uses: string[];
+  limits: string[];
 };
 
 export type SeriesPoint = {

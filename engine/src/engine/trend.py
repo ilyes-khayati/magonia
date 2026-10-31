@@ -12,6 +12,7 @@ from statistics import median
 
 import numpy as np
 
+from engine.catalogue import large
 from engine.facts import complete_years, fmt, mann_kendall, monthly, sen_slope, usual_months
 
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
@@ -65,7 +66,7 @@ def trend(area: str, title: str, key: str, units: str, points: list[dict]) -> Tr
     span = order[-1] - order[0]
     change = slope_year * span
     verdict = "statistically significant" if p < 0.05 else "not statistically significant"
-    digits = 2 if key == "lst" else 3
+    digits = 2 if large(key) else 3
     shown = round(slope_year * 10, digits)
     direction = "rising" if shown > 0 else "falling" if shown < 0 else "about flat, changing"
     first, last = values[0], values[-1]

@@ -15,6 +15,8 @@ import type { Area, Variable } from "../api";
 import { describe, MONTHS, seasonalCycle } from "../stats";
 import type { SeriesState } from "../useSeries";
 import { InfoIcon } from "./Icons";
+import { large } from "../variables";
+import LearnPanel from "./LearnPanel";
 
 export type Entry = { area: Area; colour: string; state: SeriesState | undefined };
 
@@ -32,6 +34,8 @@ type Row = Record<string, string | number | boolean | [number, number] | null>;
 const AXES: Record<string, { domain: [number | string, number | string]; digits: number; ticks?: number[] }> = {
   ndvi: { domain: [0, 1], digits: 2 },
   savi: { domain: [0, 1], digits: 2 },
+  evi: { domain: [0, 1], digits: 2 },
+  fpar: { domain: [0, 1], digits: 2 },
   lst: { domain: ["dataMin - 2", "dataMax + 2"], digits: 0 },
   spei: { domain: [-3, 3], digits: 0, ticks: [-3, -2, -1, 0, 1, 2, 3] },
 };
@@ -78,14 +82,16 @@ function download(title: string, entries: Entry[]) {
 
 export default function ChartCard({ variable, title, entries, mode, shown: changed, anomaly }: Props) {
   const [provenance, setProvenance] = useState(false);
+  const [about, setAbout] = useState(false);
   const [off, setOff] = useState<Set<number>>(new Set());
-  const axis = anomaly ? { domain: ["auto", "auto"] as [string, string], digits: variable.key === "lst" ? 0 : 2 } : AXES[variable.key];
+  const auto: (typeof AXES)[string] = { domain: ["auto", "auto"], digits: large(variable.key) ? 0 : 2 };
+  const axis = anomaly ? auto : (AXES[variable.key] ?? auto);
   const data = rows(entries, mode);
   const shown = entries.filter((e) => !off.has(e.area.id) && e.state?.status === "done");
   const warnings = [...new Set(entries.flatMap((e) => (e.state?.status === "done" ? e.state.data.warnings : [])))];
   const subtitle =
     mode === "series"
-      ? `${variable.key === "spei" ? "Grid-cell value" : "Area mean"} with ±1 SD of pixels${variable.units ? ` · ${variable.units}` : ""}`
+      ? `${variable.sampling === "centre" ? "Value of the grid cell at the area's centre" : "Area mean with ±1 SD of pixels"}${variable.units ? ` · ${variable.units}` : ""}`
       : `Average year, shaded from the lowest to the highest year${variable.units ? ` · ${variable.units}` : ""}`;
 
   function flip(id: number) {
@@ -106,6 +112,11 @@ export default function ChartCard({ variable, title, entries, mode, shown: chang
           </span>
         </div>
         <div className="row" style={{ gap: 6 }}>
+          {variable.learn && (
+            <button className="text-button" aria-expanded={about} onClick={() => setAbout(!about)}>
+              What is {variable.name.length <= 6 ? variable.name : "this"}?
+            </button>
+          )}
           <button className="text-button" onClick={() => download(title, entries)} disabled={!shown.length}>
             CSV
           </button>
@@ -120,6 +131,8 @@ export default function ChartCard({ variable, title, entries, mode, shown: chang
           </button>
         </div>
       </div>
+
+      {about && <LearnPanel variable={variable} />}
 
       <ResponsiveContainer width="100%" height={mode === "series" && data.length > 24 ? 210 : 180}>
         <ComposedChart data={data} margin={{ top: 6, right: 6, bottom: 0, left: 0 }}>
@@ -137,7 +150,7 @@ export default function ChartCard({ variable, title, entries, mode, shown: chang
             tick={{ fill: "var(--muted)", fontSize: 10, fontFamily: "var(--mono)" }}
             width={34}
           />
-          {variable.key === "spei" && <ReferenceLine y={0} stroke="var(--zero)" />}
+          {["spei", "ndmi", "nbr"].includes(variable.key) && <ReferenceLine y={0} stroke="var(--zero)" />}
           <Tooltip
             contentStyle={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8 }}
             formatter={(value, name) => {

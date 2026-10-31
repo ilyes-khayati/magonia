@@ -4,6 +4,7 @@ import { useRun } from "../useRun";
 import type { Entry } from "./ChartCard";
 import { CloseIcon } from "./Icons";
 import Results from "./Results";
+import { large } from "../variables";
 
 type Props = {
   experiment: Experiment;
@@ -54,7 +55,7 @@ export default function PinnedExperiment({ experiment: e, onChange, onRemove, ar
           held={held}
           stable={e.stability}
           onStable={() => onChange({ ...e, stability: true })}
-          digits={ran.response === "lst" ? 2 : 4}
+          digits={large(ran.response) ? 2 : 4}
         />
       )}
     </section>
