@@ -5,6 +5,7 @@ export const PAGES = [
   { key: "analyses", label: "Analyses", title: "Relations between the variables" },
   { key: "model", label: "Model", title: "Forecast experiments and what the models rely on" },
   { key: "board", label: "Board", title: "What you pinned, with your notes" },
+  { key: "library", label: "Library", title: "Your own papers, and how Magonia should answer" },
   { key: "assistant", label: "Magonia", title: "Talk with the Magonia assistant" },
 ] as const;
 

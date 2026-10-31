@@ -4,6 +4,8 @@ import { expect, test, type Page } from "@playwright/test";
 // A small in-memory stand-in for the Magonia API, so the tests need neither the
 // API nor Earth Engine
 // What the interface sent with each question, for tests to inspect
+let library: { id: string; title: string; filename: string; added: string; pages: number }[] = [];
+let instructions = "";
 let asked: {
   content: string;
   view?: { page: string; charts: string[]; series: { area_id: number; variable: string }[]; display?: string | null };
@@ -24,6 +26,8 @@ let lagged: { response: { variable: string }; drivers: { variable: string }[]; d
 
 async function fakeApi(page: Page, connected = true) {
   asked = [];
+  library = [];
+  instructions = "";
   modelled = [];
   phenologyAsked = [];
   exported = [];
@@ -133,6 +137,22 @@ async function fakeApi(page: Page, connected = true) {
           json: { id: 1, name: "My workspace", created: "", updated: "", settings, areas, jobs: [] },
         }),
   );
+  await page.route("**/api/library", (route) => {
+    if (route.request().method() === "POST") {
+      const file = { id: `U${library.length + 1}`, title: "field survey", filename: "field_survey.pdf", added: "2026-10-31 10:00:00", pages: 12 };
+      library.push(file);
+      return route.fulfill({ status: 201, json: { ...file, passages: 30 } });
+    }
+    return route.fulfill({ json: library });
+  });
+  await page.route("**/api/library/*", (route) => {
+    library = library.filter((f) => !route.request().url().endsWith(`/${f.id}`));
+    return route.fulfill({ status: 204 });
+  });
+  await page.route("**/api/workspaces/1/instructions", (route) => {
+    if (route.request().method() === "PUT") instructions = route.request().postDataJSON().text;
+    return route.fulfill({ json: { text: instructions } });
+  });
   await page.route("**/api/assistant", (route) => route.fulfill({ json: { name: "Magonia", model: "test model" } }));
   await page.route("**/api/workspaces/1/messages", (route) => route.fulfill({ json: [] }));
   await page.route("**/api/workspaces/1/chat", (route) => {
@@ -1052,6 +1072,31 @@ test("the board has sections, highlights and pinned passages, and Magonia is tol
   await expect(passage.locator(".highlights mark")).toHaveText("Rainfed groves lost NDVI");
   await passage.getByRole("button", { name: 'Remove the highlight "Rainfed groves lost NDVI"' }).click();
   await expect(passage.locator(".highlights")).toHaveCount(0);
+  const results = await new AxeBuilder({ page }).exclude(".maplibregl-canvas").analyze();
+  expect(results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? "")).map((v) => v.id)).toEqual([]);
+});
+
+test("the library takes the researcher's PDFs and their instructions for Magonia", async ({ page }) => {
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Library" }).click();
+  await expect(page.getByText("No papers yet.")).toBeVisible();
+  await page.getByTestId("library-upload").setInputFiles({
+    name: "field_survey.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("%PDF-1.4"),
+  });
+  await expect(page.getByText("field survey", { exact: true })).toBeVisible();
+  await expect(page.getByText("field_survey.pdf · 12 pages")).toBeVisible();
+
+  const box = page.getByRole("textbox", { name: "Instructions for Magonia" });
+  await box.fill("Answer in French.");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Saved" })).toBeDisabled();
+  expect(instructions).toBe("Answer in French.");
+
+  await page.reload();
+  await expect(page.getByRole("textbox", { name: "Instructions for Magonia" })).toHaveValue("Answer in French.");
+  await page.getByRole("button", { name: "Remove field survey from the library" }).click();
+  await expect(page.getByText("No papers yet.")).toBeVisible();
   const results = await new AxeBuilder({ page }).exclude(".maplibregl-canvas").analyze();
   expect(results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? "")).map((v) => v.id)).toEqual([]);
 });

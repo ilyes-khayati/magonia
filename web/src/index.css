@@ -1785,6 +1785,41 @@ button:disabled {
   line-height: 1.55;
 }
 
+/* The library */
+.library-files {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.library-files li {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.library-files li > div {
+  display: flex;
+  flex-direction: column;
+}
+
+.instructions {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  line-height: 1.5;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--ink);
+  resize: vertical;
+}
+
 /* A section: a heading across the board for the items after it */
 .board-section {
   display: flex;

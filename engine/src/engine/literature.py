@@ -39,12 +39,15 @@ class Paper:
     cited_by: int
     countries: list[str]  # where the authors' institutions are
     pdf_url: str | None = None  # the open-access PDF itself, when there is one
+    label: str | None = None  # how to name it instead of authors and year, e.g. a file name
     relevance: float | None = None  # how well it answers the question, set when ranked
     matched: list[str] = field(default_factory=list)  # words it shares with the question
 
     @property
     def short(self) -> str:
         """Author–year form, e.g. "Sghaier et al., 2022"."""
+        if self.label:
+            return self.label
         surnames = [name.split()[-1] for name in self.authors]
         if not surnames:
             names = "Anonymous"
