@@ -1,4 +1,4 @@
-import { type CheckedNumber, type PaperCard, type PassageCard, type ReadStatus } from "../api";
+import { type CheckedNumber, type PaperCard, type PassageCard, type ReadStatus, type SupportCheck } from "../api";
 import { answerParts, styled, type Turn } from "../chat";
 
 // How one of Magonia's answers is shown, in the chat and when pinned to the board: citations
@@ -123,6 +123,59 @@ function Paper({ paper, anchor, read, passages }: PaperProps) {
   );
 }
 
+const VERDICT: Record<SupportCheck["status"], { mark: string; label: string }> = {
+  supported: { mark: "✓", label: "Supported" },
+  unclear: { mark: "?", label: "Partly or not clearly supported" },
+  unsupported: { mark: "✗", label: "Not supported" },
+};
+
+function Statement({ s }: { s: SupportCheck }) {
+  const label = s.status === "unclear" && !s.judged ? "A related passage was found, but not checked" : VERDICT[s.status].label;
+  return (
+    <li className={`statement ${s.status}`} title={label}>
+      <span className="verdict" aria-hidden="true">
+        {VERDICT[s.status].mark}
+      </span>
+      <div>
+        <span className="visually-hidden">{label}: </span>
+        {s.claim}
+        {s.evidence && (
+          <blockquote className="passage">
+            <span className="meta">Checked against {s.source}</span> {s.evidence}
+          </blockquote>
+        )}
+      </div>
+    </li>
+  );
+}
+
+// Fact check: whether each cited statement says what its papers say
+function Support({ support }: { support: SupportCheck[] }) {
+  const ok = support.filter((s) => s.status === "supported").length;
+  const doubtful = support.filter((s) => s.status !== "supported");
+  return (
+    <div className="support">
+      <span className="meta">
+        Fact check: {ok} of {support.length} {support.length === 1 ? "statement is" : "statements are"} supported by
+        the {support.length === 1 ? "paper it cites" : "papers they cite"}
+      </span>
+      {doubtful.length > 0 && <ul className="statements">{doubtful.map((s, k) => <Statement key={k} s={s} />)}</ul>}
+      {ok > 0 && (
+        <details>
+          <summary className="meta">See the supported statements and their passages ({ok})</summary>
+          <ul className="statements">
+            {support
+              .filter((s) => s.status === "supported")
+              .map((s, k) => (
+                <Statement key={k} s={s} />
+              ))}
+          </ul>
+        </details>
+      )}
+    </div>
+  );
+}
+
 // What the answer rests on: the papers it cites, what else was found, and what the check removed
 export function Sources({ turn, anchor }: { turn: Turn; anchor: string }) {
   const papers = turn.details.papers ?? [];
@@ -178,6 +231,7 @@ export function Sources({ turn, anchor }: { turn: Turn; anchor: string }) {
           <ul>{others.map(card)}</ul>
         </details>
       )}
+      {turn.details.support && turn.details.support.length > 0 && <Support support={turn.details.support} />}
       {check && check.removed.length > 0 && (
         <p className="removed">
           Removed {check.removed.length === 1 ? "a citation" : `${check.removed.length} citations`} (

@@ -907,8 +907,9 @@ def chat(
     cached results. Events: view (the cards it was given), read (a closer look at a series),
     proposal (an analysis it proposes, which the researcher may add),
     text (a piece of the answer), search, search_failed, papers, reading and passages (the
-    open-access papers read in full, and the passages chosen from them), check (the final
-    answer after its citations and pages were checked) and error.
+    open-access papers read in full, and the passages chosen from them), verifying, check (the
+    final answer after its citations and pages were checked, with how well each cited
+    statement is supported by its papers) and error.
     """
     existing_workspace(store, workspace_id)
     history = [{"role": m["role"], "content": m["content"]} for m in store.messages(workspace_id)]
@@ -971,6 +972,9 @@ def chat(
                 }
                 if "numbers" in verdict:
                     details["numbers"] = verdict["numbers"]
+                if "support" in verdict:
+                    details["support"] = verdict["support"]
+                    details["faithfulness"] = verdict["faithfulness"]
             text = verdict["text"] if verdict else "".join(said)
             store.add_message(workspace_id, "assistant", text, details)
 
