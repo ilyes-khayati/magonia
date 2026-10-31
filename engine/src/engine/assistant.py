@@ -19,6 +19,7 @@ from engine.models import LABELS, SETTABLE
 from engine.numbers import check_numbers
 from engine.proposals import PROPOSE_TOOL, ProposalError, proposal
 from engine.proposals import describe as describe_proposal
+from engine.route import SOURCES, glossary, route
 
 NAME = "Magonia"
 
@@ -27,7 +28,7 @@ SETTINGS = "; ".join(
     for name, keys in SETTABLE.items()
 )
 
-RULES = f"""You are {NAME}, the research assistant inside the Magonia platform, which researchers \
+CORE = f"""You are {NAME}, the research assistant inside the Magonia platform, which researchers \
 use to study vegetation, land surface temperature and drought from satellite data.
 
 - Help only with agricultural and environmental remote sensing, and the statistics and \
@@ -36,17 +37,17 @@ methods around it. Politely decline anything else.
 - Say how sure you are, and say when evidence is thin or studies disagree.
 - Be concise and plain. Researchers are busy.
 - Questions on methods, such as models, their settings or statistics, may be answered from \
-general knowledge: say it is general advice, and relate it to what Magonia lets them set.
+general knowledge: say it is general advice, and relate it to what Magonia lets them set."""
 
-The literature:
+LITERATURE = """The literature:
 - When a question is about what research has found, call search_papers first, with short \
 English keywords. You may search again with different keywords if the first results miss.
 - Base what you say about research only on the papers the search returns, and cite them by \
 their number in square brackets, like [1] or [2, 4]. Cite nothing else, and never cite \
 papers from memory.
-- If the papers found do not answer the question, say so plainly instead of filling the gap.
+- If the papers found do not answer the question, say so plainly instead of filling the gap."""
 
-Facts about yourself (state only these; do not guess beyond them):
+ABOUT = """Facts about yourself (state only these; do not guess beyond them):
 - Magonia was built by Ilyes Khayati as an engineering capstone project.
 - This conversation is saved in the researcher's current workspace and continues when they \
 come back. Earlier messages in it are shown to you.
@@ -54,11 +55,25 @@ come back. Earlier messages in it are shown to you.
 titles and abstracts.
 - You can see the areas, variables and analyses open in Magonia, as facts computed by code, \
 when the researcher has some open. You cannot see the map or the charts as pictures, and \
-you cannot run new analyses yet.
-- On the Model page the researcher chooses the models (Ridge, Random Forest, XGBoost), the \
+you cannot run new analyses yet."""
+
+MODEL_SETTINGS = f"""- On the Model page the researcher chooses the models (Ridge, Random Forest, XGBoost), the \
 lags, the test years, the calendar and the rolling evaluation. A model given no settings is \
 tuned automatically on the training years; one given settings uses those, and the library's \
 defaults for the rest. The settings they can give: {SETTINGS}."""
+
+# Everything, for a general question; each kind of question gets only what it needs
+RULES = f"{CORE}\n\n{LITERATURE}\n\n{ABOUT}\n{MODEL_SETTINGS}"
+RULES_FOR = {
+    "chat": f"{CORE}\n\n{ABOUT}",
+    "research": f"{CORE}\n\n{LITERATURE}\n\n{ABOUT}",
+    "method": f"{CORE}\n\n{ABOUT}\n{MODEL_SETTINGS}",
+    "data": f"{CORE}\n\n{ABOUT}\n{MODEL_SETTINGS}",
+    "general": RULES,
+}
+# Earlier messages sent with a question: enough to follow the thread, too few for a small
+# model to copy its own earlier answers
+HISTORY = 6
 
 # Sent with the facts only, so that questions asked without a workspace are not steered by them
 MAX_PROPOSALS = 2
@@ -165,6 +180,9 @@ class Provider(Protocol):
     ) -> Iterator[str | ToolCall]: ...
 
 
+SYSTEM = {"role": "system", "content": RULES}
+
+
 class Ollama:
     """A model served by Ollama, on this computer or another one on the network."""
 
@@ -178,7 +196,11 @@ class Ollama:
     ) -> Iterator[str | ToolCall]:
         body = {
             "model": self.model,
-            "messages": [{"role": "system", "content": RULES}, *messages],
+            # the rules for this kind of question, when answer() chose them
+            "messages": [
+                *([] if messages and messages[0]["role"] == "system" else [SYSTEM]),
+                *messages,
+            ],
             "stream": True,
             "options": {"num_ctx": 8192},  # room for the abstracts of the papers found
         }
@@ -272,10 +294,18 @@ def answer(
     workspace or papers, every number checked against what the model was given.
     """
     search = search or search_papers
-    messages = list(conversation)
+    text = str(conversation[-1]["content"])
+    areas = list(dict.fromkeys(s.area for s in view.series)) if view is not None else []
+    kind = route(text, areas, view is not None)
+    yield {"type": "route", "kind": kind, "source": SOURCES[kind]}
+    facts = view is not None and kind in ("data", "general")
+    messages = [
+        {"role": "system", "content": RULES_FOR[kind]},
+        *conversation[-HISTORY - 1 :],
+    ]
     # what the model is given, against which every number in its answer is checked
-    sources = [("your question", str(conversation[-1]["content"]))]
-    if view is not None:
+    sources = [("your question", text)]
+    if facts:
         sources += [(fact.card, fact.text) for fact in view.facts()]
         sources += [("your workspace", line) for line in view.context]
         yield {"type": "view", "cards": view.cards()}
@@ -283,16 +313,19 @@ def answer(
         # the question comes last, where a small model attends to it best
         question = f"{view.sheet()}\n\n{DATA_RULES}\n\n---\nThe researcher asks: {last['content']}"
         messages[-1] = {**last, "content": question}
+    elif kind == "method" and (known := glossary(text)):
+        sources.append(("Magonia's catalogue", known))
+        messages[-1] = {**messages[-1], "content": f"{known}\n\n---\nThe researcher asks: {text}"}
     papers: list[Paper] = []
     said: list[str] = []
     searches = reads = proposed = refused = 0
-    if not asks_to_run(str(conversation[-1]["content"])):
+    if not asks_to_run(text):
         proposed = MAX_PROPOSALS
     while True:
-        tools = [SEARCH_TOOL] if searches < max_searches else []
-        if view is not None and reads < max_reads:
+        tools = [SEARCH_TOOL] if searches < max_searches and kind in ("research", "general") else []
+        if facts and reads < max_reads:
             tools.append(READ_TOOL)
-        if view is not None and proposed < MAX_PROPOSALS:
+        if facts and proposed < MAX_PROPOSALS:
             tools.append(PROPOSE_TOOL)
         calls = []
         for piece in provider.stream(messages, tools or None):
@@ -315,7 +348,7 @@ def answer(
             }
         )
         for call in calls:
-            if call.name == "propose_analysis" and view is not None and proposed < MAX_PROPOSALS:
+            if call.name == "propose_analysis" and facts and proposed < MAX_PROPOSALS:
                 areas = list(dict.fromkeys(s.area for s in view.series))
                 try:
                     found = proposal(call.arguments, areas)
@@ -344,7 +377,7 @@ def answer(
                     }
                 )
                 continue
-            if call.name == "read_series" and view is not None and reads < max_reads:
+            if call.name == "read_series" and facts and reads < max_reads:
                 reads += 1
                 area = str(call.arguments.get("area", ""))
                 variable = str(call.arguments.get("variable", ""))
@@ -389,6 +422,6 @@ def answer(
     verdict = check("".join(said), papers)
     event = {"type": "check", "text": verdict.text, **verdict.to_dict()}
     # numbers are checked when there was something to check them against
-    if view is not None or papers:
+    if facts or papers or kind == "method":
         event["numbers"] = [n.to_dict() for n in check_numbers(verdict.text, sources)]
     yield event

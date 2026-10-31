@@ -88,7 +88,7 @@ def test_searched_answer_keeps_its_papers_and_check(client, library):
     ws = workspace(client)
 
     got = events(client.post(f"/workspaces/{ws}/chat", json={"content": "Drought and olives?"}))
-    assert [e["type"] for e in got if e["type"] != "text"] == ["search", "papers", "check"]
+    assert [e["type"] for e in got if e["type"] != "text"] == ["route", "search", "papers", "check"]
     assert library == ["olive drought"]
 
     answer = client.get(f"/workspaces/{ws}/messages").json()[-1]
@@ -103,7 +103,7 @@ def test_the_model_sees_the_earlier_conversation(client, model):
     client.post(f"/workspaces/{ws}/chat", json={"content": "What is NDVI?"})
     client.post(f"/workspaces/{ws}/chat", json={"content": "And LST?"})
 
-    assert [m["content"] for m in model.seen] == [
+    assert [m["content"] for m in model.seen[1:]] == [
         "What is NDVI?",
         "NDVI measures how green the vegetation is.",
         "And LST?",
@@ -206,7 +206,7 @@ def test_the_model_reads_the_open_workspace_from_the_cache(client, model, store)
         client.post(f"/workspaces/{ws}/chat", json={"content": "When does it peak?", "view": view})
     )
 
-    assert got[0] == {"type": "view", "cards": ["NDVI chart"]}
+    assert got[1] == {"type": "view", "cards": ["NDVI chart"]}
     question = model.seen[-1]["content"]
     assert question.endswith("The researcher asks: When does it peak?")
     assert "The researcher is on the charts page." in question

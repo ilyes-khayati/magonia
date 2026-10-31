@@ -341,7 +341,11 @@ export type AnswerDetails = {
   reads?: Read[];
   numbers?: CheckedNumber[];
   proposals?: Proposal[];
+  route?: Route;
 };
+
+// What kind of question code took it for, and so what the answer was allowed to draw on
+export type Route = { kind: "data" | "research" | "method" | "chat" | "general"; source: string };
 
 // An analysis Magonia proposes; nothing runs until the researcher adds it (AI-07)
 export type Proposal = {
@@ -386,7 +390,8 @@ export type ChatEvent =
   | { type: "error"; message: string }
   | { type: "view"; cards: string[] }
   | ({ type: "read" } & Read)
-  | { type: "proposal"; proposal: Proposal };
+  | { type: "proposal"; proposal: Proposal }
+  | ({ type: "route" } & Route);
 
 export const assistantInfo = () => call<{ name: string; model: string }>("/assistant");
 export const listMessages = (workspaceId: number) => call<ChatMessage[]>(`/workspaces/${workspaceId}/messages`);
