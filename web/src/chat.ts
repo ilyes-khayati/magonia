@@ -46,6 +46,8 @@ export function applyEvent(turn: Turn, event: ChatEvent): Turn {
       return { ...turn, status: undefined, error: event.message };
     case "view":
       return { ...turn, status: "Reading your workspace…", details: { ...details, cards: event.cards } };
+    case "route":
+      return { ...turn, details: { ...details, route: { kind: event.kind, source: event.source } } };
     case "proposal":
       return { ...turn, details: { ...details, proposals: [...(details.proposals ?? []), event.proposal] } };
     case "read": {

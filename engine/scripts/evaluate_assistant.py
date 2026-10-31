@@ -92,12 +92,14 @@ def jendouba_view() -> View:
 
 def run(kind: str, question: str, provider, view: View | None = None) -> dict:
     start = time.time()
-    searches, papers, reads, proposals, final = [], [], [], [], {}
+    searches, papers, reads, proposals, final, kind_routed = [], [], [], [], {}, None
     for event in answer(provider, [{"role": "user", "content": question}], view=view):
         if event["type"] == "search":
             searches.append(event["query"])
         elif event["type"] == "read":
             reads.append(event)
+        elif event["type"] == "route":
+            kind_routed = event["kind"]
         elif event["type"] == "proposal":
             proposals.append(event["proposal"]["title"])
         elif event["type"] == "papers":
@@ -107,6 +109,7 @@ def run(kind: str, question: str, provider, view: View | None = None) -> dict:
     return {
         "kind": kind,
         "question": question,
+        "route": kind_routed,
         "searches": searches,
         "found": len(papers),
         "cited": final.get("cited", []),
@@ -158,7 +161,7 @@ if __name__ == "__main__":
         result = run(kind, question, provider, view if kind in ("data", "run", "talk") else None)
         results.append(result)
         print(
-            f"[{kind}] {question}\n  searched {result['searches']}, cited {result['cited']}, "
+            f"[{kind} → {result['route']}] {question}\n  searched {result['searches']}, cited {result['cited']}, "
             f"removed {result['removed']}, unverified {result['unverified']}, read "
             f"{len(result['reads'])}, proposed {len(result['proposals'])}, numbers "
             f"{sum(n['status'] == 'verified' for n in result['numbers'])}/{len(result['numbers'])} "

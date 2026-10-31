@@ -135,12 +135,14 @@ function Sources({ turn, anchor }: { turn: Turn; anchor: string }) {
   const numbers = turn.details.numbers ?? [];
   const verified = numbers.filter((n) => n.status === "verified");
   const flagged = numbers.filter((n) => n.status !== "verified");
+  const source = cards.length ? "" : (turn.details.route?.source ?? "");
   const cited = check ? check.cited.flatMap((n) => papers.filter((p) => p.n === n)) : [];
   const others = papers.filter((p) => !cited.includes(p));
-  if (!papers.length && !check?.removed.length && !check?.unverified.length && !cards.length && !numbers.length)
+  if (!papers.length && !check?.removed.length && !check?.unverified.length && !cards.length && !numbers.length && !source)
     return null;
   return (
     <div className="sources">
+      {source && <span className="meta">{source}</span>}
       {cards.length > 0 && (
         <span className="meta">
           From your workspace: {cards.join(" · ")}
