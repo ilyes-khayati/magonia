@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { boardForMagonia, pin, readBoard } from "./board";
+import { boardForMagonia, pin, readBoard, sectionOf } from "./board";
 
 describe("board", () => {
   it("pins items with an id and the date, and reads back only what it knows", () => {
@@ -22,6 +22,19 @@ describe("board", () => {
     expect(told).toEqual([
       { title: "Note: Idea", text: "Check 2017." },
       { title: "Trend", text: "Rising. Caution. Short." },
+    ]);
+  });
+
+  it("puts each item in the section above it, and tells Magonia the section and highlights", () => {
+    const board = [
+      { id: 1, kind: "card" as const, title: "Trend", lines: ["Rising."], pinned: "2026-10-31" },
+      { id: 2, kind: "section" as const, title: "Drought", lines: [], pinned: "2026-10-31" },
+      { id: 3, kind: "passage" as const, title: "Smith, p. 4", lines: ["NDVI fell."], highlights: ["fell"], pinned: "2026-10-31" },
+    ];
+    expect([0, 1, 2].map((i) => sectionOf(board, i))).toEqual([null, "Drought", "Drought"]);
+    expect(boardForMagonia(board)).toEqual([
+      { title: "Trend", text: "Rising." },
+      { title: "[Drought] Passage: Smith, p. 4", text: 'Highlighted: "fell" NDVI fell.' },
     ]);
   });
 });
