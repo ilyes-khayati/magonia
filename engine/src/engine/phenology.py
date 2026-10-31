@@ -15,6 +15,8 @@ import numpy as np
 import pandas as pd
 from scipy.signal import savgol_filter
 
+from engine.catalogue import SEASONAL
+
 THRESHOLD = 0.2  # share of the climb from base to peak that marks start and end
 WEAK = 0.1  # an NDVI amplitude below this leaves the dates uncertain
 STEP = "8D"
@@ -60,9 +62,10 @@ def day(d: pd.Timestamp) -> str:
 
 
 def phenology(area: str, title: str, key: str, points: list[dict]) -> Phenology:
-    if key not in ("ndvi", "savi"):
+    if key not in SEASONAL:
         raise PhenologyError(
-            "Season dates are computed from NDVI or SAVI, the greenness of vegetation."
+            "Season dates are computed from a measure of vegetation: NDVI, SAVI, EVI, LAI, "
+            "FPAR or GPP."
         )
     frame = pd.DataFrame(points)
     values = frame["value"].where(~frame["masked"] | frame["filled"])

@@ -6,6 +6,7 @@ import { useAnalysis } from "../useAnalysis";
 import type { Entry } from "./ChartCard";
 import Cautions from "./Cautions";
 import { CloseIcon } from "./Icons";
+import { large } from "../variables";
 
 type Props = {
   analysis: Decomposition;
@@ -25,7 +26,7 @@ const TOOLTIP = { background: "var(--card)", border: "1px solid var(--line)", bo
 export default function DecompositionCard({ analysis, onChange, onRemove, variables, title, entries, options }: Props) {
   const variable = variables.find((v) => v.key === analysis.variable);
   const name = variable ? title(variable) : analysis.variable;
-  const digits = analysis.variable === "lst" ? 1 : 2;
+  const digits = large(analysis.variable) ? 1 : 2;
 
   // a decomposition is asked for once the series behind it has been extracted
   const signature = JSON.stringify(entries.filter((e) => e.state?.status === "done").map((e) => options(e.area.id)));

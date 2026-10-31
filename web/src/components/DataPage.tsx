@@ -7,6 +7,9 @@ import { moved, ordered } from "../cards";
 import CardSlot from "./CardSlot";
 import { describeDisplay, display } from "../display";
 import ChartCard, { type Entry } from "./ChartCard";
+import { groups } from "../variables";
+
+const firstSentence = (text: string) => text.split(/(?<=\.)\s/)[0];
 
 type Props = {
   catalogue: Variable[];
@@ -59,16 +62,22 @@ export default function DataPage({ catalogue, settings, onChange, areas, entries
       ) : !chosen.length ? (
         <section className="suggestions" aria-label="Suggested charts">
           <h2>What would you like to see?</h2>
-          <div className="tiles">
-            {catalogue.map((v) => (
-              <button key={v.key} className="tile" onClick={() => onChange({ variables: [v.key] })}>
-                <strong>{v.name}</strong>
-                <span className="meta">
-                  {v.product} · {v.resolution} · {v.cadence}
-                </span>
-              </button>
-            ))}
-          </div>
+          {groups(catalogue).map(([group, variables]) => (
+            <div key={group} className="tile-group">
+              <h3 className="meta group-name">{group}</h3>
+              <div className="tiles">
+                {variables.map((v) => (
+                  <button key={v.key} className="tile" onClick={() => onChange({ variables: [v.key] })}>
+                    <strong>{v.name}</strong>
+                    {v.learn && <span>{firstSentence(v.learn.what)}</span>}
+                    <span className="meta">
+                      {v.product} · {v.resolution} · {v.cadence}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
         </section>
       ) : (
         <div className="page-grid">

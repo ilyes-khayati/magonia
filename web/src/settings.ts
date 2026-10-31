@@ -1,6 +1,7 @@
 import type { Masking, Resolution, SeriesOptions, Variable, VariableKey } from "./api";
 import type { CardLayout } from "./cards";
 import { NO_DISPLAY, type Display } from "./display";
+import { GRIDDED } from "./variables";
 
 // Everything the researcher chooses in the data panel. Saved with the workspace.
 export type Settings = {
@@ -59,8 +60,8 @@ export function seriesOptions(
     variable,
     start: `${settings.start}-01`,
     end: monthAfter(settings.end),
-    // SPEI has no quality flags, so its cloud filter is fixed
-    masking: variable === "spei" ? "none" : settings.masking,
+    // gridded climate data have no quality flags, so their cloud filter is fixed
+    masking: GRIDDED.has(variable) ? "none" : settings.masking,
     scale: variable === "spei" ? settings.scale : null,
     resolution: settings.resolution,
     max_gap: settings.fill ? settings.maxGap : 0,
