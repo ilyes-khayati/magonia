@@ -22,13 +22,17 @@ from urllib.error import URLError
 
 import numpy as np
 
-from engine.fulltext import FullTextError, Passage, read
+from engine.fulltext import FullTextError, Passage, pages, passages, read
 from engine.literature import Paper
 from engine.rank import Embed, words
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS papers (
     id TEXT PRIMARY KEY, status TEXT NOT NULL, detail TEXT, url TEXT
+);
+CREATE TABLE IF NOT EXISTS uploads (
+    id TEXT PRIMARY KEY, title TEXT NOT NULL, filename TEXT NOT NULL, added TEXT NOT NULL,
+    pages INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS passages (
     paper TEXT NOT NULL, n INTEGER NOT NULL, page INTEGER NOT NULL, text TEXT NOT NULL,
@@ -37,6 +41,10 @@ CREATE TABLE IF NOT EXISTS passages (
 """
 
 BATCH = 32  # passages embedded per request
+OWN = 4  # passages of the researcher's own files given with a question, at most
+# Below this similarity a file is about something else (see support.OFF_TOPIC)
+ON_TOPIC = 0.65
+ON_TOPIC_WORDS = 0.3
 
 
 @dataclass
@@ -156,6 +164,97 @@ class Library:
             if len(chosen) == keep:
                 break
         return chosen
+
+
+class Uploads:
+    """The researcher's own PDFs, read into the same library as the papers found."""
+
+    def __init__(self, library: Library):
+        self.library = library
+
+    def add(self, filename: str, pdf: bytes, title: str | None = None) -> dict:
+        """Read an uploaded PDF; raises FullTextError when it has no text to read."""
+        texts = pages(pdf)
+        found = passages(texts)
+        if not found:
+            raise FullTextError("The PDF has no text; it may be a scan.")
+        lib = self.library
+        with lib.connect() as db:
+            number = db.execute("SELECT COUNT(*) FROM uploads").fetchone()[0] + 1
+            while db.execute("SELECT 1 FROM uploads WHERE id = ?", (f"U{number}",)).fetchone():
+                number += 1
+        upload_id = f"U{number}"
+        vectors = lib.vectors([p.text for p in found], "search_document")
+        name = title or Path(filename).stem.replace("_", " ")
+        with lib.connect() as db:
+            db.executemany(
+                "INSERT INTO passages VALUES (?, ?, ?, ?, ?)",
+                [
+                    (upload_id, i, p.page, p.text, vectors[i].tobytes() if vectors else None)
+                    for i, p in enumerate(found)
+                ],
+            )
+            db.execute("INSERT INTO papers VALUES (?, 'read', ?, NULL)", (upload_id, "uploaded"))
+            db.execute(
+                "INSERT INTO uploads VALUES (?, ?, ?, datetime('now'), ?)",
+                (upload_id, name, filename, len(texts)),
+            )
+        return {**self.get(upload_id), "passages": len(found)}
+
+    def get(self, upload_id: str) -> dict:
+        with self.library.connect() as db:
+            row = db.execute(
+                "SELECT id, title, filename, added, pages FROM uploads WHERE id = ?", (upload_id,)
+            ).fetchone()
+        if row is None:
+            raise KeyError(upload_id)
+        return dict(zip(("id", "title", "filename", "added", "pages"), row, strict=True))
+
+    def all(self) -> list[dict]:
+        with self.library.connect() as db:
+            ids = [r[0] for r in db.execute("SELECT id FROM uploads ORDER BY added, id")]
+        return [self.get(i) for i in ids]
+
+    def remove(self, upload_id: str) -> None:
+        self.get(upload_id)
+        with self.library.connect() as db:
+            for table, column in (("passages", "paper"), ("papers", "id"), ("uploads", "id")):
+                db.execute(f"DELETE FROM {table} WHERE {column} = ?", (upload_id,))
+
+    def papers(self) -> list[Paper]:
+        """Each file as a paper, named by its title, to be cited like the papers found."""
+        return [
+            Paper(
+                u["id"],
+                u["title"],
+                [],
+                None,
+                "Your library",
+                None,
+                None,
+                None,
+                0,
+                [],
+                label=u["title"],
+            )
+            for u in self.all()
+        ]
+
+    def relevant(self, question: str, first: int) -> tuple[list[Paper], list[Found]]:
+        """The files that speak to the question, numbered from first, and their passages."""
+        mine = self.papers()
+        if not mine:
+            return [], []
+        numbered = {first + i: p for i, p in enumerate(mine)}
+        found = self.library.best(question, numbered, keep=OWN, per_paper=2)
+        low = ON_TOPIC if self.library.embed is not None else ON_TOPIC_WORDS
+        found = [f for f in found if f.score >= low]
+        # renumber the files that were kept from first, in the order they are first used
+        kept = list(dict.fromkeys(f.n for f in found))
+        renumber = {old: first + i for i, old in enumerate(kept)}
+        for f in found:
+            f.n = renumber[f.n]
+        return [numbered[old] for old in kept], found
 
 
 def for_the_model(found: list[Found]) -> str:

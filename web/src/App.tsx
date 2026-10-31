@@ -37,6 +37,7 @@ import DataPanel from "./components/DataPanel";
 import EarthEngineSetup from "./components/EarthEngineSetup";
 import { CloseIcon, ExpandIcon, ShrinkIcon } from "./components/Icons";
 import MapView, { type Target, type Tool } from "./components/MapView";
+import LibraryPage from "./components/LibraryPage";
 import ModelPage from "./components/ModelPage";
 import Rail from "./components/Rail";
 import Sidebar from "./components/Sidebar";
@@ -655,6 +656,7 @@ export default function App() {
             live={livePin}
           />
         )}
+        {page === "library" && workspaceId !== null && <LibraryPage workspaceId={workspaceId} />}
         {page === "model" && (
           <ModelPage
             experiments={experiments}
