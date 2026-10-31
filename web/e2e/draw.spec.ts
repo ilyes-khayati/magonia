@@ -929,3 +929,23 @@ for (const theme of ["light", "dark"]) {
     expect(serious.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
   });
 }
+
+test("a pinned answer keeps its citations and paper links on the board", async ({ page }) => {
+  const assistant = page.getByRole("region", { name: "Magonia assistant" });
+  await page.getByRole("button", { name: "Magonia", exact: true }).click();
+  await assistant.getByRole("textbox", { name: "Ask Magonia" }).fill("What does drought do to olive NDVI?");
+  await assistant.getByRole("button", { name: "Send" }).click();
+  await expect(assistant.getByText("Drought lowers olive NDVI")).toBeVisible();
+  await assistant.getByRole("button", { name: "Pin to the board" }).click();
+
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Board" }).click();
+  const pinned = page.getByRole("region", { name: "Magonia: What does drought do to olive NDVI?" });
+  await expect(pinned.locator(".cite", { hasText: "1" }).first()).toHaveAttribute("title", /Sghaier et al., 2022/);
+  await expect(pinned.getByRole("link", { name: "Drought stress in arid olive groves" })).toHaveAttribute(
+    "href",
+    "https://doi.org/10.1/1",
+  );
+  await expect(pinned.getByText("Removed a citation ([7]) that matched no paper found.")).toBeVisible();
+  const results = await new AxeBuilder({ page }).exclude(".maplibregl-canvas").analyze();
+  expect(results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? "")).map((v) => v.id)).toEqual([]);
+});

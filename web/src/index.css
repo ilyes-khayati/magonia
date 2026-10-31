@@ -1720,6 +1720,18 @@ button:disabled {
   color: var(--muted);
 }
 
+.board-answer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.board-answer .answer-text {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.55;
+}
+
 .board-item.kind-note {
   background: color-mix(in srgb, var(--warning) 6%, var(--card));
 }

@@ -19,6 +19,7 @@ import {
   type WorkspaceSummary,
 } from "./api";
 import { addAnalysis, needsOf, readAnalyses, type Analysis, type Kind, type Models, type Need } from "./analyses";
+import type { Turn } from "./chat";
 import { boardForMagonia, pin, readBoard, snapshotLines, type BoardItem, type Source } from "./board";
 import AnalysisCard from "./components/AnalysisCard";
 import ChartCard from "./components/ChartCard";
@@ -397,12 +398,14 @@ export default function App() {
     );
   }
 
-  function pinAnswer(question: string, answer: string) {
+  function pinAnswer(question: string, turn: Turn) {
+    const answer = turn.content;
     const next = pin(board, {
       kind: "answer",
       title: `Magonia: ${question.length > 60 ? `${question.slice(0, 57)}…` : question}`,
       question,
       lines: answer.split("\n").filter((l) => l.trim()),
+      answer: { text: answer, details: turn.details },
       page: "assistant",
     });
     changeBoard(next);

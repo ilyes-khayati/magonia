@@ -1,5 +1,5 @@
 import type { Analysis } from "./analyses";
-import type { VariableKey } from "./api";
+import type { AnswerDetails, VariableKey } from "./api";
 import type { CardLayout } from "./cards";
 import type { Experiment } from "./experiments";
 
@@ -20,6 +20,7 @@ export type BoardItem = {
   cautions?: string[];
   image?: string; // the card's charts, as a data URL
   question?: string; // for an answer: what was asked
+  answer?: { text: string; details: AnswerDetails }; // for an answer: shown as in the chat
   page?: string; // where it came from, to open it again
   source?: Source; // drawn live from this; items pinned before had only a picture
   pinned: string; // ISO date
