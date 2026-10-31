@@ -305,6 +305,8 @@ def answer(
     ]
     # what the model is given, against which every number in its answer is checked
     sources = [("your question", text)]
+    if kind in ("method", "data", "general"):
+        sources.append(("the Model page's settings", MODEL_SETTINGS))
     if facts:
         sources += [(fact.card, fact.text) for fact in view.facts()]
         sources += [("your workspace", line) for line in view.context]
