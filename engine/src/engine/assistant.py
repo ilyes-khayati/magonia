@@ -14,11 +14,12 @@ from dotenv import load_dotenv
 from engine.catalogue import CATALOGUE
 from engine.citations import check
 from engine.facts import View
-from engine.literature import LiteratureError, Paper, search_papers
+from engine.literature import LiteratureError, Paper, find_papers
 from engine.models import LABELS, SETTABLE
 from engine.numbers import check_numbers
 from engine.proposals import PROPOSE_TOOL, ProposalError, proposal
 from engine.proposals import describe as describe_proposal
+from engine.rank import ollama_embedder
 from engine.route import SOURCES, glossary, route
 
 NAME = "Magonia"
@@ -190,6 +191,8 @@ class Ollama:
         self.url = url.rstrip("/")
         self.model = model
         self.name = f"{model} (Ollama)"
+        # ranks papers by meaning; without the model on the server, ranking uses shared words
+        self.embed = ollama_embedder(self.url, os.environ.get("MAGONIA_EMBED", "nomic-embed-text"))
 
     def stream(
         self, messages: list[Message], tools: list[dict] | None = None
@@ -293,8 +296,13 @@ def answer(
     streamed answer: citations checked against the papers found and, when there was a
     workspace or papers, every number checked against what the model was given.
     """
-    search = search or search_papers
     text = str(conversation[-1]["content"])
+    if search is None:
+        embed = getattr(provider, "embed", None)
+
+        def search(query: str) -> list[Paper]:
+            return find_papers(query, text, embed=embed)
+
     areas = list(dict.fromkeys(s.area for s in view.series)) if view is not None else []
     kind = route(text, areas, view is not None)
     yield {"type": "route", "kind": kind, "source": SOURCES[kind]}

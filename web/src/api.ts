@@ -316,6 +316,8 @@ export type PaperCard = {
   open_access_url: string | null;
   cited_by: number;
   countries: string[];
+  relevance?: number | null; // how well it answers the question, from the ranking
+  matched?: string[]; // the words it shares with the question
 };
 
 export type CitationCheck = { cited: number[]; removed: number[]; unverified: string[] };

@@ -3,7 +3,7 @@
 import json
 import os
 import ssl
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from urllib.error import URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -38,6 +38,8 @@ class Paper:
     open_access_url: str | None
     cited_by: int
     countries: list[str]  # where the authors' institutions are
+    relevance: float | None = None  # how well it answers the question, set when ranked
+    matched: list[str] = field(default_factory=list)  # words it shares with the question
 
     @property
     def short(self) -> str:
@@ -100,3 +102,14 @@ def search_papers(query: str, limit: int = 6, from_year: int | None = None) -> l
     except (URLError, TimeoutError) as exc:
         raise LiteratureError(f"Could not reach OpenAlex: {exc}") from exc
     return [to_paper(work) for work in found.get("results", [])]
+
+
+# How many works to fetch before ranking; more finds better papers but takes longer
+CANDIDATES = 30
+
+
+def find_papers(query: str, question: str, keep: int = 6, embed=None) -> list[Paper]:
+    """Many candidates for the query, ranked against the researcher's question."""
+    from engine.rank import rank
+
+    return rank(question or query, search_papers(query, limit=CANDIDATES), keep, embed)
