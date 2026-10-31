@@ -370,3 +370,10 @@ def test_only_the_last_turns_of_a_long_conversation_are_sent():
     list(answer(model, [*history, {"role": "user", "content": "Hello"}]))
     sent = [m["content"] for m in model.seen[1:]]
     assert sent == ["q7", "a7", "q8", "a8", "q9", "a9", "Hello"]
+
+
+def test_numbers_from_the_model_settings_are_verified():
+    model = Scripted("XGBoost learning_rate goes from 0.001 to 1, and max_depth up to 15.")
+    question = [{"role": "user", "content": "Which XGBoost settings can I change?"}]
+    events = list(answer(model, question, view=orchard_view()))
+    assert {n["status"] for n in events[-1]["numbers"]} == {"verified"}
