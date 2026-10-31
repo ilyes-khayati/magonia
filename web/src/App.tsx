@@ -17,6 +17,8 @@ import {
   type VariableKey,
   type Workspace,
   type WorkspaceSummary,
+  type PaperCard,
+  type PassageCard,
 } from "./api";
 import { addAnalysis, needsOf, readAnalyses, type Analysis, type Kind, type Models, type Need } from "./analyses";
 import type { Turn } from "./chat";
@@ -412,6 +414,14 @@ export default function App() {
     setMessage({ text: "Pinned the answer to the board." });
   }
 
+  // One passage of a paper, kept on its own with its page and a link to the paper
+  function pinPassage(paper: PaperCard, passage: PassageCard) {
+    const link = paper.doi ? `https://doi.org/${paper.doi}` : (paper.open_access_url ?? undefined);
+    const title = `${paper.short}, p. ${passage.page}`;
+    changeBoard(pin(board, { kind: "passage", title, lines: [passage.text], link, page: "assistant" }));
+    setMessage({ text: `Pinned the passage from ${title} to the board.` });
+  }
+
   // What Magonia proposed, added because the researcher clicked (AI-07): its card, and the
   // period if one was asked for
   function adopt(p: Proposal) {
@@ -640,6 +650,7 @@ export default function App() {
             board={board}
             onChange={changeBoard}
             onNote={() => changeBoard(pin(board, { kind: "note", title: "Note", lines: [] }))}
+            onSection={() => changeBoard(pin(board, { kind: "section", title: "New section", lines: [] }))}
             pagePath={(p) => (workspaceId === null || !isPage(p) ? null : pagePath(workspaceId, p))}
             live={livePin}
           />
@@ -697,6 +708,7 @@ export default function App() {
           view={view}
           onPropose={adopt}
           onPin={pinAnswer}
+          onPinPassage={pinPassage}
           loading={{
             opening: earthEngine === null || workspaceId === null,
             series: progress.total - progress.done - progress.failed,

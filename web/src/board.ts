@@ -14,13 +14,16 @@ export type Source =
 // that the board is a dated record of findings even after the analyses change.
 export type BoardItem = {
   id: number;
-  kind: "card" | "experiment" | "answer" | "note";
+  // a section is a heading: the items after it, up to the next one, belong to it
+  kind: "card" | "experiment" | "answer" | "note" | "passage" | "section";
   title: string;
   lines: string[]; // the findings, as the card or Magonia said them
   cautions?: string[];
   image?: string; // the card's charts, as a data URL
   question?: string; // for an answer: what was asked
   answer?: { text: string; details: AnswerDetails }; // for an answer: shown as in the chat
+  link?: string; // for a passage: the paper it comes from
+  highlights?: string[]; // what the researcher marked in the item's text
   page?: string; // where it came from, to open it again
   source?: Source; // drawn live from this; items pinned before had only a picture
   pinned: string; // ISO date
@@ -46,13 +49,32 @@ export function snapshotLines(card: HTMLElement): { lines: string[]; cautions: s
   return { lines: text(".summary > li"), cautions: text(".cautions li") };
 }
 
-// What Magonia is told about the board: each pinned item in a line or two
+// The section each item belongs to: the title of the last section before it
+export function sectionOf(board: BoardItem[], index: number): string | null {
+  for (let i = index; i >= 0; i--) if (board[i].kind === "section") return board[i].title;
+  return null;
+}
+
+// What Magonia is told about the board: each pinned item in a line or two, with its section
+// and what the researcher highlighted in it
 export function boardForMagonia(board: BoardItem[]): { title: string; text: string }[] {
-  return board.map((b) => ({
-    title: b.kind === "note" ? `Note: ${b.title}` : b.title,
-    text: [b.question ? `Asked: ${b.question}` : "", ...b.lines, ...(b.cautions ?? []).map((c) => `Caution. ${c}`)]
-      .filter(Boolean)
-      .join(" ")
-      .slice(0, 1500),
-  }));
+  const label = { note: "Note", passage: "Passage" } as Record<string, string>;
+  return board.flatMap((b, i) => {
+    if (b.kind === "section") return [];
+    const section = sectionOf(board, i);
+    return [
+      {
+        title: `${section ? `[${section}] ` : ""}${label[b.kind] ? `${label[b.kind]}: ` : ""}${b.title}`,
+        text: [
+          ...(b.highlights ?? []).map((h) => `Highlighted: "${h}"`),
+          b.question ? `Asked: ${b.question}` : "",
+          ...b.lines,
+          ...(b.cautions ?? []).map((c) => `Caution. ${c}`),
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .slice(0, 1500),
+      },
+    ];
+  });
 }
