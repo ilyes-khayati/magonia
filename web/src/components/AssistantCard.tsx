@@ -4,6 +4,8 @@ import {
   assistantInfo,
   clearMessages,
   listMessages,
+  type PaperCard,
+  type PassageCard,
   type Proposal,
   type View,
 } from "../api";
@@ -47,9 +49,11 @@ type Props = {
   loading?: { opening: boolean; series: number }; // series: how many are still loading
   onPropose?: (proposal: Proposal) => void; // the researcher adds what Magonia proposed
   onPin?: (question: string, turn: Turn) => void; // keep an answer on the board
+  onPinPassage?: (paper: PaperCard, passage: PassageCard) => void; // keep one passage
 };
 
-export default function AssistantCard({ workspaceId, view, actions, loading, onPropose, onPin }: Props) {
+export default function AssistantCard(props: Props) {
+  const { workspaceId, view, actions, loading, onPropose, onPin, onPinPassage } = props;
   const [turns, setTurns] = useState<Turn[]>([]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -153,7 +157,7 @@ export default function AssistantCard({ workspaceId, view, actions, loading, onP
                 {(turn.details.proposals ?? []).map((p, k) => (
                   <ProposalCard key={k} proposal={p} onAdd={onPropose} />
                 ))}
-                {!last && <Sources turn={turn} anchor={anchor} />}
+                {!last && <Sources turn={turn} anchor={anchor} onPinPassage={onPinPassage} />}
                 {turn.role === "assistant" && turn.content && !(busy && last) && onPin && (
                   <button
                     className="link pin-answer"

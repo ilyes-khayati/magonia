@@ -998,3 +998,60 @@ test("a pinned answer keeps its citations and paper links on the board", async (
   const results = await new AxeBuilder({ page }).exclude(".maplibregl-canvas").analyze();
   expect(results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? "")).map((v) => v.id)).toEqual([]);
 });
+
+test("the board has sections, highlights and pinned passages, and Magonia is told about them", async ({ page }) => {
+  const assistant = page.getByRole("region", { name: "Magonia assistant" });
+  await page.getByRole("button", { name: "Magonia", exact: true }).click();
+  await assistant.getByRole("textbox", { name: "Ask Magonia" }).fill("What does drought do to olive NDVI?");
+  await assistant.getByRole("button", { name: "Send" }).click();
+  await expect(assistant.getByText("Drought lowers olive NDVI")).toBeVisible();
+  await assistant.getByText("Passages Magonia read (p. 6)").click();
+  await assistant.getByRole("button", { name: "Pin the passage from Sghaier et al., 2022, page 6, to the board" }).click();
+  await assistant.getByRole("button", { name: "Pin to the board" }).click();
+
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Board" }).click();
+  const passage = page.getByRole("region", { name: "Sghaier et al., 2022, p. 6" });
+  await expect(passage).toContainText("Rainfed groves lost NDVI within one season of drought.");
+  await expect(passage.getByRole("link", { name: "Open the paper" })).toHaveAttribute("href", "https://doi.org/10.1/1");
+
+  // a section heads the items after it
+  await page.getByRole("button", { name: "Add a section" }).click();
+  const title = page.getByRole("textbox", { name: "Section title" });
+  await title.fill("Drought evidence");
+  await title.blur();
+  await page.getByRole("button", { name: "Move Drought evidence" }).focus();
+  await page.keyboard.press("ArrowUp");
+  await page.keyboard.press("ArrowUp");
+
+  // select words in the passage and highlight them
+  await passage.locator(".board-passage").evaluate((quote) => {
+    const text = quote.firstChild!;
+    const range = document.createRange();
+    range.setStart(text, 0);
+    range.setEnd(text, "Rainfed groves lost NDVI".length);
+    const selection = window.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+  });
+  await passage.getByRole("button", { name: "Highlight" }).click();
+  await expect(passage.locator(".highlights mark")).toHaveText("Rainfed groves lost NDVI");
+  expect(await page.evaluate(() => CSS.highlights.get("board-highlight")?.size)).toBe(1);
+
+  await assistant.getByRole("textbox", { name: "Ask Magonia" }).fill("What did I highlight?");
+  await assistant.getByRole("button", { name: "Send" }).click();
+  await expect
+    .poll(() => (asked.at(-1)?.view as { board?: { title: string; text: string }[] } | undefined)?.board)
+    .toContainEqual({
+      title: "[Drought evidence] Passage: Sghaier et al., 2022, p. 6",
+      text: 'Highlighted: "Rainfed groves lost NDVI" Rainfed groves lost NDVI within one season of drought.',
+    });
+
+  // highlights survive a reload, and can be removed
+  await page.waitForTimeout(700);
+  await page.reload();
+  await expect(passage.locator(".highlights mark")).toHaveText("Rainfed groves lost NDVI");
+  await passage.getByRole("button", { name: 'Remove the highlight "Rainfed groves lost NDVI"' }).click();
+  await expect(passage.locator(".highlights")).toHaveCount(0);
+  const results = await new AxeBuilder({ page }).exclude(".maplibregl-canvas").analyze();
+  expect(results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? "")).map((v) => v.id)).toEqual([]);
+});

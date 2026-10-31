@@ -72,9 +72,17 @@ export function AnswerText(props: { text: string; papers: PaperCard[]; numbers?:
   );
 }
 
-type PaperProps = { paper: PaperCard; anchor: string; read?: ReadStatus; passages: PassageCard[] };
+type PinPassage = (paper: PaperCard, passage: PassageCard) => void;
 
-function Paper({ paper, anchor, read, passages }: PaperProps) {
+type PaperProps = {
+  paper: PaperCard;
+  anchor: string;
+  read?: ReadStatus;
+  passages: PassageCard[];
+  onPinPassage?: PinPassage;
+};
+
+function Paper({ paper, anchor, read, passages, onPinPassage }: PaperProps) {
   const link = paper.doi ? `https://doi.org/${paper.doi}` : paper.open_access_url;
   return (
     <li id={`${anchor}-${paper.n}`} className="paper">
@@ -108,6 +116,18 @@ function Paper({ paper, anchor, read, passages }: PaperProps) {
             {passages.map((p, k) => (
               <blockquote key={k} className="passage">
                 <span className="meta">Page {p.page}</span> {p.text}
+                {onPinPassage && (
+                  <>
+                    {" "}
+                    <button
+                      className="link"
+                      aria-label={`Pin the passage from ${paper.short}, page ${p.page}, to the board`}
+                      onClick={() => onPinPassage(paper, p)}
+                    >
+                      Pin
+                    </button>
+                  </>
+                )}
               </blockquote>
             ))}
           </details>
@@ -177,7 +197,7 @@ function Support({ support }: { support: SupportCheck[] }) {
 }
 
 // What the answer rests on: the papers it cites, what else was found, and what the check removed
-export function Sources({ turn, anchor }: { turn: Turn; anchor: string }) {
+export function Sources({ turn, anchor, onPinPassage }: { turn: Turn; anchor: string; onPinPassage?: PinPassage }) {
   const papers = turn.details.papers ?? [];
   const check = turn.details.check;
   const cards = turn.details.cards ?? [];
@@ -197,6 +217,7 @@ export function Sources({ turn, anchor }: { turn: Turn; anchor: string }) {
       anchor={anchor}
       read={read[String(p.n)]}
       passages={passages.filter((x) => x.n === p.n).sort((a, b) => a.page - b.page)}
+      onPinPassage={onPinPassage}
     />
   );
   const fullText = Object.values(read).filter((r) => r === "read").length;
