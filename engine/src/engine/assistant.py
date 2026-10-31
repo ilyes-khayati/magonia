@@ -14,6 +14,8 @@ from dotenv import load_dotenv
 from engine.catalogue import CATALOGUE
 from engine.citations import check
 from engine.facts import View
+from engine.library import Library
+from engine.library import for_the_model as passages_for_the_model
 from engine.literature import LiteratureError, Paper, find_papers
 from engine.models import LABELS, SETTABLE
 from engine.numbers import check_numbers
@@ -46,14 +48,19 @@ English keywords. You may search again with different keywords if the first resu
 - Base what you say about research only on the papers the search returns, and cite them by \
 their number in square brackets, like [1] or [2, 4]. Cite nothing else, and never cite \
 papers from memory.
+- When passages from a paper's full text are given, prefer them to its abstract, and cite \
+the page they come from, like [1, p. 6].
+- Say what each study found and in what setting (place, crop, rainfed or irrigated, \
+sensor, period), grouping studies whose settings are alike. Do not count studies for and \
+against, and do not give an overall verdict: the researcher weighs the evidence.
 - If the papers found do not answer the question, say so plainly instead of filling the gap."""
 
 ABOUT = """Facts about yourself (state only these; do not guess beyond them):
 - Magonia was built by Ilyes Khayati as an engineering capstone project.
 - This conversation is saved in the researcher's current workspace and continues when they \
 come back. Earlier messages in it are shown to you.
-- You can search the literature through OpenAlex. You cannot yet read full papers, only \
-titles and abstracts.
+- You can search the literature through OpenAlex, and read the full text of open-access \
+papers; of the others you see only the title and abstract.
 - You can see the areas, variables and analyses open in Magonia, as facts computed by code, \
 when the researcher has some open. You cannot see the map or the charts as pictures, and \
 you cannot run new analyses yet."""
@@ -287,6 +294,7 @@ def answer(
     max_searches: int = 2,
     view: View | None = None,
     max_reads: int = 3,
+    library: Library | None = None,
 ) -> Iterator[dict]:
     """Answer the last message of the conversation, using tools when the model asks.
 
@@ -327,6 +335,7 @@ def answer(
         sources.append(("Magonia's catalogue", known))
         messages[-1] = {**messages[-1], "content": f"{known}\n\n---\nThe researcher asks: {text}"}
     papers: list[Paper] = []
+    pages: dict[int, set[int]] = {}  # the pages of each paper whose passages the model read
     said: list[str] = []
     searches = reads = proposed = refused = 0
     if not asks_to_run(text):
@@ -427,9 +436,26 @@ def answer(
                 "type": "papers",
                 "papers": [{"n": first + i, **p.to_dict()} for i, p in enumerate(found)],
             }
-            messages.append({"role": "tool", "content": for_the_model(found, first)})
+            given = for_the_model(found, first)
+            if library is not None and any(p.pdf_url for p in found):
+                # the full text of the open-access papers, and its passages that answer
+                yield {"type": "reading", "count": sum(1 for p in found if p.pdf_url)}
+                status = library.add_all(found)
+                numbered = {first + i: p for i, p in enumerate(found)}
+                chosen = library.best(text, numbered)
+                for f in chosen:
+                    pages.setdefault(f.n, set()).add(f.page)
+                sources += [(f"paper [{f.n}] p. {f.page}", f.text) for f in chosen]
+                yield {
+                    "type": "passages",
+                    "read": {n: status[p.id] for n, p in numbered.items()},
+                    "passages": [f.to_dict() for f in chosen],
+                }
+                if chosen:
+                    given += "\n\n" + passages_for_the_model(chosen)
+            messages.append({"role": "tool", "content": given})
 
-    verdict = check("".join(said), papers)
+    verdict = check("".join(said), papers, pages)
     event = {"type": "check", "text": verdict.text, **verdict.to_dict()}
     # numbers are checked when there was something to check them against
     if facts or papers or kind == "method":

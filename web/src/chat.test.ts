@@ -54,6 +54,14 @@ describe("citationParts", () => {
     ]);
   });
 
+  it("keeps the page of a citation to a passage", () => {
+    expect(citationParts("Lost NDVI [1, p. 12].")).toEqual([
+      { text: "Lost NDVI " },
+      { cites: [1], page: 12 },
+      { text: "." },
+    ]);
+  });
+
   it("leaves text without citations alone", () => {
     expect(citationParts("No citations here.")).toEqual([{ text: "No citations here." }]);
   });

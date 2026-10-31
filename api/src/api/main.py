@@ -15,6 +15,8 @@ from engine.decompose import DecompositionError, decompose
 from engine.earth_engine import EarthEngineError, check
 from engine.explain import Explanation, Pair, describe, explain, stability
 from engine.lags import explore
+from engine.library import Library
+from engine.library import default_path as library_path
 from engine.models import ForecastError, design, forecast
 from engine.phenology import PhenologyError, phenology
 from engine.pipeline import Request, fingerprint
@@ -64,9 +66,15 @@ def get_provider() -> assistant.Provider:
     return assistant.from_environment()
 
 
+def get_library(provider: Annotated[assistant.Provider, Depends(get_provider)]) -> Library:
+    """The papers Magonia has read, ranked by meaning with the provider's embedding model."""
+    return Library(library_path(), embed=getattr(provider, "embed", None))
+
+
 StoreDep = Annotated[Store, Depends(get_store)]
 RunnerDep = Annotated[Runner, Depends(get_runner)]
 ProviderDep = Annotated[assistant.Provider, Depends(get_provider)]
+LibraryDep = Annotated[Library, Depends(get_library)]
 
 
 # Models
@@ -887,21 +895,26 @@ def forecast_facts(store: Store, view: View, areas: dict[int, dict]) -> list[fac
 
 @app.post("/workspaces/{workspace_id}/chat")
 def chat(
-    workspace_id: int, body: Question, store: StoreDep, provider: ProviderDep
+    workspace_id: int,
+    body: Question,
+    store: StoreDep,
+    provider: ProviderDep,
+    library: LibraryDep,
 ) -> StreamingResponse:
     """Ask the assistant. Events stream back as JSON lines and the answer is saved at the end.
 
     With a view of what is open, the assistant is given facts computed from the researcher's
     cached results. Events: view (the cards it was given), read (a closer look at a series),
     proposal (an analysis it proposes, which the researcher may add),
-    text (a piece of the answer), search, search_failed, papers, check (the final answer after
-    its citations were checked) and error.
+    text (a piece of the answer), search, search_failed, papers, reading and passages (the
+    open-access papers read in full, and the passages chosen from them), check (the final
+    answer after its citations and pages were checked) and error.
     """
     existing_workspace(store, workspace_id)
     history = [{"role": m["role"], "content": m["content"]} for m in store.messages(workspace_id)]
     view = workspace_view(store, workspace_id, body.view) if body.view else None
     question = {"role": "user", "content": body.content}
-    events = assistant.answer(provider, [*history, question], view=view)
+    events = assistant.answer(provider, [*history, question], view=view, library=library)
     # fail with a clear status before streaming starts, if the model cannot be reached: the
     # route and view events come before the model is asked anything
     head = []
@@ -916,6 +929,7 @@ def chat(
 
     def stream() -> Iterator[str]:
         said, searches, papers, verdict, cards, reads, proposals = [], [], [], None, [], [], []
+        passages, read = [], {}
         route = None
         try:
             for event in itertools.chain(head, events):
@@ -936,6 +950,9 @@ def chat(
                         proposals.append(event["proposal"])
                     case "route":
                         route = {k: event[k] for k in ("kind", "source")}
+                    case "passages":
+                        passages.extend(event["passages"])
+                        read.update(event["read"])
                 yield json.dumps(event) + "\n"
         except assistant.ProviderError as exc:
             yield json.dumps({"type": "error", "message": f"The model stopped: {exc}"}) + "\n"
@@ -945,8 +962,13 @@ def chat(
                 details["proposals"] = proposals
             if route:
                 details["route"] = route
+            if passages or read:
+                details["passages"] = passages
+                details["read"] = read
             if verdict:
-                details["check"] = {k: verdict[k] for k in ("cited", "removed", "unverified")}
+                details["check"] = {
+                    k: verdict[k] for k in ("cited", "removed", "unverified", "pages_removed")
+                }
                 if "numbers" in verdict:
                     details["numbers"] = verdict["numbers"]
             text = verdict["text"] if verdict else "".join(said)
