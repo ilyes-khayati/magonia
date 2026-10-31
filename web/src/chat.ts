@@ -38,7 +38,12 @@ export function applyEvent(turn: Turn, event: ChatEvent): Turn {
         status: undefined,
         details: {
           ...details,
-          check: { cited: event.cited, removed: event.removed, unverified: event.unverified },
+          check: {
+            cited: event.cited,
+            removed: event.removed,
+            unverified: event.unverified,
+            pages_removed: event.pages_removed,
+          },
           numbers: event.numbers,
         },
       };
@@ -48,6 +53,18 @@ export function applyEvent(turn: Turn, event: ChatEvent): Turn {
       return { ...turn, status: "Reading your workspace…", details: { ...details, cards: event.cards } };
     case "route":
       return { ...turn, details: { ...details, route: { kind: event.kind, source: event.source } } };
+    case "reading":
+      return { ...turn, status: `Reading ${event.count === 1 ? "1 paper" : `${event.count} papers`} in full…` };
+    case "passages":
+      return {
+        ...turn,
+        status: "Writing from the passages found…",
+        details: {
+          ...details,
+          passages: [...(details.passages ?? []), ...event.passages],
+          read: { ...details.read, ...event.read },
+        },
+      };
     case "proposal":
       return { ...turn, details: { ...details, proposals: [...(details.proposals ?? []), event.proposal] } };
     case "read": {
@@ -61,15 +78,16 @@ export function applyEvent(turn: Turn, event: ChatEvent): Turn {
   }
 }
 
-export type Part = { text: string } | { cites: number[] } | { number: CheckedNumber };
+export type Part = { text: string } | { cites: number[]; page?: number } | { number: CheckedNumber };
 
-// Splits an answer into plain text and citation groups such as [1, 3]
+// Splits an answer into plain text and citation groups such as [1, 3] or [1, p. 6]
 export function citationParts(text: string): Part[] {
   const parts: Part[] = [];
   let last = 0;
-  for (const match of text.matchAll(/\[(\d+(?:\s*,\s*\d+)*)\]/g)) {
+  for (const match of text.matchAll(/\[(\d+(?:\s*,\s*\d+)*?)(?:,\s*p\.\s*(\d+))?\]/g)) {
     if (match.index > last) parts.push({ text: text.slice(last, match.index) });
-    parts.push({ cites: match[1].split(",").map((n) => Number(n.trim())) });
+    const cites = match[1].split(",").map((n) => Number(n.trim()));
+    parts.push(match[2] ? { cites, page: Number(match[2]) } : { cites });
     last = match.index + match[0].length;
   }
   if (last < text.length) parts.push({ text: text.slice(last) });

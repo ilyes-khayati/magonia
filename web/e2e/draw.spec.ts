@@ -280,8 +280,21 @@ const ANSWER = [
     type: "papers",
     papers: [paper(1, "Sghaier et al., 2022", "Drought stress in arid olive groves"), paper(2, "Crespo et al., 2025", "Olive VI and drought")],
   },
-  { type: "text", text: "Drought lowers olive NDVI [1], as also shown in [7]." },
-  { type: "check", text: "Drought lowers olive NDVI [1], as also shown in.", cited: [1], removed: [7], unverified: [] },
+  { type: "reading", count: 1 },
+  {
+    type: "passages",
+    read: { "1": "read", "2": "blocked" },
+    passages: [{ n: 1, page: 6, text: "Rainfed groves lost NDVI within one season of drought." }],
+  },
+  { type: "text", text: "Drought lowers olive NDVI [1, p. 6], as also shown in [7]." },
+  {
+    type: "check",
+    text: "Drought lowers olive NDVI [1, p. 6], as also shown in.",
+    cited: [1],
+    removed: [7],
+    unverified: [],
+    pages_removed: [],
+  },
 ];
 
 // An answer about the researcher's own data, after a closer look at one year
@@ -890,12 +903,19 @@ test("an answer shows its checked sources and what the check removed", async ({ 
   await assistant.getByRole("button", { name: "Send" }).click();
 
   await expect(assistant.getByText("Drought lowers olive NDVI")).toBeVisible();
-  await expect(assistant.locator(".turn.assistant a.cite")).toHaveText(["1"]);
+  await expect(assistant.locator(".turn.assistant a.cite")).toHaveText(["1p. 6"]);
   await expect(assistant.getByRole("link", { name: "Drought stress in arid olive groves" })).toHaveAttribute(
     "href",
     "https://doi.org/10.1/1",
   );
+  // the passage Magonia read, at its page, and how much of each paper it could read
+  await expect(assistant.getByText("1 paper read in full")).toBeVisible();
+  await expect(assistant.getByText("Read in full", { exact: false }).first()).toBeVisible();
+  await assistant.getByText("Passages Magonia read (p. 6)").click();
+  await expect(assistant.getByText("Rainfed groves lost NDVI within one season of drought.")).toBeVisible();
   await expect(assistant.getByText("Also found, not cited (1)")).toBeVisible();
+  await assistant.getByText("Also found, not cited (1)").click();
+  await expect(assistant.getByText(/publisher does not allow downloads/)).toBeVisible();
   await expect(assistant.getByText("Removed a citation ([7]) that matched no paper found.")).toBeVisible();
 
   const results = await new AxeBuilder({ page }).include(".assistant").analyze();

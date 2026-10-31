@@ -1,8 +1,16 @@
-import { type CheckedNumber, type PaperCard } from "../api";
+import { type CheckedNumber, type PaperCard, type PassageCard, type ReadStatus } from "../api";
 import { answerParts, styled, type Turn } from "../chat";
 
 // How one of Magonia's answers is shown, in the chat and when pinned to the board: citations
 // as badges that point to their paper cards, numbers marked as checked or not, and sources
+
+// What the paper card says about how much of the paper Magonia read
+const READ: Record<ReadStatus, string> = {
+  read: "Read in full",
+  blocked: "The publisher does not allow downloads, so only the abstract was read",
+  unreadable: "The PDF could not be read, so only the abstract was",
+  "abstract only": "No open-access PDF, so only the abstract was read",
+};
 
 const FLAG = {
   sign: "found only with the opposite sign",
@@ -43,9 +51,16 @@ export function AnswerText(props: { text: string; papers: PaperCard[]; numbers?:
             <span className="cites">
               {part.cites.map((n) => {
                 const paper = papers.find((p) => p.n === n);
+                const page = "page" in part ? part.page : undefined;
                 return (
-                  <a key={n} className="cite" href={`#${anchor}-${n}`} title={paper ? `${paper.short}. ${paper.title}` : undefined}>
+                  <a
+                    key={n}
+                    className="cite"
+                    href={`#${anchor}-${n}`}
+                    title={paper ? `${paper.short}. ${paper.title}${page ? `, p. ${page}` : ""}` : undefined}
+                  >
                     {n}
+                    {page && <span className="cite-page">p. {page}</span>}
                   </a>
                 );
               })}
@@ -57,7 +72,9 @@ export function AnswerText(props: { text: string; papers: PaperCard[]; numbers?:
   );
 }
 
-function Paper({ paper, anchor }: { paper: PaperCard; anchor: string }) {
+type PaperProps = { paper: PaperCard; anchor: string; read?: ReadStatus; passages: PassageCard[] };
+
+function Paper({ paper, anchor, read, passages }: PaperProps) {
   const link = paper.doi ? `https://doi.org/${paper.doi}` : paper.open_access_url;
   return (
     <li id={`${anchor}-${paper.n}`} className="paper">
@@ -75,12 +92,25 @@ function Paper({ paper, anchor }: { paper: PaperCard; anchor: string }) {
           {paper.venue && <span className="meta"> · {paper.venue}</span>}
         </div>
         <span className="meta">
-          {paper.open_access_url ? "Open access" : "Abstract only"}
+          {read ? READ[read] : paper.open_access_url ? "Open access" : "Abstract only"}
           {paper.cited_by > 0 && ` · cited by ${paper.cited_by}`}
           {paper.countries.length > 0 && ` · ${paper.countries.join(", ")}`}
         </span>
         {paper.matched && paper.matched.length > 0 && (
           <span className="meta matched">Chosen because it mentions {paper.matched.join(", ")}</span>
+        )}
+        {passages.length > 0 && (
+          // what Magonia actually read in this paper, so a statement can be checked at its source
+          <details>
+            <summary>
+              Passages Magonia read ({passages.map((p) => `p. ${p.page}`).join(", ")})
+            </summary>
+            {passages.map((p, k) => (
+              <blockquote key={k} className="passage">
+                <span className="meta">Page {p.page}</span> {p.text}
+              </blockquote>
+            ))}
+          </details>
         )}
         {paper.abstract && (
           <details>
@@ -105,6 +135,18 @@ export function Sources({ turn, anchor }: { turn: Turn; anchor: string }) {
   const source = cards.length ? "" : (turn.details.route?.source ?? "");
   const cited = check ? check.cited.flatMap((n) => papers.filter((p) => p.n === n)) : [];
   const others = papers.filter((p) => !cited.includes(p));
+  const read = turn.details.read ?? {};
+  const passages = turn.details.passages ?? [];
+  const card = (p: PaperCard) => (
+    <Paper
+      key={p.n}
+      paper={p}
+      anchor={anchor}
+      read={read[String(p.n)]}
+      passages={passages.filter((x) => x.n === p.n).sort((a, b) => a.page - b.page)}
+    />
+  );
+  const fullText = Object.values(read).filter((r) => r === "read").length;
   if (!papers.length && !check?.removed.length && !check?.unverified.length && !cards.length && !numbers.length && !source)
     return null;
   return (
@@ -121,12 +163,11 @@ export function Sources({ turn, anchor }: { turn: Turn; anchor: string }) {
       )}
       {cited.length > 0 && (
         <>
-          <span className="meta">Sources · each checked against the papers found</span>
-          <ul>
-            {cited.map((p) => (
-              <Paper key={p.n} paper={p} anchor={anchor} />
-            ))}
-          </ul>
+          <span className="meta">
+            Sources · each checked against the papers found
+            {fullText > 0 && ` · ${fullText === 1 ? "1 paper" : `${fullText} papers`} read in full`}
+          </span>
+          <ul>{cited.map(card)}</ul>
         </>
       )}
       {others.length > 0 && (
@@ -134,17 +175,20 @@ export function Sources({ turn, anchor }: { turn: Turn; anchor: string }) {
           <summary className="meta">
             {cited.length ? `Also found, not cited (${others.length})` : `Papers found (${others.length})`}
           </summary>
-          <ul>
-            {others.map((p) => (
-              <Paper key={p.n} paper={p} anchor={anchor} />
-            ))}
-          </ul>
+          <ul>{others.map(card)}</ul>
         </details>
       )}
       {check && check.removed.length > 0 && (
         <p className="removed">
           Removed {check.removed.length === 1 ? "a citation" : `${check.removed.length} citations`} (
           {check.removed.map((n) => `[${n}]`).join(", ")}) that matched no paper found.
+        </p>
+      )}
+      {check?.pages_removed && check.pages_removed.length > 0 && (
+        <p className="removed">
+          Removed {check.pages_removed.length === 1 ? "a page" : "pages"} from{" "}
+          {check.pages_removed.join(", ")}: Magonia read no passage from{" "}
+          {check.pages_removed.length === 1 ? "that page" : "those pages"}.
         </p>
       )}
       {numbers.length > 0 && (

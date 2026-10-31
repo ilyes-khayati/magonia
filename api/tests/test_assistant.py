@@ -1,9 +1,12 @@
 import json
 import sqlite3
+from dataclasses import replace
 
 import pytest
 from engine import assistant as engine_assistant
 from engine.assistant import ProviderError, Scripted, ToolCall
+from engine.fulltext import Passage
+from engine.library import Library
 from engine.literature import Paper
 
 from api import main
@@ -95,7 +98,42 @@ def test_searched_answer_keeps_its_papers_and_check(client, library):
     assert answer["content"] == "Drought lowers olive NDVI [1], see also."
     assert answer["details"]["searches"] == ["olive drought"]
     assert [p["short"] for p in answer["details"]["papers"]] == ["Sghaier, 2022", "Crespo, 2025"]
-    assert answer["details"]["check"] == {"cited": [1], "removed": [4], "unverified": []}
+    assert answer["details"]["check"] == {
+        "cited": [1],
+        "removed": [4],
+        "unverified": [],
+        "pages_removed": [],
+    }
+
+
+def test_open_access_papers_are_read_and_their_pages_checked(client, monkeypatch, tmp_path):
+    first = replace(paper("Sghaier", 2022), id="W1", pdf_url="https://example.org/1.pdf")
+    monkeypatch.setattr(engine_assistant, "find_papers", lambda query, question, **_: [first])
+    passages = [Passage(6, "Rainfed olive groves lost NDVI within one season of drought. " * 5)]
+    shelf = Library(tmp_path / "read.db", reader=lambda url: passages)
+    main.app.dependency_overrides[main.get_library] = lambda: shelf
+    model = Scripted(
+        ToolCall("search_papers", {"query": "olive drought"}),
+        "Rainfed groves lost NDVI [1, p. 6], not on page 9 [1, p. 9].",
+    )
+    main.app.dependency_overrides[main.get_provider] = lambda: model
+    ws = workspace(client)
+
+    got = events(client.post(f"/workspaces/{ws}/chat", json={"content": "Drought and olives?"}))
+    assert [e["type"] for e in got if e["type"] != "text"] == [
+        "route",
+        "search",
+        "papers",
+        "reading",
+        "passages",
+        "check",
+    ]
+    assert "[1, p. 6] Rainfed olive groves" in model.seen[-1]["content"]
+    answer = client.get(f"/workspaces/{ws}/messages").json()[-1]
+    assert answer["content"] == "Rainfed groves lost NDVI [1, p. 6], not on page 9 [1]."
+    assert answer["details"]["check"]["pages_removed"] == ["[1, p. 9]"]
+    assert answer["details"]["read"] == {"1": "read"}
+    assert answer["details"]["passages"][0]["page"] == 6
 
 
 def test_the_model_sees_the_earlier_conversation(client, model):

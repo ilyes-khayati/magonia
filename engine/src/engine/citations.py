@@ -2,15 +2,16 @@
 
 The model is asked to cite retrieved papers by number, [1] or [1, 3]. Any number that does
 not point to a retrieved paper is removed from the answer, and the removal is reported, so a
-reference can never be invented. Author–year mentions that match no retrieved paper are kept
+reference can never be invented. When it read passages of a paper's full text, it may cite a
+page, [1, p. 6]; the page is kept only if a passage from that page was given to it. Author–year mentions that match no retrieved paper are kept
 but flagged as unverified.
 """
 
 import re
 from dataclasses import dataclass, field
 
-# [1]  [1, 3]  [2-4]  [2–4]
-GROUP = re.compile(r"\s?\[(\d+(?:\s*[-–,]\s*\d+)*)\]")
+# [1]  [1, 3]  [2-4]  [2–4]  [1, p. 6]  [1 p.6]  [1, pp. 6-7]
+GROUP = re.compile(r"\s?\[(\d+(?:\s*[-–,]\s*\d+)*?)(?:,?\s*pp?\.\s*(\d+)(?:\s*[-–]\s*\d+)?)?\]")
 # (Sghaier et al., 2022)  (Sghaier and Dhaou 2022)  (Sghaier, 2022)
 AUTHOR_YEAR = re.compile(r"\(([A-Z][A-Za-zÀ-ÿ'\-]+)[^()]*?(\d{4})[a-z]?\)")
 
@@ -21,12 +22,14 @@ class Check:
     cited: list[int] = field(default_factory=list)  # valid paper numbers, in order of first use
     removed: list[int] = field(default_factory=list)  # numbers that matched no retrieved paper
     unverified: list[str] = field(default_factory=list)  # author–year mentions not retrieved
+    pages_removed: list[str] = field(default_factory=list)  # pages no passage came from
 
     def to_dict(self) -> dict:
         return {
             "cited": self.cited,
             "removed": self.removed,
             "unverified": self.unverified,
+            "pages_removed": self.pages_removed,
         }
 
 
@@ -42,8 +45,9 @@ def numbers(group: str) -> list[int]:
     return found
 
 
-def check(answer: str, papers: list) -> Check:
-    """Keep only citations to papers 1..len(papers); report what was removed or unverified."""
+def check(answer: str, papers: list, pages: dict[int, set[int]] | None = None) -> Check:
+    """Keep only citations to papers 1..len(papers), and pages a passage came from (pages
+    maps a paper's number to the pages given); report what was removed or unverified."""
     result = Check(text="")
 
     def keep_valid(match: re.Match) -> str:
@@ -58,7 +62,13 @@ def check(answer: str, papers: list) -> Check:
         if not valid:
             return ""
         spacer = " " if match.group(0).startswith(" ") else ""
-        return f"{spacer}[{', '.join(str(n) for n in valid)}]"
+        cited = ", ".join(str(n) for n in valid)
+        page = match.group(2)
+        if page and len(valid) == 1:
+            if int(page) in (pages or {}).get(valid[0], set()):
+                return f"{spacer}[{cited}, p. {page}]"
+            result.pages_removed.append(f"[{cited}, p. {page}]")
+        return f"{spacer}[{cited}]"
 
     result.text = GROUP.sub(keep_valid, answer)
 

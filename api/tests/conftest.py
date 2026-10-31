@@ -1,4 +1,5 @@
 import pytest
+from engine.library import Library
 from fastapi.testclient import TestClient
 
 from api import jobs, main
@@ -46,8 +47,9 @@ def store(tmp_path):
 
 
 @pytest.fixture
-def client(store, earth_engine):
+def client(store, earth_engine, tmp_path):
     main.app.dependency_overrides[main.get_store] = lambda: store
+    main.app.dependency_overrides[main.get_library] = lambda: Library(tmp_path / "library.db")
     main.app.dependency_overrides[main.get_runner] = lambda: Immediately()
     yield TestClient(main.app)
     main.app.dependency_overrides.clear()

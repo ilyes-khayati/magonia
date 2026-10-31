@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 OPENALEX = "https://api.openalex.org/works"
 FIELDS = (
     "id,doi,title,publication_year,authorships,primary_location,"
-    "abstract_inverted_index,open_access,cited_by_count"
+    "abstract_inverted_index,open_access,best_oa_location,cited_by_count"
 )
 
 
@@ -38,6 +38,7 @@ class Paper:
     open_access_url: str | None
     cited_by: int
     countries: list[str]  # where the authors' institutions are
+    pdf_url: str | None = None  # the open-access PDF itself, when there is one
     relevance: float | None = None  # how well it answers the question, set when ranked
     matched: list[str] = field(default_factory=list)  # words it shares with the question
 
@@ -83,6 +84,7 @@ def to_paper(work: dict) -> Paper:
         open_access_url=(work.get("open_access") or {}).get("oa_url"),
         cited_by=work.get("cited_by_count") or 0,
         countries=sorted({c for a in work.get("authorships", []) for c in a.get("countries", [])}),
+        pdf_url=(work.get("best_oa_location") or {}).get("pdf_url"),
     )
 
 

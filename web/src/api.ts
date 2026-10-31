@@ -320,7 +320,19 @@ export type PaperCard = {
   matched?: string[]; // the words it shares with the question
 };
 
-export type CitationCheck = { cited: number[]; removed: number[]; unverified: string[] };
+export type CitationCheck = {
+  cited: number[];
+  removed: number[];
+  unverified: string[];
+  pages_removed?: string[]; // cited pages no passage came from, e.g. "[1, p. 9]"
+};
+
+// A passage of a paper's full text that Magonia was given, from the paper numbered n
+export type PassageCard = { n: number; page: number; text: string };
+
+// Whether a paper was read in full: read, blocked (the publisher refuses downloads),
+// unreadable, or abstract only (no open-access PDF)
+export type ReadStatus = "read" | "blocked" | "unreadable" | "abstract only";
 
 // A number in an answer, checked against what the assistant was given. Positions count
 // characters (code points), as the engine does.
@@ -344,6 +356,8 @@ export type AnswerDetails = {
   numbers?: CheckedNumber[];
   proposals?: Proposal[];
   route?: Route;
+  passages?: PassageCard[];
+  read?: Record<string, ReadStatus>; // by paper number
 };
 
 // What kind of question code took it for, and so what the answer was allowed to draw on
@@ -393,7 +407,9 @@ export type ChatEvent =
   | { type: "view"; cards: string[] }
   | ({ type: "read" } & Read)
   | { type: "proposal"; proposal: Proposal }
-  | ({ type: "route" } & Route);
+  | ({ type: "route" } & Route)
+  | { type: "reading"; count: number }
+  | { type: "passages"; passages: PassageCard[]; read: Record<string, ReadStatus> };
 
 export const assistantInfo = () => call<{ name: string; model: string }>("/assistant");
 export const listMessages = (workspaceId: number) => call<ChatMessage[]>(`/workspaces/${workspaceId}/messages`);
