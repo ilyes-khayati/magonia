@@ -294,6 +294,29 @@ const ANSWER = [
     removed: [7],
     unverified: [],
     pages_removed: [],
+    faithfulness: 0.5,
+    support: [
+      {
+        start: 0,
+        end: 37,
+        claim: "Drought reduces the greenness of olive groves.",
+        cites: [1],
+        status: "supported",
+        evidence: "Rainfed groves lost NDVI within one season of drought.",
+        source: "[1, p. 6]",
+        judged: true,
+      },
+      {
+        start: 38,
+        end: 55,
+        claim: "Irrigation stops the decline entirely.",
+        cites: [1],
+        status: "unsupported",
+        evidence: "Rainfed groves lost NDVI within one season of drought.",
+        source: "[1, p. 6]",
+        judged: true,
+      },
+    ],
   },
 ];
 
@@ -912,11 +935,17 @@ test("an answer shows its checked sources and what the check removed", async ({ 
   await expect(assistant.getByText("1 paper read in full")).toBeVisible();
   await expect(assistant.getByText("Read in full", { exact: false }).first()).toBeVisible();
   await assistant.getByText("Passages Magonia read (p. 6)").click();
-  await expect(assistant.getByText("Rainfed groves lost NDVI within one season of drought.")).toBeVisible();
+  await expect(assistant.locator(".paper .passage").first()).toContainText(
+    "Rainfed groves lost NDVI within one season of drought.",
+  );
   await expect(assistant.getByText("Also found, not cited (1)")).toBeVisible();
   await assistant.getByText("Also found, not cited (1)").click();
   await expect(assistant.getByText(/publisher does not allow downloads/)).toBeVisible();
   await expect(assistant.getByText("Removed a citation ([7]) that matched no paper found.")).toBeVisible();
+  // the fact check: what is not supported is shown, with the passage it was checked against
+  await expect(assistant.getByText("Fact check: 1 of 2 statements are supported by the papers they cite")).toBeVisible();
+  await expect(assistant.locator(".statement.unsupported")).toContainText("Irrigation stops the decline entirely.");
+  await expect(assistant.locator(".statement.unsupported")).toContainText("Checked against [1, p. 6]");
 
   const results = await new AxeBuilder({ page }).include(".assistant").analyze();
   const serious = results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? ""));

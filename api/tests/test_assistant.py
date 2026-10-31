@@ -91,7 +91,13 @@ def test_searched_answer_keeps_its_papers_and_check(client, library):
     ws = workspace(client)
 
     got = events(client.post(f"/workspaces/{ws}/chat", json={"content": "Drought and olives?"}))
-    assert [e["type"] for e in got if e["type"] != "text"] == ["route", "search", "papers", "check"]
+    assert [e["type"] for e in got if e["type"] != "text"] == [
+        "route",
+        "search",
+        "papers",
+        "verifying",
+        "check",
+    ]
     assert library == ["olive drought"]
 
     answer = client.get(f"/workspaces/{ws}/messages").json()[-1]
@@ -126,6 +132,7 @@ def test_open_access_papers_are_read_and_their_pages_checked(client, monkeypatch
         "papers",
         "reading",
         "passages",
+        "verifying",
         "check",
     ]
     assert "[1, p. 6] Rainfed olive groves" in model.seen[-1]["content"]
@@ -134,6 +141,10 @@ def test_open_access_papers_are_read_and_their_pages_checked(client, monkeypatch
     assert answer["details"]["check"]["pages_removed"] == ["[1, p. 9]"]
     assert answer["details"]["read"] == {"1": "read"}
     assert answer["details"]["passages"][0]["page"] == 6
+    # the statement is about what the passage says; without a judge it stays unclear
+    assert answer["details"]["support"][0]["source"] == "[1, p. 6]"
+    assert answer["details"]["support"][0]["status"] == "unclear"
+    assert answer["details"]["faithfulness"] == 0.0
 
 
 def test_the_model_sees_the_earlier_conversation(client, model):

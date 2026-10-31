@@ -23,6 +23,7 @@ from engine.proposals import PROPOSE_TOOL, ProposalError, proposal
 from engine.proposals import describe as describe_proposal
 from engine.rank import ollama_embedder
 from engine.route import SOURCES, glossary, route
+from engine.support import Judge, check_support, faithfulness, judge_with
 
 NAME = "Magonia"
 
@@ -295,6 +296,7 @@ def answer(
     view: View | None = None,
     max_reads: int = 3,
     library: Library | None = None,
+    judge: Judge | None = None,
 ) -> Iterator[dict]:
     """Answer the last message of the conversation, using tools when the model asks.
 
@@ -336,6 +338,9 @@ def answer(
         messages[-1] = {**messages[-1], "content": f"{known}\n\n---\nThe researcher asks: {text}"}
     papers: list[Paper] = []
     pages: dict[int, set[int]] = {}  # the pages of each paper whose passages the model read
+    evidence: dict[int, list[tuple[str, str]]] = {}  # what the model was given from each paper
+    if judge is None and isinstance(provider, Ollama):
+        judge = judge_with(provider.stream, (ProviderError, OSError))
     said: list[str] = []
     searches = reads = proposed = refused = 0
     if not asks_to_run(text):
@@ -425,6 +430,10 @@ def answer(
                 continue
             first = len(papers) + 1
             papers.extend(found)
+            for i, p in enumerate(found):
+                evidence[first + i] = [
+                    (f"[{first + i}] abstract", f"{p.title}. {p.abstract or ''}")
+                ]
             sources += [
                 (
                     f"paper [{first + i}]",
@@ -445,6 +454,7 @@ def answer(
                 chosen = library.best(text, numbered)
                 for f in chosen:
                     pages.setdefault(f.n, set()).add(f.page)
+                    evidence[f.n].append((f"[{f.n}, p. {f.page}]", f.text))
                 sources += [(f"paper [{f.n}] p. {f.page}", f.text) for f in chosen]
                 yield {
                     "type": "passages",
@@ -460,4 +470,11 @@ def answer(
     # numbers are checked when there was something to check them against
     if facts or papers or kind == "method":
         event["numbers"] = [n.to_dict() for n in check_numbers(verdict.text, sources)]
+    if verdict.cited:
+        # does each cited statement say what its papers say?
+        yield {"type": "verifying"}
+        embed = getattr(provider, "embed", None)
+        found = check_support(verdict.text, evidence, embed=embed, judge=judge)
+        event["support"] = [s.to_dict() for s in found]
+        event["faithfulness"] = faithfulness(found)
     yield event
