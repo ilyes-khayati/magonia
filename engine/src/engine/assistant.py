@@ -11,6 +11,7 @@ from urllib.request import Request, urlopen
 
 from dotenv import load_dotenv
 
+from engine.catalogue import CATALOGUE
 from engine.citations import check
 from engine.facts import View
 from engine.literature import LiteratureError, Paper, search_papers
@@ -130,7 +131,7 @@ READ_TOOL = {
             "type": "object",
             "properties": {
                 "area": {"type": "string", "description": "Area name, as in the facts"},
-                "variable": {"type": "string", "description": "ndvi, lst or spei"},
+                "variable": {"type": "string", "description": ", ".join(CATALOGUE)},
                 "year": {"type": "integer", "description": "A year, or leave out"},
             },
             "required": ["area", "variable"],

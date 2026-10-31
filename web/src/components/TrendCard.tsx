@@ -6,6 +6,7 @@ import { useAnalysis } from "../useAnalysis";
 import Cautions from "./Cautions";
 import type { Entry } from "./ChartCard";
 import { CloseIcon } from "./Icons";
+import { large } from "../variables";
 
 type Props = {
   analysis: Trend;
@@ -24,7 +25,7 @@ const TOOLTIP = { background: "var(--card)", border: "1px solid var(--line)", bo
 export default function TrendCard({ analysis, onChange, onRemove, variables, title, entries, options }: Props) {
   const variable = variables.find((v) => v.key === analysis.variable);
   const name = variable ? title(variable) : analysis.variable;
-  const digits = analysis.variable === "lst" ? 2 : 3;
+  const digits = large(analysis.variable) ? 2 : 3;
 
   const signature = JSON.stringify(entries.filter((e) => e.state?.status === "done").map((e) => options(e.area.id)));
   const requests = useMemo(

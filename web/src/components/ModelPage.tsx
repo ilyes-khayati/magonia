@@ -16,6 +16,7 @@ import Recipe from "./Recipe";
 import type { Source } from "../board";
 import { useRun } from "../useRun";
 import Results from "./Results";
+import { large } from "../variables";
 
 type Props = {
   experiments: Experiment[];
@@ -296,7 +297,7 @@ function ExperimentView(props: ViewProps) {
             held={held}
             stable={e.stability}
             onStable={() => onChange({ stability: true })}
-            digits={ran.response === "lst" ? 2 : 4}
+            digits={large(ran.response) ? 2 : 4}
           />
         ) : (
           <p className="placeholder">Waiting for the series of this area to load.</p>
@@ -347,7 +348,7 @@ function CompareColumn(props: {
     <section className="card" aria-label={e.name}>
       <h3>{e.name}</h3>
       {ready ? (
-        <Results fit={fit} why={why} explain={e.explain} onExplain={onExplain} digits={recipe.response === "lst" ? 2 : 4} compact />
+        <Results fit={fit} why={why} explain={e.explain} onExplain={onExplain} digits={large(recipe.response) ? 2 : 4} compact />
       ) : (
         <p className="placeholder">Waiting for the series of this area to load.</p>
       )}

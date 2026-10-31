@@ -26,7 +26,8 @@ ALPHA = 0.05
 
 # The sign a physically plausible link with vegetation has: hotter than usual is less green,
 # wetter than usual (higher SPEI) is greener
-EXPECTED = {"lst": -1, "spei": +1}
+# the sign a driver's correlation with vegetation is expected to have: heat dries, water greens
+EXPECTED = {"lst": -1, "air_temperature": -1, "spei": +1, "rain": +1, "soil_moisture": +1}
 
 
 def deseasonalise(series: pd.Series) -> pd.Series:

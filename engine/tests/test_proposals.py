@@ -46,7 +46,7 @@ def test_an_experiment_gets_its_area_models_and_defaults():
     ("arguments", "message"),
     [
         ({"kind": "clustering"}, "kind must be one of"),
-        ({"kind": "trend", "variable": "rain"}, "ndvi, lst or spei"),
+        ({"kind": "trend", "variable": "snow"}, "must be one of ndvi, savi"),
         ({"kind": "lags", "area": "Tunis"}, "no area is called 'Tunis'"),
         ({"kind": "trend", "start": "last year"}, "YYYY or YYYY-MM"),
         ({"kind": "experiment", "models": ["LSTM"]}, "Ridge, Random Forest or XGBoost"),
@@ -73,3 +73,13 @@ def test_variables_are_read_from_the_words_a_model_uses():
         AREAS,
     )
     assert p["variable"] == "ndvi" and p["drivers"] == ["lst"]
+
+
+def test_new_variables_are_understood_by_name():
+    assert (
+        proposal({"kind": "trend", "variable": "rainfall", "why": ""}, AREAS)["variable"] == "rain"
+    )
+    found = proposal(
+        {"kind": "correlation", "variable": "EVI", "driver": "air temperature", "why": ""}, AREAS
+    )
+    assert (found["variable"], found["driver"]) == ("evi", "air_temperature")

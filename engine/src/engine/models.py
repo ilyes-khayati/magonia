@@ -22,6 +22,7 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from xgboost import XGBRegressor
 
+from engine.catalogue import large
 from engine.lags import acf, deseasonalise, driver_evidence
 
 SEED = 0
@@ -359,7 +360,7 @@ def forecast(
             break
     fitted, base = evaluate(X, y_, test_start, params, seeds, windows)
 
-    digits = 2 if key == "lst" else 4
+    digits = 2 if large(key) else 4
 
     def fmt(v: float) -> str:
         return f"{v:.{digits}f}"

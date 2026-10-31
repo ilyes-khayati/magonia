@@ -8,6 +8,8 @@ the researcher clicks: the model can suggest, never act.
 
 import re
 
+from engine.catalogue import CATALOGUE
+
 KINDS = {
     "correlation": "Correlation and lag",
     "decomposition": "Trend and season",
@@ -33,12 +35,23 @@ ALIASES = {
     "trends": "trend",
     "mann-kendall": "trend",
 }
-VARIABLES = {"ndvi", "savi", "lst", "spei"}
-# how a model may name each variable
+VARIABLES = set(CATALOGUE)
+SHORT = {"lst": "LST", "lai": "LAI", "gpp": "GPP", "et": "ET"}
+# how a model may name each variable, most specific first: "air temperature" before "temperature"
 WORDS = {
+    "evi": ("evi", "enhanced vegetation"),
     "savi": ("savi", "soil-adjusted", "soil adjusted"),
+    "ndmi": ("ndmi", "ndwi", "moisture index", "leaf water"),
     "ndvi": ("ndvi", "greenness", "vegetation index"),
+    "lai": ("lai", "leaf area"),
+    "fpar": ("fpar", "absorbed"),
+    "gpp": ("gpp", "primary production", "productivity"),
+    "et": ("evapotranspiration",),
+    "soil_moisture": ("soil moisture", "soil water"),
+    "nbr": ("nbr", "burn"),
+    "air_temperature": ("air temperature", "air temp"),
     "lst": ("lst", "land surface temperature", "temperature"),
+    "rain": ("rain", "precipitation"),
     "spei": ("spei", "drought"),
 }
 MODELS = {
@@ -66,7 +79,7 @@ PROPOSE_TOOL = {
                 "kind": {"type": "string", "enum": list(KINDS)},
                 "variable": {
                     "type": "string",
-                    "description": "ndvi, lst or spei: the one studied or forecast",
+                    "description": f"{', '.join(CATALOGUE)}: the one studied or forecast",
                 },
                 "driver": {
                     "type": "string",
@@ -123,11 +136,13 @@ def proposal(arguments: dict, areas: list[str]) -> dict:
     out: dict = {"kind": kind, "label": KINDS[kind], "why": str(arguments.get("why", "")).strip()}
 
     def variable(name: str, value) -> str:
-        v = str(value or "").lower()
+        v = str(value or "").strip().lower()
+        if v in VARIABLES:
+            return v
         for key, words in WORDS.items():
             if any(w in v for w in words):
                 return key
-        raise ProposalError(f"{name} must be ndvi, lst or spei")
+        raise ProposalError(f"{name} must be one of {', '.join(CATALOGUE)}")
 
     if kind in ("correlation", "decomposition", "trend", "lags", "experiment"):
         out["variable"] = variable("variable", arguments.get("variable") or "ndvi")
@@ -175,7 +190,7 @@ def proposal(arguments: dict, areas: list[str]) -> dict:
 
 def describe(p: dict) -> str:
     """The proposal in one line, as the researcher will see it on the button."""
-    words = {"ndvi": "NDVI", "savi": "SAVI", "lst": "LST", "spei": "SPEI"}
+    words = {key: SHORT.get(key, v.name) for key, v in CATALOGUE.items()}
     what = p["label"]
     if p["kind"] == "correlation":
         what += f": {words[p['variable']]} and {words[p['driver']]}"

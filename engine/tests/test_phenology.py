@@ -34,7 +34,7 @@ def test_a_season_that_crosses_the_new_year_is_found_around_its_peak():
 def test_a_weak_cycle_is_cautioned_and_other_variables_refused():
     weak = phenology("Desert", "NDVI", "ndvi", points(amplitude=0.04))
     assert "the yearly cycle is weak" in weak.cautions[0]
-    with pytest.raises(PhenologyError, match="from NDVI"):
+    with pytest.raises(PhenologyError, match="measure of vegetation"):
         phenology("Desert", "LST", "lst", points())
     with pytest.raises(PhenologyError):
         phenology("Desert", "NDVI", "ndvi", points(years=1))

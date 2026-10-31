@@ -1,5 +1,9 @@
+import { useState } from "react";
 import type { Masking, Resolution, Variable, VariableKey } from "../api";
 import type { Settings } from "../settings";
+import { InfoIcon } from "./Icons";
+import LearnPanel from "./LearnPanel";
+import { groups } from "../variables";
 
 type Props = {
   catalogue: Variable[];
@@ -31,6 +35,7 @@ const REASONS = {
 };
 
 export default function DataPanel({ catalogue, settings, onChange, progress }: Props) {
+  const [open, setOpen] = useState<VariableKey | null>(null);
   function toggle(key: VariableKey) {
     const on = settings.variables.includes(key);
     // keep the catalogue order whatever the order of clicks
@@ -44,38 +49,57 @@ export default function DataPanel({ catalogue, settings, onChange, progress }: P
         <legend className="label" style={{ padding: 0, marginBottom: 8 }}>
           Variables
         </legend>
-        {catalogue.map((variable) => {
-          const on = settings.variables.includes(variable.key);
-          return (
-            <div key={variable.key} className="variable" data-on={on}>
-              <label className="row" style={{ alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
-                <input type="checkbox" checked={on} onChange={() => toggle(variable.key)} />
-                <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                  <span style={{ fontWeight: 500 }}>{variable.name}</span>
-                  <span className="meta">
-                    {variable.product} · {variable.resolution} · {variable.cadence}
-                  </span>
-                </span>
-              </label>
-              {on && variable.scales.length > 0 && (
-                <label className="row meta" style={{ justifyContent: "space-between", paddingLeft: 26 }}>
-                  Time scale
-                  <select
-                    className="select"
-                    value={settings.scale}
-                    onChange={(e) => onChange({ scale: Number(e.target.value) })}
-                  >
-                    {variable.scales.map((months) => (
-                      <option key={months} value={months}>
-                        {months} {months === 1 ? "month" : "months"}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
-            </div>
-          );
-        })}
+        {groups(catalogue).map(([group, variables]) => (
+          <div key={group} className="variable-group">
+            <span className="meta group-name">{group}</span>
+            {variables.map((variable) => {
+              const on = settings.variables.includes(variable.key);
+              return (
+                <div key={variable.key} className="variable" data-on={on}>
+                  <div className="row" style={{ alignItems: "flex-start", gap: 6, justifyContent: "space-between" }}>
+                    <label className="row" style={{ alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
+                      <input type="checkbox" checked={on} onChange={() => toggle(variable.key)} />
+                      <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                        <span style={{ fontWeight: 500 }}>{variable.name}</span>
+                        <span className="meta">
+                          {variable.product} · {variable.resolution} · {variable.cadence}
+                        </span>
+                      </span>
+                    </label>
+                    {variable.learn && (
+                      <button
+                        className="icon-button round"
+                        aria-label={`About ${variable.name}`}
+                        title={`About ${variable.name}`}
+                        aria-expanded={open === variable.key}
+                        onClick={() => setOpen(open === variable.key ? null : variable.key)}
+                      >
+                        <InfoIcon size={13} />
+                      </button>
+                    )}
+                  </div>
+                  {open === variable.key && <LearnPanel variable={variable} />}
+                  {on && variable.scales.length > 0 && (
+                    <label className="row meta" style={{ justifyContent: "space-between", paddingLeft: 26 }}>
+                      Time scale
+                      <select
+                        className="select"
+                        value={settings.scale}
+                        onChange={(e) => onChange({ scale: Number(e.target.value) })}
+                      >
+                        {variable.scales.map((months) => (
+                          <option key={months} value={months}>
+                            {months} {months === 1 ? "month" : "months"}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ))}
       </fieldset>
 
       <div className="section">

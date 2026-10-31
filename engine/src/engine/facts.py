@@ -12,6 +12,7 @@ from statistics import fmean, median, pstdev
 import pandas as pd
 
 from engine import guardrails
+from engine.catalogue import large
 from engine.decompose import DecompositionError, decompose
 from engine.lags import explore
 
@@ -41,7 +42,7 @@ class Fact:
 
 
 def fmt(value: float, key: str) -> str:
-    return f"{value:.1f}" if key == "lst" else f"{value:.2f}"
+    return f"{value:.1f}" if large(key) else f"{value:.2f}"
 
 
 def month_of(date: str) -> int:
@@ -226,7 +227,7 @@ def series_facts(s: Series) -> list[Fact]:
         trend = sen_slope(order, [years[y] for y in order]) * 10
         p = mann_kendall([years[y] for y in order])
         verdict = "statistically significant" if p < 0.05 else "not statistically significant"
-        digits = 2 if s.key == "lst" else 3
+        digits = 2 if large(s.key) else 3
         facts.append(
             say(
                 f"trend in the annual means {trend:+.{digits}f}{unit} per decade (Sen's slope), "

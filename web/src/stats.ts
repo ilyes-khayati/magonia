@@ -1,4 +1,5 @@
 import type { SeriesPoint } from "./api";
+import { large } from "./variables";
 
 export const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -39,7 +40,7 @@ export function seasonalCycle(points: SeriesPoint[]): MonthStats[] {
 
 export type Named = { name: string; units: string; key: string; points: SeriesPoint[] };
 
-const fmt = (value: number, key: string) => value.toFixed(key === "lst" ? 1 : 2);
+const fmt = (value: number, key: string) => value.toFixed(large(key) ? 1 : 2);
 const unit = (s: Named) => (s.units ? ` ${s.units}` : "");
 
 // Plain sentences computed from the numbers, for the summary card

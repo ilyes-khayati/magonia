@@ -17,9 +17,10 @@ import numpy as np
 import pandas as pd
 import pywt
 
+from engine.catalogue import CADENCE_DAYS, get_variable
+
 WAVELET = "dmey"
 TARGET_DAYS = 365.25  # the trend keeps cycles longer than about a year
-CADENCE_DAYS = {"ndvi": 16.0, "savi": 16.0, "lst": 8.0, "spei": 365.25 / 12}
 PAD = 0.5  # share of the series mirrored at each end
 
 
@@ -89,7 +90,7 @@ def decompose(dates: pd.Series, values: pd.Series, key: str) -> Decomposition:
     """
     series = pd.Series(values.to_numpy(float), index=pd.to_datetime(dates)).sort_index()
     series = series.loc[series.first_valid_index() : series.last_valid_index()]
-    cadence = CADENCE_DAYS[key]
+    cadence = CADENCE_DAYS[get_variable(key).cadence]
     level = level_for(cadence)
     # the trend needs at least a few cycles of its own length to mean anything
     if len(series) * cadence < 3 * TARGET_DAYS:
