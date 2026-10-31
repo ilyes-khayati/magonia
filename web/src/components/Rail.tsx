@@ -1,9 +1,17 @@
 import { NavLink } from "react-router";
 import { PAGES, pagePath } from "../pages";
-import { AnalysisIcon, ChartIcon, MapIcon, ModelIcon, PinIcon, SparkIcon } from "./Icons";
+import { AnalysisIcon, BookIcon, ChartIcon, MapIcon, ModelIcon, PinIcon, SparkIcon } from "./Icons";
 
 // Magonia is opened from the top bar, not from here
-const ICONS = { map: MapIcon, data: ChartIcon, analyses: AnalysisIcon, model: ModelIcon, board: PinIcon, assistant: SparkIcon };
+const ICONS = {
+  map: MapIcon,
+  data: ChartIcon,
+  analyses: AnalysisIcon,
+  model: ModelIcon,
+  board: PinIcon,
+  library: BookIcon,
+  assistant: SparkIcon,
+};
 
 // The pages of the workbench
 export default function Rail({ workspaceId }: { workspaceId: number | null }) {

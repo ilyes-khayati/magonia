@@ -80,7 +80,8 @@ export type Workspace = WorkspaceSummary & {
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`/api${path}`, {
     ...init,
-    headers: init?.body ? { "Content-Type": "application/json" } : undefined,
+    // a file upload (FormData) sets its own content type
+    headers: typeof init?.body === "string" ? { "Content-Type": "application/json" } : undefined,
   });
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
@@ -432,6 +433,23 @@ export type ChatEvent =
   | ({ type: "route" } & Route)
   | { type: "reading"; count: number }
   | { type: "passages"; passages: PassageCard[]; read: Record<string, ReadStatus> };
+
+// The researcher's library: their own PDFs, which Magonia reads and cites like papers
+export type LibraryFile = { id: string; title: string; filename: string; added: string; pages: number };
+
+export const listFiles = () => call<LibraryFile[]>("/library");
+export const removeFile = (id: string) => call<void>(`/library/${id}`, send("DELETE"));
+export function addFile(file: File) {
+  const body = new FormData();
+  body.append("file", file);
+  return call<LibraryFile & { passages: number }>("/library", { method: "POST", body });
+}
+
+// How the researcher wants Magonia to answer in a workspace
+export const getInstructions = (workspaceId: number) =>
+  call<{ text: string }>(`/workspaces/${workspaceId}/instructions`);
+export const setInstructions = (workspaceId: number, text: string) =>
+  call<{ text: string }>(`/workspaces/${workspaceId}/instructions`, send("PUT", { text }));
 
 export const assistantInfo = () => call<{ name: string; model: string }>("/assistant");
 export const listMessages = (workspaceId: number) => call<ChatMessage[]>(`/workspaces/${workspaceId}/messages`);

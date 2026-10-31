@@ -192,3 +192,10 @@ export const PinIcon = (p: IconProps) => (
     <path d="M9 3h6l-1 6 3 3H7l3-3zM12 12v9" />
   </Svg>
 );
+
+export const BookIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z" />
+    <path d="M4 19V5M8 7h7M8 11h5" />
+  </Svg>
+);

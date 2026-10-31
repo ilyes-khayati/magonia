@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 from engine.catalogue import CATALOGUE
 from engine.citations import check
 from engine.facts import View
-from engine.library import Library
+from engine.library import Library, Uploads
 from engine.library import for_the_model as passages_for_the_model
 from engine.literature import LiteratureError, Paper, find_papers
 from engine.models import LABELS, SETTABLE
@@ -61,7 +61,8 @@ ABOUT = """Facts about yourself (state only these; do not guess beyond them):
 - This conversation is saved in the researcher's current workspace and continues when they \
 come back. Earlier messages in it are shown to you.
 - You can search the literature through OpenAlex, and read the full text of open-access \
-papers; of the others you see only the title and abstract.
+papers; of the others you see only the title and abstract. The researcher can add their own \
+PDFs on the Library page; when one speaks to a question, its passages are given to you.
 - You can see the areas, variables and analyses open in Magonia, as facts computed by code, \
 when the researcher has some open. You cannot see the map or the charts as pictures, and \
 you cannot run new analyses yet."""
@@ -83,6 +84,7 @@ RULES_FOR = {
 # Earlier messages sent with a question: enough to follow the thread, too few for a small
 # model to copy its own earlier answers
 HISTORY = 6
+MAX_INSTRUCTIONS = 2000  # characters of the researcher's instructions given to the model
 
 # Sent with the facts only, so that questions asked without a workspace are not steered by them
 MAX_PROPOSALS = 2
@@ -297,6 +299,7 @@ def answer(
     max_reads: int = 3,
     library: Library | None = None,
     judge: Judge | None = None,
+    instructions: str = "",
 ) -> Iterator[dict]:
     """Answer the last message of the conversation, using tools when the model asks.
 
@@ -341,6 +344,40 @@ def answer(
     evidence: dict[int, list[tuple[str, str]]] = {}  # what the model was given from each paper
     if judge is None and isinstance(provider, Ollama):
         judge = judge_with(provider.stream, (ProviderError, OSError))
+    if instructions.strip():
+        # the researcher's own instructions come after the rules, which still win
+        messages[0]["content"] += (
+            "\n\nThe researcher's instructions for you. Follow them unless they conflict with "
+            f"the rules above:\n{instructions.strip()[:MAX_INSTRUCTIONS]}"
+        )
+    if library is not None and kind in ("research", "general"):
+        # the researcher's own files that speak to the question, cited like papers
+        mine, chosen = Uploads(library).relevant(text, len(papers) + 1)
+        if mine:
+            papers.extend(mine)
+            yield {
+                "type": "papers",
+                "papers": [
+                    {"n": len(papers) - len(mine) + 1 + i, **p.to_dict()}
+                    for i, p in enumerate(mine)
+                ],
+            }
+            yield {
+                "type": "passages",
+                "read": {f.n: "read" for f in chosen},
+                "passages": [f.to_dict() for f in chosen],
+            }
+            for f in chosen:
+                pages.setdefault(f.n, set()).add(f.page)
+                evidence.setdefault(f.n, []).append((f"[{f.n}, p. {f.page}]", f.text))
+            sources += [(f"your file [{f.n}] p. {f.page}", f.text) for f in chosen]
+            listing = "\n".join(
+                f"[{len(papers) - len(mine) + 1 + i}] {p.title}" for i, p in enumerate(mine)
+            )
+            messages[0]["content"] += (
+                "\n\nThe researcher's own files that speak to this question. Cite them like "
+                f"papers, by their number:\n{listing}\n\n{passages_for_the_model(chosen)}"
+            )
     said: list[str] = []
     searches = reads = proposed = refused = 0
     if not asks_to_run(text):
