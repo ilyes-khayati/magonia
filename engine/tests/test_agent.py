@@ -45,8 +45,8 @@ def test_model_searches_then_answers_with_checked_citations():
     events = ask(model, "What does drought do to olive NDVI?", library)
 
     assert library.queries == ["olive drought NDVI"]
-    assert [e["type"] for e in events][:2] == ["search", "papers"]
-    assert [p["n"] for p in events[1]["papers"]] == [1, 2]
+    assert [e["type"] for e in events][:3] == ["route", "search", "papers"]
+    assert [p["n"] for p in events[2]["papers"]] == [1, 2]
     final = events[-1]
     assert final["type"] == "check"
     assert final["cited"] == [1, 2] and final["removed"] == []
@@ -72,7 +72,7 @@ def test_answer_from_memory_has_its_citations_removed():
     model = Scripted("Studies show NDVI falls in drought [1][2].")
     events = ask(model, "Does NDVI fall in drought?", Library())
 
-    assert [e["type"] for e in events if e["type"] != "text"] == ["check"]
+    assert [e["type"] for e in events if e["type"] not in ("text", "route")] == ["check"]
     assert events[-1]["removed"] == [1, 2]
     assert "[" not in events[-1]["text"]
 
@@ -105,8 +105,8 @@ def test_failed_search_is_reported_and_the_model_still_answers():
     model = Scripted(ToolCall("search_papers", {"query": "olive"}), "I could not search right now.")
     events = ask(model, "q", offline)
 
-    assert events[0] == {"type": "search", "query": "olive"}
-    assert events[1] == {
+    assert events[1] == {"type": "search", "query": "olive"}
+    assert events[2] == {
         "type": "search_failed",
         "query": "olive",
         "error": "Could not reach OpenAlex: no network",
@@ -150,12 +150,12 @@ def test_the_open_workspace_goes_with_the_question_only():
         )
     )
 
-    assert events[0] == {"type": "view", "cards": ["NDVI chart"]}
+    assert events[1] == {"type": "view", "cards": ["NDVI chart"]}
     question = model.seen[-1]["content"]
     assert question.startswith("What is open in Magonia now")
     assert question.endswith("\n\n---\nThe researcher asks: When does it peak?")
     assert "[NDVI chart]" in question and "peaks in Dec (0.41)" in question
-    assert model.seen[0]["content"] == "Hello"  # earlier turns are not repeated with facts
+    assert model.seen[1]["content"] == "Hello"  # earlier turns are not repeated with facts
     assert events[-1]["text"] == "NDVI peaks in Dec (0.41) (NDVI chart)."
 
 
@@ -189,8 +189,9 @@ def test_without_a_workspace_the_read_tool_is_not_offered():
             seen_tools.append([t["function"]["name"] for t in tools or []])
             yield from super().stream(messages, tools)
 
-    list(answer(Recorder("Hi."), [{"role": "user", "content": "Hello"}]))
-    list(answer(Recorder("Hi."), [{"role": "user", "content": "Hello"}], view=orchard_view()))
+    question = [{"role": "user", "content": "Does NDVI fall in drought?"}]
+    list(answer(Recorder("Hi."), question))
+    list(answer(Recorder("Hi."), question, view=orchard_view()))
     assert seen_tools == [["search_papers"], ["search_papers", "read_series"]]
 
 
@@ -321,3 +322,51 @@ def test_after_a_proposal_the_question_is_still_answered():
         )
     )
     assert "Now answer their question" in model.seen[-1]["content"]
+
+
+def tools_seen(question: str) -> tuple:
+    seen = []
+
+    class Recorder(Scripted):
+        def stream(self, messages, tools=None):
+            seen.append([t["function"]["name"] for t in tools or []])
+            yield from super().stream(messages, tools)
+
+    model = Recorder("Fine.")
+    events = list(answer(model, [{"role": "user", "content": question}], view=orchard_view()))
+    return seen, model, events
+
+
+def test_a_research_question_gets_the_search_and_no_workspace_facts():
+    seen, model, events = tools_seen("What do studies say about olive NDVI in drought?")
+    assert seen == [["search_papers"]]
+    assert "What is open in Magonia" not in model.seen[-1]["content"]
+    assert events[0] == {
+        "type": "route",
+        "kind": "research",
+        "source": "Answered from the literature",
+    }
+
+
+def test_a_data_question_gets_the_facts_and_no_search():
+    seen, model, _ = tools_seen("When does NDVI peak in my orchard?")
+    assert seen == [["read_series"]]
+    assert "What is open in Magonia" in model.seen[-1]["content"]
+    assert "search_papers" not in model.seen[0]["content"]
+
+
+def test_a_method_question_gets_the_glossary_and_the_settings_but_no_tools():
+    seen, model, _ = tools_seen("What is EVI, and which XGBoost settings can I change?")
+    assert seen == [[]]
+    assert "keeps responding in dense" in model.seen[-1]["content"]
+    assert "learning_rate (0.001 to 1)" in model.seen[0]["content"]
+
+
+def test_only_the_last_turns_of_a_long_conversation_are_sent():
+    history = []
+    for n in range(10):
+        history += [{"role": "user", "content": f"q{n}"}, {"role": "assistant", "content": f"a{n}"}]
+    model = Scripted("Fine.")
+    list(answer(model, [*history, {"role": "user", "content": "Hello"}]))
+    sent = [m["content"] for m in model.seen[1:]]
+    assert sent == ["q7", "a7", "q8", "a8", "q9", "a9", "Hello"]

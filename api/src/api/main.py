@@ -902,16 +902,23 @@ def chat(
     view = workspace_view(store, workspace_id, body.view) if body.view else None
     question = {"role": "user", "content": body.content}
     events = assistant.answer(provider, [*history, question], view=view)
-    try:  # fail with a clear status before streaming starts, if the model cannot be reached
-        first = next(events)
+    # fail with a clear status before streaming starts, if the model cannot be reached: the
+    # route and view events come before the model is asked anything
+    head = []
+    try:
+        for event in events:
+            head.append(event)
+            if event["type"] not in ("route", "view"):
+                break
     except assistant.ProviderError as exc:
         raise HTTPException(503, str(exc)) from exc
     store.add_message(workspace_id, "user", body.content)
 
     def stream() -> Iterator[str]:
         said, searches, papers, verdict, cards, reads, proposals = [], [], [], None, [], [], []
+        route = None
         try:
-            for event in itertools.chain([first], events):
+            for event in itertools.chain(head, events):
                 match event["type"]:
                     case "text":
                         said.append(event["text"])
@@ -927,6 +934,8 @@ def chat(
                         reads.append({k: event[k] for k in ("area", "variable", "year")})
                     case "proposal":
                         proposals.append(event["proposal"])
+                    case "route":
+                        route = {k: event[k] for k in ("kind", "source")}
                 yield json.dumps(event) + "\n"
         except assistant.ProviderError as exc:
             yield json.dumps({"type": "error", "message": f"The model stopped: {exc}"}) + "\n"
@@ -934,6 +943,8 @@ def chat(
             details = {"searches": searches, "papers": papers, "cards": cards, "reads": reads}
             if proposals:
                 details["proposals"] = proposals
+            if route:
+                details["route"] = route
             if verdict:
                 details["check"] = {k: verdict[k] for k in ("cited", "removed", "unverified")}
                 if "numbers" in verdict:
