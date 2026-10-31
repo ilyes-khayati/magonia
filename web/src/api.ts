@@ -327,6 +327,19 @@ export type CitationCheck = {
   pages_removed?: string[]; // cited pages no passage came from, e.g. "[1, p. 9]"
 };
 
+// A statement of the answer that cites papers, and whether those papers say it: supported
+// (the model, asked about the closest passage, said yes), unclear, or unsupported
+export type SupportCheck = {
+  start: number;
+  end: number;
+  claim: string;
+  cites: number[];
+  status: "supported" | "unclear" | "unsupported";
+  evidence: string; // the closest text from the cited papers
+  source: string; // e.g. "[1, p. 6]" or "[2] abstract"
+  judged: boolean;
+};
+
 // A passage of a paper's full text that Magonia was given, from the paper numbered n
 export type PassageCard = { n: number; page: number; text: string };
 
@@ -358,6 +371,8 @@ export type AnswerDetails = {
   route?: Route;
   passages?: PassageCard[];
   read?: Record<string, ReadStatus>; // by paper number
+  support?: SupportCheck[];
+  faithfulness?: number | null; // the share of cited statements that are supported
 };
 
 // What kind of question code took it for, and so what the answer was allowed to draw on
@@ -402,7 +417,14 @@ export type ChatEvent =
   | { type: "search"; query: string }
   | { type: "search_failed"; query: string; error: string }
   | { type: "papers"; papers: PaperCard[] }
-  | ({ type: "check"; text: string; numbers?: CheckedNumber[] } & CitationCheck)
+  | ({
+      type: "check";
+      text: string;
+      numbers?: CheckedNumber[];
+      support?: SupportCheck[];
+      faithfulness?: number | null;
+    } & CitationCheck)
+  | { type: "verifying" }
   | { type: "error"; message: string }
   | { type: "view"; cards: string[] }
   | ({ type: "read" } & Read)

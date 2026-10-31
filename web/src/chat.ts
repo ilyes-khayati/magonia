@@ -45,6 +45,8 @@ export function applyEvent(turn: Turn, event: ChatEvent): Turn {
             pages_removed: event.pages_removed,
           },
           numbers: event.numbers,
+          support: event.support,
+          faithfulness: event.faithfulness,
         },
       };
     case "error":
@@ -53,6 +55,8 @@ export function applyEvent(turn: Turn, event: ChatEvent): Turn {
       return { ...turn, status: "Reading your workspace…", details: { ...details, cards: event.cards } };
     case "route":
       return { ...turn, details: { ...details, route: { kind: event.kind, source: event.source } } };
+    case "verifying":
+      return { ...turn, status: "Checking each statement against the paper it cites…" };
     case "reading":
       return { ...turn, status: `Reading ${event.count === 1 ? "1 paper" : `${event.count} papers`} in full…` };
     case "passages":
