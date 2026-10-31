@@ -56,3 +56,10 @@ def test_answer_without_any_search_can_cite_nothing():
 def test_author_year_mentions_are_flagged_unless_retrieved():
     result = check("This agrees with (Crespo et al., 2025) but not (Smith et al., 2019).", THREE)
     assert result.unverified == ["(Smith et al., 2019)"]
+
+
+def test_a_cited_page_is_kept_only_if_a_passage_came_from_it():
+    papers = [Paper("W1", "A", ["A. Sghaier"], 2022, None, None, None, None, 0, [])] * 2
+    result = check("Lost NDVI [1, p. 6]; also [1 p.9] and [2, pp. 3-4].", papers, {1: {6}})
+    assert result.text == "Lost NDVI [1, p. 6]; also [1] and [2]."
+    assert result.pages_removed == ["[1, p. 9]", "[2, p. 3]"]
