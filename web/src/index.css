@@ -1238,6 +1238,18 @@ button:disabled {
   color: inherit;
 }
 
+.cite-page {
+  margin-left: 3px;
+  font-weight: 400;
+}
+
+.passage {
+  margin: 6px 0 0;
+  padding-left: 8px;
+  border-left: 2px solid var(--line);
+  color: var(--muted);
+}
+
 .paper .matched {
   display: block;
   font-style: italic;
