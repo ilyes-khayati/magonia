@@ -25,6 +25,10 @@
   `engine/tests/data/recorded/`. After changing the extraction code, run the live
   version (`uv run pytest -m live tests/test_acceptance.py`), then re-record with
   `uv run python scripts/record_responses.py`.
+- `engine/tests/test_cache_guard.py` fails when the code behind cached results
+  (extraction, preparation, forecasting) changes. Results are cached by request and
+  `engine.__version__`, so if a change can alter a result, bump the version; then copy
+  the new hash the test prints into it.
 
 ## Configuration
 
