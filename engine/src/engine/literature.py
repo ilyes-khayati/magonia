@@ -4,7 +4,7 @@ import json
 import os
 import ssl
 from dataclasses import asdict, dataclass, field
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -97,6 +97,10 @@ def search_papers(query: str, limit: int = 6, from_year: int | None = None) -> l
     params = {"search": query, "per_page": limit, "select": FIELDS}
     if from_year:
         params["filter"] = f"publication_year:>{from_year - 1}"
+    # Without a key, OpenAlex gives a small free budget a day, shared by everyone on the same
+    # network address; a free key gives this installation its own
+    if key := os.environ.get("OPENALEX_API_KEY"):
+        params["api_key"] = key
     # Optional: OpenAlex answers faster and more reliably when given a contact address
     if email := os.environ.get("OPENALEX_EMAIL"):
         params["mailto"] = email
@@ -104,6 +108,18 @@ def search_papers(query: str, limit: int = 6, from_year: int | None = None) -> l
     try:
         with urlopen(request, timeout=30, context=CERTIFICATES) as response:
             found = json.load(response)
+    except HTTPError as exc:
+        if exc.code == 429:
+            raise LiteratureError(
+                "OpenAlex's daily search budget is used up"
+                + (
+                    " for this key."
+                    if key
+                    else " for this network; it resets at midnight UTC. A free OpenAlex "
+                    "API key (openalex.org) in OPENALEX_API_KEY in .env gives Magonia its own."
+                )
+            ) from exc
+        raise LiteratureError(f"OpenAlex answered with an error: {exc}") from exc
     except (URLError, TimeoutError) as exc:
         raise LiteratureError(f"Could not reach OpenAlex: {exc}") from exc
     return [to_paper(work) for work in found.get("results", [])]

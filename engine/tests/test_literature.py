@@ -1,7 +1,7 @@
 import io
 import json
 from pathlib import Path
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 
 import pytest
 
@@ -58,6 +58,23 @@ def test_short_names_follow_author_count():
     two = literature.to_paper({**work, "authorships": work["authorships"][:2]})
     assert one.short == "Sghaier, 2022"
     assert two.short.startswith("Sghaier and ")
+
+
+def test_an_api_key_is_sent_when_set(openalex, monkeypatch):
+    monkeypatch.setenv("OPENALEX_API_KEY", "k123")
+    search_papers("olive")
+    assert "api_key=k123" in openalex[0]
+
+
+def test_a_used_up_budget_says_so_and_how_to_fix_it(monkeypatch):
+    def limited(request, timeout, context=None):
+        raise HTTPError(request.full_url, 429, "Too Many Requests", {}, None)
+
+    monkeypatch.delenv("OPENALEX_API_KEY", raising=False)
+    monkeypatch.setattr(literature, "load_dotenv", lambda: None)
+    monkeypatch.setattr(literature, "urlopen", limited)
+    with pytest.raises(LiteratureError, match="budget is used up.*OPENALEX_API_KEY"):
+        search_papers("olive")
 
 
 def test_unreachable_openalex_is_a_clear_error(monkeypatch):
