@@ -28,3 +28,16 @@ def make_pdf(pages: list[str]) -> bytes:
         f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n".encode()
     )
     return out
+
+
+def with_title(pdf: bytes, title: str) -> bytes:
+    """The same PDF, with a title in its metadata as a publisher would set it."""
+    import io
+
+    from pypdf import PdfReader, PdfWriter
+
+    writer = PdfWriter(clone_from=PdfReader(io.BytesIO(pdf)))
+    writer.add_metadata({"/Title": title})
+    out = io.BytesIO()
+    writer.write(out)
+    return out.getvalue()
