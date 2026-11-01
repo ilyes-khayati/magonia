@@ -120,13 +120,6 @@ export const AnalysisIcon = (p: IconProps) => (
   </Svg>
 );
 
-export const SparkIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" />
-    <path d="M19 16l.7 1.8 1.8.7-1.8.7L19 21l-.7-1.8-1.8-.7 1.8-.7z" />
-  </Svg>
-);
-
 export const PanelIcon = (p: IconProps) => (
   <Svg {...p}>
     <rect x="3" y="4" width="18" height="16" rx="2" />
@@ -204,5 +197,13 @@ export const CopyIcon = (p: IconProps) => (
   <Svg {...p}>
     <rect x="8" y="8" width="12" height="12" rx="2" />
     <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
+  </Svg>
+);
+
+// Mago: a speech bubble with lines of text, plain like the other pages' icons
+export const MagoIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 5h16v11H9l-5 4z" />
+    <path d="M8 9h8M8 12h5" />
   </Svg>
 );

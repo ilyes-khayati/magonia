@@ -192,6 +192,7 @@ class View(BaseModel):
     series: list[SeriesRequest] = []  # every series shown or used, each with its area_id
     display: str | None = None  # how the Data page shows the series, if changed
     board: list[dict] = []  # what the researcher pinned: title and text
+    focus: str | None = Field(None, max_length=200)  # the card asked about, by its title
 
 
 class Question(BaseModel):
@@ -880,6 +881,10 @@ def workspace_view(store: Store, workspace_id: int, view: View) -> facts.View:
         )
     name = store.workspace(workspace_id)["name"]
     context = [f'The researcher is in the workspace "{name}", on the {view.page} page.']
+    if view.focus:
+        context.append(
+            f'The question is about the card "{view.focus}": answer about what it shows.'
+        )
     if used:
         context.append(
             "Areas: " + ", ".join(f"{n} ({km2:.2f} km²)" for n, km2 in used.items()) + "."
@@ -905,7 +910,9 @@ def workspace_view(store: Store, workspace_id: int, view: View) -> facts.View:
         if b.get("text")
     ]
     extra = pinned + forecast_facts(store, view, areas)
-    return facts.View(context, series, view.charts, view.analyses, view.resolution, extra)
+    return facts.View(
+        context, series, view.charts, view.analyses, view.resolution, extra, focus=view.focus
+    )
 
 
 def series_warnings(store: Store, request: SeriesRequest | None) -> list[str]:

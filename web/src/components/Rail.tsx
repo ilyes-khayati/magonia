@@ -1,8 +1,8 @@
+import { useEffect } from "react";
 import { NavLink } from "react-router";
 import { PAGES, pagePath } from "../pages";
-import { AnalysisIcon, BookIcon, ChartIcon, MapIcon, ModelIcon, PinIcon, SparkIcon } from "./Icons";
+import { AnalysisIcon, BookIcon, ChartIcon, MagoIcon, MapIcon, ModelIcon, PinIcon } from "./Icons";
 
-// Magonia is opened from the top bar, not from here
 const ICONS = {
   map: MapIcon,
   data: ChartIcon,
@@ -10,11 +10,28 @@ const ICONS = {
   model: ModelIcon,
   board: PinIcon,
   library: BookIcon,
-  assistant: SparkIcon,
+  assistant: MagoIcon,
 };
 
-// The pages of the workbench
-export default function Rail({ workspaceId }: { workspaceId: number | null }) {
+type Props = {
+  workspaceId: number | null;
+  mago: { open: boolean; onToggle: () => void };
+};
+
+// The pages of the workbench, and at the foot Mago, which opens beside whichever page is open
+// (⌘J or Ctrl+J from anywhere): a colleague at hand, not a page of its own
+export default function Rail({ workspaceId, mago }: Props) {
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() === "j" && (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {
+        e.preventDefault();
+        mago.onToggle();
+      }
+    };
+    document.addEventListener("keydown", key);
+    return () => document.removeEventListener("keydown", key);
+  }, [mago]);
+
   return (
     <nav className="rail" aria-label="Pages">
       {workspaceId !== null &&
@@ -27,6 +44,17 @@ export default function Rail({ workspaceId }: { workspaceId: number | null }) {
             </NavLink>
           );
         })}
+      <span className="rail-gap" />
+      <button
+        className="rail-link mago"
+        aria-pressed={mago.open}
+        aria-label="Mago"
+        title={mago.open ? "Close Mago (⌘J)" : "Ask Mago, the research assistant (⌘J)"}
+        onClick={mago.onToggle}
+      >
+        <MagoIcon size={18} />
+        <span>Mago</span>
+      </button>
     </nav>
   );
 }
