@@ -25,7 +25,7 @@ from engine.prepare import Resolution
 from engine.series import Masking, band_name
 from engine.trend import trend
 from fastapi import Depends, FastAPI, HTTPException, Response, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 from api.jobs import Runner, cache_key, execute
@@ -1009,10 +1009,34 @@ async def add_file(file: UploadFile, library: LibraryDep) -> dict:
 
 @app.delete("/library/{file_id}", status_code=204)
 def remove_file(file_id: str, library: LibraryDep) -> None:
+    """Remove a file from the library; it can be restored for 30 days."""
     try:
         Uploads(library).remove(file_id)
     except KeyError as exc:
         raise HTTPException(404, "No such file.") from exc
+
+
+@app.post("/library/{file_id}/restore")
+def restore_file(file_id: str, library: LibraryDep) -> dict:
+    try:
+        return Uploads(library).restore(file_id)
+    except KeyError as exc:
+        raise HTTPException(404, "No such file.") from exc
+
+
+@app.get("/library/{file_id}/pdf")
+def read_file(file_id: str, library: LibraryDep) -> FileResponse:
+    """The file itself, shown in the browser (#page=6 opens it at page 6)."""
+    try:
+        path = Uploads(library).pdf(file_id)
+        title = Uploads(library).get(file_id)["filename"]
+    except KeyError as exc:
+        raise HTTPException(404, "No such file.") from exc
+    if path is None:
+        raise HTTPException(404, "This file was added before Magonia kept PDFs; add it again.")
+    return FileResponse(
+        path, media_type="application/pdf", filename=title, content_disposition_type="inline"
+    )
 
 
 @app.get("/workspaces/{workspace_id}/instructions")

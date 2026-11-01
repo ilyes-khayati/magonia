@@ -50,6 +50,8 @@ import Sidebar from "./components/Sidebar";
 import Toolbar from "./components/Toolbar";
 import TopBar from "./components/TopBar";
 import UndoBar from "./components/UndoBar";
+import Reader from "./components/Reader";
+import { ReaderContext, whereToRead, type Readable } from "./reader";
 import { PAGES, isPage, pagePath, type Page } from "./pages";
 import { DEFAULTS, readSettings, seriesKey, seriesOptions, variableTitle, type Settings } from "./settings";
 import { applyTheme, areaColour, initialTheme, type Theme } from "./theme";
@@ -145,6 +147,15 @@ export default function App() {
   const [focus, setFocus] = useState(false);
   const [undo, setUndo] = useState<Undo | null>(null);
   const [attached, setAttached] = useState<{ title: string; key: number } | null>(null);
+  const [reading, setReading] = useState<Readable | null>(null);
+  // a paper opens inside Magonia when it is the researcher's own, else in a new tab
+  const read = useCallback((paper: PaperCard, page?: number) => {
+    const where = whereToRead(paper, page);
+    if (!where) return;
+    if (where.inside) setReading(where);
+    else window.open(where.url, "_blank", "noreferrer");
+  }, []);
+  const closeReader = useCallback(() => setReading(null), []);
   const saving = useRef<number | undefined>(undefined);
 
   // The address names the workspace and the page: /workspaces/<id>/<page>
@@ -691,6 +702,7 @@ export default function App() {
   };
 
   return (
+    <ReaderContext.Provider value={read}>
     <div
       className={`workbench page-${page}${focus && page === "map" ? " focus" : ""}${docked ? " docked" : ""}`}
       style={{ "--panel-width": `${panel.width}px` } as React.CSSProperties}
@@ -787,7 +799,9 @@ export default function App() {
             live={livePin}
           />
         )}
-        {page === "library" && workspaceId !== null && <LibraryPage workspaceId={workspaceId} />}
+        {page === "library" && workspaceId !== null && (
+          <LibraryPage workspaceId={workspaceId} onUndoable={(text, run) => offer(text, run)} />
+        )}
         {page === "model" && (
           <ModelPage
             experiments={experiments}
@@ -900,6 +914,8 @@ export default function App() {
           onClose={earthEngine.connected ? () => setSetupOpen(false) : null}
         />
       )}
+      {reading && <Reader paper={reading} onClose={closeReader} />}
     </div>
+    </ReaderContext.Provider>
   );
 }
