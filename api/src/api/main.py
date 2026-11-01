@@ -878,7 +878,8 @@ def workspace_view(store: Store, workspace_id: int, view: View) -> facts.View:
                 result.get("warnings", []),
             )
         )
-    context = [f"The researcher is on the {view.page} page."]
+    name = store.workspace(workspace_id)["name"]
+    context = [f'The researcher is in the workspace "{name}", on the {view.page} page.']
     if used:
         context.append(
             "Areas: " + ", ".join(f"{n} ({km2:.2f} km²)" for n, km2 in used.items()) + "."
@@ -1040,8 +1041,15 @@ def chat(
     statement is supported by its papers) and error.
     """
     workspace_id = existing_conversation(store, conversation_id)["workspace_id"]
+    # earlier answers carry the papers they cited, so that a follow-up can cite them again
     history = [
-        {"role": m["role"], "content": m["content"]} for m in store.messages(conversation_id)
+        {
+            "role": m["role"],
+            "content": m["content"],
+            "papers": m["details"].get("papers", []),
+            "cited": m["details"].get("check", {}).get("cited", []),
+        }
+        for m in store.messages(conversation_id)
     ]
     view = workspace_view(store, workspace_id, body.view) if body.view else None
     question = {"role": "user", "content": body.content}
