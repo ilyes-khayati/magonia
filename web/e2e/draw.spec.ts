@@ -11,6 +11,11 @@ let asked: {
   view?: { page: string; charts: string[]; series: { area_id: number; variable: string }[]; display?: string | null };
 }[] = [];
 
+// Mago's conversations and their messages, as the fake API keeps them
+type FakeConversation = { id: number; workspace_id: number; title: string | null; first_question: string | null; messages: number; created: string; updated: string; deleted?: boolean };
+let conversations: FakeConversation[] = [];
+let messages: Record<number, { id: number; role: string; content: string; details: object; created: string }[]> = {};
+
 // The series the interface asked to extract
 let jobs: { variable: string; resolution: string }[] = [];
 let phenologyAsked: { variable: string; resolution: string }[] = [];
@@ -26,6 +31,8 @@ let lagged: { response: { variable: string }; drivers: { variable: string }[]; d
 
 async function fakeApi(page: Page, connected = true) {
   asked = [];
+  conversations = [];
+  messages = {};
   library = [];
   instructions = "";
   modelled = [];
@@ -125,13 +132,33 @@ async function fakeApi(page: Page, connected = true) {
     lagged.push(route.request().postDataJSON());
     return route.fulfill({ json: LAGS });
   });
-  await page.route("**/api/workspaces", (route) =>
-    route.request().method() === "POST"
-      ? route.fulfill({ status: 201, json: { id: 1, name: "My workspace", created: "", updated: "" } })
-      : route.fulfill({ json: [] }),
+  // the first workspace is created when none is found; deleting it moves it to Recently deleted,
+  // and the workspace made to replace it is the second
+  let deleted: { id: number; name: string; created: string; updated: string; deleted: string }[] = [];
+  await page.route("**/api/workspaces", (route) => {
+    if (route.request().method() !== "POST") return route.fulfill({ json: [] });
+    const second = deleted.length > 0;
+    return route.fulfill({
+      status: 201,
+      json: { id: second ? 2 : 1, name: second ? "Workspace 2" : "My workspace", created: "", updated: "" },
+    });
+  });
+  await page.route(
+    (url) => url.pathname === "/api/workspaces" && url.searchParams.get("deleted") === "true",
+    (route) => route.fulfill({ json: deleted }),
   );
+  await page.route("**/api/workspaces/2", (route) =>
+    route.fulfill({ json: { id: 2, name: "Workspace 2", created: "", updated: "", settings: {}, areas: [], jobs: [] } }),
+  );
+  await page.route("**/api/workspaces/2/conversations", (route) => route.fulfill({ json: [] }));
+  await page.route("**/api/workspaces/1/restore", (route) => {
+    deleted = [];
+    return route.fulfill({ json: { id: 1, name: "My workspace", created: "", updated: "" } });
+  });
   await page.route("**/api/workspaces/1", (route) =>
-    route.request().method() === "PATCH"
+    route.request().method() === "DELETE"
+      ? ((deleted = [{ id: 1, name: "My workspace", created: "", updated: "", deleted: stamp() }]), route.fulfill({ status: 204 }))
+      : route.request().method() === "PATCH"
       ? ((settings = route.request().postDataJSON().settings ?? settings), route.fulfill({ json: {} }))
       : route.fulfill({
           json: { id: 1, name: "My workspace", created: "", updated: "", settings, areas, jobs: [] },
@@ -154,11 +181,44 @@ async function fakeApi(page: Page, connected = true) {
     return route.fulfill({ json: { text: instructions } });
   });
   await page.route("**/api/assistant", (route) => route.fulfill({ json: { name: "Magonia", model: "test model" } }));
-  await page.route("**/api/workspaces/1/messages", (route) => route.fulfill({ json: [] }));
-  await page.route("**/api/workspaces/1/chat", (route) => {
+  const stamp = () => new Date().toISOString();
+  const listed = () =>
+    conversations.filter((c) => !c.deleted).sort((a, b) => b.updated.localeCompare(a.updated) || b.id - a.id);
+  await page.route("**/api/workspaces/1/conversations", (route) => {
+    if (route.request().method() === "POST") {
+      const c = { id: conversations.length + 1, workspace_id: 1, title: null, first_question: null, messages: 0, created: stamp(), updated: stamp() };
+      conversations.push(c);
+      messages[c.id] = [];
+      return route.fulfill({ status: 201, json: c });
+    }
+    return route.fulfill({ json: listed() });
+  });
+  const conversationOf = (url: string) => conversations.find((c) => url.includes(`/conversations/${c.id}`))!;
+  await page.route("**/api/conversations/*", (route) => {
+    const c = conversationOf(route.request().url());
+    if (route.request().method() === "DELETE") c.deleted = true;
+    else c.title = route.request().postDataJSON().title;
+    return route.fulfill(route.request().method() === "DELETE" ? { status: 204 } : { json: c });
+  });
+  await page.route("**/api/conversations/*/restore", (route) => {
+    const c = conversationOf(route.request().url());
+    c.deleted = false;
+    return route.fulfill({ json: c });
+  });
+  await page.route("**/api/conversations/*/messages", (route) =>
+    route.fulfill({ json: messages[conversationOf(route.request().url()).id] }),
+  );
+  await page.route("**/api/conversations/*/chat", (route) => {
     asked.push(route.request().postDataJSON());
     const question = asked.at(-1)!.content;
     const answer = question.startsWith("Propose") ? PROPOSING : asked.at(-1)!.view?.series.length ? DATA_ANSWER : ANSWER;
+    const c = conversationOf(route.request().url());
+    const said = answer.find((e) => e.type === "check") as { text: string } | undefined;
+    messages[c.id].push(
+      { id: 0, role: "user", content: question, details: {}, created: stamp() },
+      { id: 0, role: "assistant", content: said?.text ?? "", details: {}, created: stamp() },
+    );
+    Object.assign(c, { first_question: c.first_question ?? question, messages: c.messages + 2, updated: stamp() });
     return route.fulfill({
       contentType: "application/x-ndjson",
       body: answer.map((event) => JSON.stringify(event)).join("\n") + "\n",
@@ -447,6 +507,14 @@ test("a correlation is shown only once added, and is saved with the workspace", 
 
   await card.getByRole("button", { name: "Remove this analysis" }).click();
   await expect(page.getByRole("region", { name: "Suggested analyses" })).toBeVisible();
+
+  // nothing is lost by one click: Undo brings it back as it was, and so does ⌘Z
+  await page.getByRole("status").getByRole("button", { name: "Undo" }).click();
+  await expect(card.getByRole("checkbox", { name: "Remove seasonal cycle" })).not.toBeChecked();
+  await card.getByRole("button", { name: "Remove this analysis" }).click();
+  await expect(card).toHaveCount(0);
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(card.locator(".recharts-line")).toBeVisible();
 });
 
 test("an analysis fetches its variables even when they are not charted", async ({ page }) => {
@@ -655,6 +723,65 @@ test("the workspace is named in the top bar and can be renamed", async ({ page }
   await page.getByRole("button", { name: "Rename", exact: true }).click();
   await expect(page.getByRole("banner").getByRole("button", { name: /Jendouba orchard/ })).toBeVisible();
   expect(renamed).toEqual(["Jendouba orchard"]);
+});
+
+test("a deleted workspace can be brought back, at once or from Recently deleted", async ({ page }) => {
+  const banner = page.getByRole("banner");
+  const workspaces = page.getByRole("group", { name: "Workspaces" });
+  await banner.getByRole("button", { name: /My workspace/ }).click();
+  await workspaces.getByRole("button", { name: "Delete this workspace" }).click();
+  // the only workspace is replaced by a new one, and the deletion can be undone
+  await expect(page).toHaveURL(/\/workspaces\/2\//);
+  await expect(page.getByRole("status")).toContainText("My workspace moved to Recently deleted");
+  await page.getByRole("status").getByRole("button", { name: "Undo" }).click();
+  await expect(page).toHaveURL(/\/workspaces\/1\//);
+  await expect(banner.getByRole("button", { name: /My workspace/ })).toBeVisible();
+
+  await banner.getByRole("button", { name: /My workspace/ }).click();
+  await workspaces.getByRole("button", { name: "Delete this workspace" }).click();
+  await expect(page).toHaveURL(/\/workspaces\/2\//);
+  await banner.getByRole("button", { name: /Workspace 2/ }).click();
+  await workspaces.getByRole("button", { name: "Recently deleted…" }).click();
+  await expect(workspaces).toContainText("My workspace · deleted today");
+  await workspaces.getByRole("button", { name: "Restore" }).click();
+  await expect(page).toHaveURL(/\/workspaces\/1\//);
+});
+
+test("a new conversation keeps the earlier ones, which can be reopened, renamed and deleted", async ({ page }) => {
+  const assistant = page.getByRole("region", { name: "Magonia assistant" });
+  await page.getByRole("button", { name: "Magonia", exact: true }).click();
+  await assistant.getByRole("textbox", { name: "Ask Magonia" }).fill("What does drought do to olive NDVI?");
+  await assistant.getByRole("button", { name: "Send" }).click();
+  await expect(assistant.getByText("Drought lowers olive NDVI")).toBeVisible();
+
+  const list = assistant.getByRole("group", { name: "Conversations" });
+  await assistant.getByRole("button", { name: "Conversations" }).click();
+  await list.getByRole("button", { name: "New conversation" }).click();
+  await expect(assistant.getByText("Drought lowers olive NDVI")).toHaveCount(0);
+  await assistant.getByRole("textbox", { name: "Ask Magonia" }).fill("What is NDVI?");
+  await assistant.getByRole("button", { name: "Send" }).click();
+  await expect(assistant.getByText("Drought lowers olive NDVI")).toBeVisible();
+  await expect(assistant.getByText("What does drought do to olive NDVI?")).toHaveCount(0);
+
+  // both are kept, named by their first question until renamed
+  await assistant.getByRole("button", { name: "Conversations" }).click();
+  await expect(list.getByRole("listitem")).toHaveCount(2);
+  await list.getByRole("button", { name: "Rename What does drought do to olive NDVI?" }).click();
+  await list.getByRole("textbox", { name: "Name of the conversation" }).fill("Drought");
+  await list.getByRole("textbox", { name: "Name of the conversation" }).press("Enter");
+  await list.getByRole("button", { name: /^Drought/ }).first().click();
+  await expect(assistant.getByText("What does drought do to olive NDVI?")).toBeVisible();
+  await expect(assistant.getByRole("button", { name: "Conversations" })).toHaveText("Drought");
+
+  // deleting one opens the other, and Undo brings it back
+  await assistant.getByRole("button", { name: "Conversations" }).click();
+  await list.getByRole("button", { name: "Delete Drought" }).click();
+  await expect(assistant.getByRole("button", { name: "Conversations" })).toHaveText("What is NDVI?");
+  await page.getByRole("status").filter({ hasText: "deleted" }).getByRole("button", { name: "Undo" }).click();
+  await expect(assistant.getByRole("button", { name: "Conversations" })).toHaveText("Drought");
+  // the panel stays open, on the conversation open last
+  await page.reload();
+  await expect(assistant.getByRole("button", { name: "Conversations" })).toHaveText("Drought");
 });
 
 test("Magonia's panel can be widened by its edge, and stays open across pages", async ({ page }) => {

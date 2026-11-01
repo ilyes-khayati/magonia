@@ -60,14 +60,19 @@ def workspace(client):
     return client.post("/workspaces", json={"name": "Jendouba"}).json()["id"]
 
 
+def conversation(client, ws=None):
+    ws = ws if ws is not None else workspace(client)
+    return client.post(f"/workspaces/{ws}/conversations").json()["id"]
+
+
 def events(reply):
     return [json.loads(line) for line in reply.text.splitlines()]
 
 
 def test_answer_streams_as_events_and_is_saved(client, model):
-    ws = workspace(client)
+    c = conversation(client)
 
-    reply = client.post(f"/workspaces/{ws}/chat", json={"content": "What is NDVI?"})
+    reply = client.post(f"/conversations/{c}/chat", json={"content": "What is NDVI?"})
     assert reply.status_code == 200
     got = events(reply)
     assert "".join(e["text"] for e in got if e["type"] == "text") == (
@@ -75,7 +80,7 @@ def test_answer_streams_as_events_and_is_saved(client, model):
     )
     assert got[-1]["type"] == "check"
 
-    saved = client.get(f"/workspaces/{ws}/messages").json()
+    saved = client.get(f"/conversations/{c}/messages").json()
     assert [(m["role"], m["content"]) for m in saved] == [
         ("user", "What is NDVI?"),
         ("assistant", "NDVI measures how green the vegetation is."),
@@ -88,9 +93,9 @@ def test_searched_answer_keeps_its_papers_and_check(client, library):
         "Drought lowers olive NDVI [1], see also [4].",
     )
     main.app.dependency_overrides[main.get_provider] = lambda: model
-    ws = workspace(client)
+    c = conversation(client)
 
-    got = events(client.post(f"/workspaces/{ws}/chat", json={"content": "Drought and olives?"}))
+    got = events(client.post(f"/conversations/{c}/chat", json={"content": "Drought and olives?"}))
     assert [e["type"] for e in got if e["type"] != "text"] == [
         "route",
         "search",
@@ -100,7 +105,7 @@ def test_searched_answer_keeps_its_papers_and_check(client, library):
     ]
     assert library == ["olive drought"]
 
-    answer = client.get(f"/workspaces/{ws}/messages").json()[-1]
+    answer = client.get(f"/conversations/{c}/messages").json()[-1]
     assert answer["content"] == "Drought lowers olive NDVI [1], see also."
     assert answer["details"]["searches"] == ["olive drought"]
     assert [p["short"] for p in answer["details"]["papers"]] == ["Sghaier, 2022", "Crespo, 2025"]
@@ -123,9 +128,9 @@ def test_open_access_papers_are_read_and_their_pages_checked(client, monkeypatch
         "Rainfed groves lost NDVI [1, p. 6], not on page 9 [1, p. 9].",
     )
     main.app.dependency_overrides[main.get_provider] = lambda: model
-    ws = workspace(client)
+    c = conversation(client)
 
-    got = events(client.post(f"/workspaces/{ws}/chat", json={"content": "Drought and olives?"}))
+    got = events(client.post(f"/conversations/{c}/chat", json={"content": "Drought and olives?"}))
     assert [e["type"] for e in got if e["type"] != "text"] == [
         "route",
         "search",
@@ -136,7 +141,7 @@ def test_open_access_papers_are_read_and_their_pages_checked(client, monkeypatch
         "check",
     ]
     assert "[1, p. 6] Rainfed olive groves" in model.seen[-1]["content"]
-    answer = client.get(f"/workspaces/{ws}/messages").json()[-1]
+    answer = client.get(f"/conversations/{c}/messages").json()[-1]
     assert answer["content"] == "Rainfed groves lost NDVI [1, p. 6], not on page 9 [1]."
     assert answer["details"]["check"]["pages_removed"] == ["[1, p. 9]"]
     assert answer["details"]["read"] == {"1": "read"}
@@ -148,9 +153,9 @@ def test_open_access_papers_are_read_and_their_pages_checked(client, monkeypatch
 
 
 def test_the_model_sees_the_earlier_conversation(client, model):
-    ws = workspace(client)
-    client.post(f"/workspaces/{ws}/chat", json={"content": "What is NDVI?"})
-    client.post(f"/workspaces/{ws}/chat", json={"content": "And LST?"})
+    c = conversation(client)
+    client.post(f"/conversations/{c}/chat", json={"content": "What is NDVI?"})
+    client.post(f"/conversations/{c}/chat", json={"content": "And LST?"})
 
     assert [m["content"] for m in model.seen[1:]] == [
         "What is NDVI?",
@@ -159,29 +164,61 @@ def test_the_model_sees_the_earlier_conversation(client, model):
     ]
 
 
-def test_conversations_belong_to_their_workspace(client, model):
-    first, second = workspace(client), workspace(client)
-    client.post(f"/workspaces/{first}/chat", json={"content": "What is NDVI?"})
+def test_conversations_are_listed_named_and_kept_apart(client, model):
+    ws = workspace(client)
+    first, second = conversation(client, ws), conversation(client, ws)
+    client.post(f"/conversations/{first}/chat", json={"content": "What is NDVI?"})
 
-    assert client.get(f"/workspaces/{second}/messages").json() == []
-    assert client.delete(f"/workspaces/{first}/messages").status_code == 204
-    assert client.get(f"/workspaces/{first}/messages").json() == []
+    assert client.get(f"/conversations/{second}/messages").json() == []
+    listed = client.get(f"/workspaces/{ws}/conversations").json()
+    # the one last spoken in comes first, shown by its first question until it is named
+    assert [(c["id"], c["title"], c["first_question"], c["messages"]) for c in listed] == [
+        (first, None, "What is NDVI?", 2),
+        (second, None, None, 0),
+    ]
+    renamed = client.patch(f"/conversations/{first}", json={"title": "Index basics"}).json()
+    assert renamed["title"] == "Index basics"
+    other = workspace(client)
+    assert client.get(f"/workspaces/{other}/conversations").json() == []
+
+
+def test_a_deleted_conversation_can_be_restored(client, model):
+    ws = workspace(client)
+    c = conversation(client, ws)
+    client.post(f"/conversations/{c}/chat", json={"content": "What is NDVI?"})
+
+    assert client.delete(f"/conversations/{c}").status_code == 204
+    assert client.get(f"/workspaces/{ws}/conversations").json() == []
+    assert client.get(f"/conversations/{c}/messages").status_code == 404
+    assert client.post(f"/conversations/{c}/chat", json={"content": "Hi"}).status_code == 404
+
+    assert client.post(f"/conversations/{c}/restore").json()["messages"] == 2
+    assert len(client.get(f"/conversations/{c}/messages").json()) == 2
+
+
+def test_conversations_of_a_deleted_workspace_are_closed(client, model):
+    ws = workspace(client)
+    c = conversation(client, ws)
+    client.delete(f"/workspaces/{ws}")
+    assert client.get(f"/conversations/{c}/messages").status_code == 404
+    client.post(f"/workspaces/{ws}/restore")
+    assert client.get(f"/conversations/{c}/messages").json() == []
 
 
 def test_unreachable_model_is_a_503_and_nothing_is_saved(client):
     main.app.dependency_overrides[main.get_provider] = lambda: Unreachable()
-    ws = workspace(client)
+    c = conversation(client)
 
-    reply = client.post(f"/workspaces/{ws}/chat", json={"content": "What is NDVI?"})
+    reply = client.post(f"/conversations/{c}/chat", json={"content": "What is NDVI?"})
     assert reply.status_code == 503
     assert "Is Ollama running" in reply.json()["detail"]
-    assert client.get(f"/workspaces/{ws}/messages").json() == []
+    assert client.get(f"/conversations/{c}/messages").json() == []
 
 
 def test_empty_questions_and_unknown_workspaces_are_refused(client, model):
-    ws = workspace(client)
-    assert client.post(f"/workspaces/{ws}/chat", json={"content": ""}).status_code == 422
-    assert client.post("/workspaces/999/chat", json={"content": "Hi"}).status_code == 404
+    c = conversation(client)
+    assert client.post(f"/conversations/{c}/chat", json={"content": ""}).status_code == 422
+    assert client.post("/conversations/999/chat", json={"content": "Hi"}).status_code == 404
 
 
 def test_assistant_reports_its_name_and_model(client, model):
@@ -203,8 +240,11 @@ def test_database_from_version_1_2_is_upgraded(tmp_path):
     old.close()
 
     store = Store(path)
-    assert store.messages(1)[0]["details"] == {}
-    assert store.add_message(1, "assistant", "hello", {"searches": ["q"]})["details"] == {
+    # the workspace's one conversation became its first conversation
+    [kept] = store.conversations(1)
+    assert kept["first_question"] == "hi"
+    assert store.messages(kept["id"])[0]["details"] == {}
+    assert store.add_message(kept["id"], "assistant", "hello", {"searches": ["q"]})["details"] == {
         "searches": ["q"]
     }
 
@@ -228,6 +268,7 @@ def test_the_model_reads_the_open_workspace_from_the_cache(client, model, store)
     from api.jobs import cache_key
 
     ws = workspace(client)
+    c = conversation(client, ws)
     area = client.post(
         f"/workspaces/{ws}/areas", json={"name": "Orchard", "geometry": SQUARE}
     ).json()
@@ -252,7 +293,9 @@ def test_the_model_reads_the_open_workspace_from_the_cache(client, model, store)
     view = {"page": "charts", "charts": ["ndvi", "lst"], "analyses": [], "series": [ndvi, lst]}
 
     got = events(
-        client.post(f"/workspaces/{ws}/chat", json={"content": "When does it peak?", "view": view})
+        client.post(
+            f"/conversations/{c}/chat", json={"content": "When does it peak?", "view": view}
+        )
     )
 
     assert got[1] == {"type": "view", "cards": ["NDVI chart"]}
@@ -264,7 +307,7 @@ def test_the_model_reads_the_open_workspace_from_the_cache(client, model, store)
     )
     assert "Still loading, so not described: Orchard LST." in question
     assert "peaks in Dec (0.52)" in question
-    saved = client.get(f"/workspaces/{ws}/messages").json()
+    saved = client.get(f"/conversations/{c}/messages").json()
     assert saved[0]["content"] == "When does it peak?"  # the facts are not stored as the question
     assert saved[1]["details"]["cards"] == ["NDVI chart"]
     # the scripted answer has no numbers about the data, so the check is empty but saved
@@ -279,5 +322,6 @@ def test_a_view_naming_another_workspaces_area_is_ignored(client, model):
         f"/workspaces/{first}/areas", json={"name": "Orchard", "geometry": SQUARE}
     ).json()
     view = {"series": [series_options(area["id"])]}
-    client.post(f"/workspaces/{second}/chat", json={"content": "Hi", "view": view})
+    c = conversation(client, second)
+    client.post(f"/conversations/{c}/chat", json={"content": "Hi", "view": view})
     assert "Orchard" not in model.seen[-1]["content"]

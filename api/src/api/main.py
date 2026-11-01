@@ -160,6 +160,20 @@ class WorkspaceUpdate(BaseModel):
     settings: dict | None = None  # whatever the interface needs to restore its state
 
 
+class Conversation(BaseModel):
+    id: int
+    workspace_id: int
+    title: str | None  # null until named: the interface shows its first question
+    first_question: str | None
+    messages: int
+    created: str
+    updated: str
+
+
+class ConversationIn(BaseModel):
+    title: str | None = Field(None, min_length=1, max_length=200)
+
+
 class ChatMessage(BaseModel):
     id: int
     role: Literal["user", "assistant"]
@@ -190,6 +204,7 @@ class WorkspaceSummary(BaseModel):
     name: str
     created: str
     updated: str
+    deleted: str | None = None  # when it was moved to Recently deleted
 
 
 class Workspace(WorkspaceSummary):
@@ -305,8 +320,8 @@ def get_job(job_id: int, store: StoreDep) -> Job:
 # Workspaces
 
 
-def existing_workspace(store: Store, workspace_id: int) -> dict:
-    workspace = store.workspace(workspace_id)
+def existing_workspace(store: Store, workspace_id: int, deleted: bool = False) -> dict:
+    workspace = store.workspace(workspace_id, deleted=deleted)
     if not workspace:
         raise HTTPException(404, "workspace not found")
     return workspace
@@ -319,8 +334,9 @@ def create_workspace(body: WorkspaceIn, store: StoreDep) -> WorkspaceSummary:
 
 
 @app.get("/workspaces")
-def list_workspaces(store: StoreDep) -> list[WorkspaceSummary]:
-    return store.workspaces()
+def list_workspaces(store: StoreDep, deleted: bool = False) -> list[WorkspaceSummary]:
+    """The workspaces in use, or with deleted=true those deleted in the last 30 days."""
+    return store.workspaces(deleted=deleted)
 
 
 @app.get("/workspaces/{workspace_id}")
@@ -342,17 +358,30 @@ def update_workspace(workspace_id: int, body: WorkspaceUpdate, store: StoreDep) 
 
 
 @app.delete("/workspaces/{workspace_id}", status_code=204)
-def delete_workspace(workspace_id: int, store: StoreDep) -> Response:
-    existing_workspace(store, workspace_id)
-    store.delete_workspace(workspace_id)
+def delete_workspace(workspace_id: int, store: StoreDep, forever: bool = False) -> Response:
+    """Move a workspace to Recently deleted, or with forever=true remove it from there."""
+    if forever:
+        if not existing_workspace(store, workspace_id, deleted=True)["deleted"]:
+            raise HTTPException(404, "workspace not in Recently deleted")
+        store.delete_workspace_forever(workspace_id)
+    else:
+        existing_workspace(store, workspace_id)
+        store.delete_workspace(workspace_id)
     return Response(status_code=204)
+
+
+@app.post("/workspaces/{workspace_id}/restore")
+def restore_workspace(workspace_id: int, store: StoreDep) -> WorkspaceSummary:
+    existing_workspace(store, workspace_id, deleted=True)
+    store.restore_workspace(workspace_id)
+    return store.workspace(workspace_id)
 
 
 # Areas
 
 
-def existing_area(store: Store, area_id: int) -> dict:
-    area = store.area(area_id)
+def existing_area(store: Store, area_id: int, deleted: bool = False) -> dict:
+    area = store.area(area_id, deleted=deleted)
     if not area:
         raise HTTPException(404, "area not found")
     return area
@@ -387,9 +416,17 @@ def rename_area(area_id: int, body: Rename, store: StoreDep) -> Area:
 
 @app.delete("/areas/{area_id}", status_code=204)
 def delete_area(area_id: int, store: StoreDep) -> Response:
+    """Delete an area; it can be restored for 30 days, unless a new area takes its name."""
     existing_area(store, area_id)
     store.delete_area(area_id)
     return Response(status_code=204)
+
+
+@app.post("/areas/{area_id}/restore")
+def restore_area(area_id: int, store: StoreDep) -> Area:
+    existing_area(store, area_id, deleted=True)
+    store.restore_area(area_id)
+    return store.area(area_id)
 
 
 # Analyses
@@ -746,18 +783,58 @@ def assistant_info(provider: ProviderDep) -> dict:
     return {"name": assistant.NAME, "model": provider.name}
 
 
-@app.get("/workspaces/{workspace_id}/messages")
-def list_messages(workspace_id: int, store: StoreDep) -> list[ChatMessage]:
-    """The conversation with the assistant in this workspace, oldest first."""
-    existing_workspace(store, workspace_id)
-    return store.messages(workspace_id)
+def existing_conversation(store: Store, conversation_id: int, deleted: bool = False) -> dict:
+    conversation = store.conversation(conversation_id, deleted=deleted)
+    if not conversation or not store.workspace(conversation["workspace_id"]):
+        raise HTTPException(404, "conversation not found")
+    return conversation
 
 
-@app.delete("/workspaces/{workspace_id}/messages", status_code=204)
-def clear_messages(workspace_id: int, store: StoreDep) -> Response:
+@app.get("/workspaces/{workspace_id}/conversations")
+def list_conversations(workspace_id: int, store: StoreDep) -> list[Conversation]:
+    """The conversations with the assistant in this workspace, the latest first."""
     existing_workspace(store, workspace_id)
-    store.clear_messages(workspace_id)
+    return store.conversations(workspace_id)
+
+
+@app.post("/workspaces/{workspace_id}/conversations", status_code=201)
+def create_conversation(
+    workspace_id: int, store: StoreDep, body: ConversationIn | None = None
+) -> Conversation:
+    existing_workspace(store, workspace_id)
+    return store.create_conversation(workspace_id, body.title if body else None)
+
+
+@app.patch("/conversations/{conversation_id}")
+def rename_conversation(
+    conversation_id: int, body: ConversationIn, store: StoreDep
+) -> Conversation:
+    existing_conversation(store, conversation_id)
+    if body.title is not None:
+        store.rename_conversation(conversation_id, body.title)
+    return store.conversation(conversation_id)
+
+
+@app.delete("/conversations/{conversation_id}", status_code=204)
+def delete_conversation(conversation_id: int, store: StoreDep) -> Response:
+    """Delete a conversation; it can be restored for 30 days."""
+    existing_conversation(store, conversation_id)
+    store.delete_conversation(conversation_id)
     return Response(status_code=204)
+
+
+@app.post("/conversations/{conversation_id}/restore")
+def restore_conversation(conversation_id: int, store: StoreDep) -> Conversation:
+    existing_conversation(store, conversation_id, deleted=True)
+    store.restore_conversation(conversation_id)
+    return store.conversation(conversation_id)
+
+
+@app.get("/conversations/{conversation_id}/messages")
+def list_messages(conversation_id: int, store: StoreDep) -> list[ChatMessage]:
+    """A conversation with the assistant, oldest message first."""
+    existing_conversation(store, conversation_id)
+    return store.messages(conversation_id)
 
 
 MASKING = {
@@ -944,9 +1021,9 @@ def set_instructions(workspace_id: int, body: Instructions, store: StoreDep) -> 
     return body
 
 
-@app.post("/workspaces/{workspace_id}/chat")
+@app.post("/conversations/{conversation_id}/chat")
 def chat(
-    workspace_id: int,
+    conversation_id: int,
     body: Question,
     store: StoreDep,
     provider: ProviderDep,
@@ -962,8 +1039,10 @@ def chat(
     final answer after its citations and pages were checked, with how well each cited
     statement is supported by its papers) and error.
     """
-    existing_workspace(store, workspace_id)
-    history = [{"role": m["role"], "content": m["content"]} for m in store.messages(workspace_id)]
+    workspace_id = existing_conversation(store, conversation_id)["workspace_id"]
+    history = [
+        {"role": m["role"], "content": m["content"]} for m in store.messages(conversation_id)
+    ]
     view = workspace_view(store, workspace_id, body.view) if body.view else None
     question = {"role": "user", "content": body.content}
     instructions = store.setting(f"instructions:{workspace_id}") or ""
@@ -980,7 +1059,7 @@ def chat(
                 break
     except assistant.ProviderError as exc:
         raise HTTPException(503, str(exc)) from exc
-    store.add_message(workspace_id, "user", body.content)
+    store.add_message(conversation_id, "user", body.content)
 
     def stream() -> Iterator[str]:
         said, searches, papers, verdict, cards, reads, proposals = [], [], [], None, [], [], []
@@ -1030,6 +1109,6 @@ def chat(
                     details["support"] = verdict["support"]
                     details["faithfulness"] = verdict["faithfulness"]
             text = verdict["text"] if verdict else "".join(said)
-            store.add_message(workspace_id, "assistant", text, details)
+            store.add_message(conversation_id, "assistant", text, details)
 
     return StreamingResponse(stream(), media_type="application/x-ndjson")

@@ -15,6 +15,10 @@ WINDOW = {
 }
 
 
+def conversation(client, ws):
+    return client.post(f"/workspaces/{ws}/conversations").json()["id"]
+
+
 def area(client):
     ws = client.post("/workspaces", json={"name": "Jendouba"}).json()["id"]
     return client.post(
@@ -234,7 +238,10 @@ def test_magonia_reads_a_finished_forecast(client, store, monkeypatch):
     analysis = {"id": 1, "kind": "models", "response": "ndvi", "drivers": []}
     view = {"charts": [], "analyses": [analysis], "series": [series]}
     ws = client.get("/workspaces").json()[0]["id"]
-    client.post(f"/workspaces/{ws}/chat", json={"content": "Which model won?", "view": view})
+    client.post(
+        f"/conversations/{conversation(client, ws)}/chat",
+        json={"content": "Which model won?", "view": view},
+    )
     assert "[Models 1: NDVI forecast]\n- Orchard: fitted." in model.seen[-1]["content"]
 
 
@@ -265,7 +272,10 @@ def test_magonia_reads_an_experiment_by_its_name_and_area(client, store, monkeyp
     elsewhere = {**experiment, "name": "Elsewhere", "area": area_id + 1}
     view = {"charts": [], "analyses": [experiment, elsewhere], "series": [series]}
     ws = client.get("/workspaces").json()[0]["id"]
-    client.post(f"/workspaces/{ws}/chat", json={"content": "How did Ridge do?", "view": view})
+    client.post(
+        f"/conversations/{conversation(client, ws)}/chat",
+        json={"content": "How did Ridge do?", "view": view},
+    )
     assert "[Ridge alone: NDVI forecast]\n- Orchard: fitted." in model.seen[-1]["content"]
     assert "Elsewhere" not in model.seen[-1]["content"]
 
@@ -411,7 +421,10 @@ def test_magonia_reads_what_the_researcher_pinned_first(client, store):
         "board": [{"title": "Note: check 2017", "text": "The 2017 dip may be the drought."}],
     }
     ws = client.get("/workspaces").json()[0]["id"]
-    client.post(f"/workspaces/{ws}/chat", json={"content": "What did I note?", "view": view})
+    client.post(
+        f"/conversations/{conversation(client, ws)}/chat",
+        json={"content": "What did I note?", "view": view},
+    )
     assert (
         "[Board: Note: check 2017]\n- The 2017 dip may be the drought." in model.seen[-1]["content"]
     )
