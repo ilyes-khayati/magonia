@@ -411,10 +411,22 @@ def answer(
             listing = "\n".join(
                 f"[{len(papers) - len(mine) + 1 + i}] {p.title}" for i, p in enumerate(mine)
             )
-            messages[0]["content"] += (
-                "\n\nThe researcher's own files that speak to this question. Cite them like "
-                f"papers, by their number:\n{listing}\n\n{passages_for_the_model(chosen)}"
-            )
+            if own:
+                # asked about their file: its text goes right before the question, where a
+                # small model reads it, or it asks for the text it was given (measured, u01)
+                last = messages[-1]
+                messages[-1] = {
+                    **last,
+                    "content": "The researcher's own files this question is about, with "
+                    f"passages from them. Answer from these passages and cite them by their "
+                    f"number:\n{listing}\n\n{passages_for_the_model(chosen)}\n\n---\n"
+                    f"The researcher asks: {last['content']}",
+                }
+            else:
+                messages[0]["content"] += (
+                    "\n\nThe researcher's own files that speak to this question. Cite them "
+                    f"like papers, by their number:\n{listing}\n\n{passages_for_the_model(chosen)}"
+                )
     if wanted := standing_instruction(text):
         # proposed in their own words; saved only if they click (AI-07)
         yield {
