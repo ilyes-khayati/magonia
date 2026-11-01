@@ -166,16 +166,25 @@ async function fakeApi(page: Page, connected = true) {
   );
   await page.route("**/api/library", (route) => {
     if (route.request().method() === "POST") {
-      const file = { id: `U${library.length + 1}`, title: "field survey", filename: "field_survey.pdf", added: "2026-10-31 10:00:00", pages: 12 };
+      const file = { id: `U${library.length + 1}`, title: "field survey", filename: "field_survey.pdf", added: "2026-10-31 10:00:00", pages: 12, pdf: true };
       library.push(file);
       return route.fulfill({ status: 201, json: { ...file, passages: 30 } });
     }
     return route.fulfill({ json: library });
   });
+  let removed: typeof library = [];
   await page.route("**/api/library/*", (route) => {
+    removed = library.filter((f) => route.request().url().endsWith(`/${f.id}`));
     library = library.filter((f) => !route.request().url().endsWith(`/${f.id}`));
     return route.fulfill({ status: 204 });
   });
+  await page.route("**/api/library/*/restore", (route) => {
+    library = [...library, ...removed];
+    return route.fulfill({ json: removed[0] });
+  });
+  await page.route("**/api/library/*/pdf", (route) =>
+    route.fulfill({ contentType: "application/pdf", body: Buffer.from("%PDF-1.4\n%%EOF") }),
+  );
   await page.route("**/api/workspaces/1/instructions", (route) => {
     if (route.request().method() === "PUT") instructions = route.request().postDataJSON().text;
     return route.fulfill({ json: { text: instructions } });
@@ -1296,7 +1305,7 @@ test("the library takes the researcher's PDFs and their instructions for Magonia
     mimeType: "application/pdf",
     buffer: Buffer.from("%PDF-1.4"),
   });
-  await expect(page.getByText("field survey", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "field survey", exact: true })).toBeVisible();
   await expect(page.getByText("field_survey.pdf · 12 pages")).toBeVisible();
 
   const box = page.getByRole("textbox", { name: "Instructions for Mago" });
@@ -1307,8 +1316,16 @@ test("the library takes the researcher's PDFs and their instructions for Magonia
 
   await page.reload();
   await expect(page.getByRole("textbox", { name: "Instructions for Mago" })).toHaveValue("Answer in French.");
+  // read inside Magonia, then removed and brought back
+  await page.getByRole("button", { name: "field survey", exact: true }).click();
+  const reader = page.getByRole("dialog", { name: "Reading field survey" });
+  await expect(reader.locator("iframe")).toHaveAttribute("src", "/api/library/U1/pdf");
+  await page.keyboard.press("Escape");
+  await expect(reader).toHaveCount(0);
   await page.getByRole("button", { name: "Remove field survey from the library" }).click();
   await expect(page.getByText("No papers yet.")).toBeVisible();
+  await page.getByRole("status").filter({ hasText: "removed from the library" }).getByRole("button", { name: "Undo" }).click();
+  await expect(page.getByRole("button", { name: "field survey", exact: true })).toBeVisible();
   const results = await new AxeBuilder({ page }).exclude(".maplibregl-canvas").analyze();
   expect(results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? "")).map((v) => v.id)).toEqual([]);
 });
