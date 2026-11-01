@@ -1,17 +1,157 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ask,
   assistantInfo,
-  clearMessages,
+  createConversation,
+  deleteConversation,
+  listConversations,
   listMessages,
+  renameConversation,
+  restoreConversation,
+  type Conversation,
   type PaperCard,
   type PassageCard,
   type Proposal,
   type View,
 } from "../api";
-import { applyEvent, fromSaved, type Turn } from "../chat";
+import { applyEvent, conversationTitle, fromSaved, type Turn } from "../chat";
 import { AnswerText, Sources } from "./Answer";
-import { SendIcon } from "./Icons";
+import { ChevronIcon, CloseIcon, PlusIcon, SendIcon } from "./Icons";
+
+// The conversation open in each workspace is this browser's own convenience
+const OPEN = (workspaceId: number) => `magonia-conversation-${workspaceId}`;
+
+function rememberOpen(workspaceId: number, id: number | null) {
+  try {
+    if (id === null) localStorage.removeItem(OPEN(workspaceId));
+    else localStorage.setItem(OPEN(workspaceId), String(id));
+  } catch {
+    // not remembered; the latest conversation opens next time
+  }
+}
+
+function rememberedOpen(workspaceId: number): number | null {
+  try {
+    return Number(localStorage.getItem(OPEN(workspaceId))) || null;
+  } catch {
+    return null;
+  }
+}
+
+// "14:05" today, else "3 Oct"
+function when(stamp: string): string {
+  const d = new Date(stamp);
+  return d.toDateString() === new Date().toDateString()
+    ? d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
+    : d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+}
+
+// The conversations of the workspace: open one, start a new one, rename or delete one. A new
+// conversation leaves the others as they were.
+function Conversations(props: {
+  conversations: Conversation[];
+  openId: number | null;
+  busy: boolean;
+  onOpen: (id: number | null) => void;
+  onRename: (id: number, title: string) => void;
+  onDelete: (c: Conversation) => void;
+}) {
+  const { conversations, openId, busy, onOpen, onRename, onDelete } = props;
+  const [open, setOpen] = useState(false);
+  const [renaming, setRenaming] = useState<number | null>(null);
+  const box = useRef<HTMLDivElement>(null);
+  const current = conversations.find((c) => c.id === openId);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: Event) => {
+      if (e instanceof KeyboardEvent ? e.key === "Escape" : !box.current?.contains(e.target as Node)) {
+        setOpen(false);
+        setRenaming(null);
+      }
+    };
+    document.addEventListener("keydown", close);
+    document.addEventListener("mousedown", close);
+    return () => {
+      document.removeEventListener("keydown", close);
+      document.removeEventListener("mousedown", close);
+    };
+  }, [open]);
+
+  const choose = (id: number | null) => {
+    onOpen(id);
+    setOpen(false);
+  };
+
+  return (
+    <div className="conversations-menu" ref={box}>
+      <button
+        className="conversation-name"
+        aria-expanded={open}
+        aria-label="Conversations"
+        title="Your conversations in this workspace"
+        disabled={busy}
+        onClick={() => setOpen(!open)}
+      >
+        <span>{current ? conversationTitle(current) : "New conversation"}</span>
+        <ChevronIcon size={13} />
+      </button>
+      {open && (
+        <div className="floating conversations" role="group" aria-label="Conversations">
+          <button className="row" onClick={() => choose(null)}>
+            <PlusIcon size={14} />
+            New conversation
+          </button>
+          {conversations.length > 0 && <hr />}
+          <ul>
+            {conversations.map((c) =>
+              renaming === c.id ? (
+                <li key={c.id}>
+                  <form
+                    className="rename"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      const title = new FormData(e.currentTarget).get("title")?.toString().trim();
+                      if (title) onRename(c.id, title);
+                      setRenaming(null);
+                    }}
+                  >
+                    <input
+                      className="input"
+                      name="title"
+                      aria-label="Name of the conversation"
+                      defaultValue={conversationTitle(c)}
+                      autoFocus
+                      onKeyDown={(e) => e.key === "Escape" && (e.stopPropagation(), setRenaming(null))}
+                    />
+                  </form>
+                </li>
+              ) : (
+                <li key={c.id} aria-current={c.id === openId}>
+                  <button className="open" onClick={() => choose(c.id)} onDoubleClick={() => setRenaming(c.id)}>
+                    <span>{conversationTitle(c)}</span>
+                    <span className="meta">{when(c.updated)}</span>
+                  </button>
+                  <button className="link" aria-label={`Rename ${conversationTitle(c)}`} onClick={() => setRenaming(c.id)}>
+                    Rename
+                  </button>
+                  <button
+                    className="icon-button"
+                    aria-label={`Delete ${conversationTitle(c)}`}
+                    title="Delete"
+                    onClick={() => onDelete(c)}
+                  >
+                    <CloseIcon size={13} />
+                  </button>
+                </li>
+              ),
+            )}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // An analysis Magonia proposes: added only when the researcher clicks (AI-07)
 function ProposalCard({ proposal, onAdd }: { proposal: Proposal; onAdd?: (p: Proposal) => void }) {
@@ -50,10 +190,13 @@ type Props = {
   onPropose?: (proposal: Proposal) => void; // the researcher adds what Magonia proposed
   onPin?: (question: string, turn: Turn) => void; // keep an answer on the board
   onPinPassage?: (paper: PaperCard, passage: PassageCard) => void; // keep one passage
+  onUndoable?: (text: string, undo: () => Promise<void>) => void; // offer to bring back a deletion
 };
 
 export default function AssistantCard(props: Props) {
-  const { workspaceId, view, actions, loading, onPropose, onPin, onPinPassage } = props;
+  const { workspaceId, view, actions, loading, onPropose, onPin, onPinPassage, onUndoable } = props;
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [openId, setOpenId] = useState<number | null>(null);
   const [turns, setTurns] = useState<Turn[]>([]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -67,14 +210,68 @@ export default function AssistantCard(props: Props) {
       .catch(() => undefined);
   }, []);
 
-  // Each workspace has its own conversation; the card is re-created when the workspace changes
+  // Each workspace has its own conversations; the card is re-created when the workspace
+  // changes. The one open last time opens again, else the latest.
+  async function refresh(): Promise<Conversation[]> {
+    if (workspaceId === null) return [];
+    const all = await listConversations(workspaceId);
+    setConversations(all);
+    return all;
+  }
+  // Opens a conversation, or none for a new one: nothing is saved until its first question
+  const opened = useRef<number | null>(null);
+  const show = useCallback(
+    (id: number | null) => {
+      opened.current = id;
+      setOpenId(id);
+      setError(null);
+      setTurns([]);
+      if (workspaceId !== null) rememberOpen(workspaceId, id);
+      if (id !== null)
+        listMessages(id)
+          // a slower answer for a conversation left meanwhile is ignored, and a question sent
+          // before the history arrived is not wiped out by it
+          .then((saved) => opened.current === id && setTurns((t) => (t.length ? t : saved.map(fromSaved))))
+          .catch(() => undefined);
+    },
+    [workspaceId],
+  );
+
   useEffect(() => {
-    if (workspaceId !== null)
-      listMessages(workspaceId)
-        // a question sent before the history arrived must not be wiped out by it
-        .then((saved) => setTurns((t) => (t.length ? t : saved.map(fromSaved))))
-        .catch(() => undefined);
-  }, [workspaceId]);
+    if (workspaceId === null) return;
+    listConversations(workspaceId)
+      .then((all) => {
+        setConversations(all);
+        const last = rememberedOpen(workspaceId);
+        const chosen = all.find((c) => c.id === last) ?? all[0];
+        if (chosen) show(chosen.id);
+      })
+      .catch(() => undefined);
+  }, [workspaceId, show]);
+
+  async function rename(id: number, title: string) {
+    try {
+      await renameConversation(id, title);
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  async function remove(c: Conversation) {
+    try {
+      await deleteConversation(c.id);
+      const rest = await refresh();
+      if (c.id === openId) show(rest[0]?.id ?? null);
+      onUndoable?.(`Conversation “${conversationTitle(c)}” deleted`, async () => {
+        await restoreConversation(c.id);
+        await refresh();
+        show(c.id);
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
 
   // braces matter: newer browsers return a promise from scrollIntoView, which React would
   // take for a clean-up function
@@ -94,7 +291,15 @@ export default function AssistantCard(props: Props) {
       { role: "assistant", content: "", details: {} },
     ]);
     try {
-      await ask(workspaceId, question, (event) =>
+      // a new conversation is saved with its first question
+      let id = openId;
+      if (id === null) {
+        id = (await createConversation(workspaceId)).id;
+        opened.current = id;
+        setOpenId(id);
+        rememberOpen(workspaceId, id);
+      }
+      await ask(id, question, (event) =>
         setTurns((t) => [...t.slice(0, -1), applyEvent(t[t.length - 1], event)]),
         view,
       );
@@ -104,13 +309,8 @@ export default function AssistantCard(props: Props) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
+      refresh().catch(() => undefined);
     }
-  }
-
-  async function clear() {
-    if (workspaceId === null) return;
-    await clearMessages(workspaceId);
-    setTurns([]);
   }
 
   return (
@@ -120,15 +320,16 @@ export default function AssistantCard(props: Props) {
           <h3>Ask Magonia</h3>
           <span className="meta">{model ? `Answers by ${model} · literature from OpenAlex` : "Research assistant"}</span>
         </div>
-        <div className="row">
-          {turns.length > 0 && (
-            <button className="link" onClick={clear} disabled={busy}>
-              New conversation
-            </button>
-          )}
-          {actions}
-        </div>
+        <div className="row">{actions}</div>
       </div>
+      <Conversations
+        conversations={conversations}
+        openId={openId}
+        busy={busy}
+        onOpen={show}
+        onRename={rename}
+        onDelete={remove}
+      />
 
       {turns.length > 0 && (
         <div className="conversation" aria-live="polite">

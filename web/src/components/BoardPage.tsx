@@ -11,6 +11,7 @@ import { CloseIcon, PlusIcon } from "./Icons";
 type Props = {
   board: BoardItem[];
   onChange: (board: BoardItem[]) => void;
+  onRemove: (id: number) => void; // removed with an Undo
   onNote: () => void;
   onSection: () => void;
   pagePath: (page: string) => string | null;
@@ -21,7 +22,7 @@ type Props = {
 const FROM: Record<string, string> = { data: "Data", analyses: "Analyses", model: "Model", assistant: "Magonia" };
 
 // The research board: findings pinned from anywhere, as they were when pinned, with notes
-export default function BoardPage({ board, onChange, onNote, onSection, pagePath, live }: Props) {
+export default function BoardPage({ board, onChange, onRemove, onNote, onSection, pagePath, live }: Props) {
   const update = (id: number, change: Partial<BoardItem>) => onChange(board.map((b) => (b.id === id ? { ...b, ...change } : b)));
 
   return (
@@ -82,14 +83,14 @@ export default function BoardPage({ board, onChange, onNote, onSection, pagePath
                 <Section
                   b={b}
                   update={(change) => update(b.id, change)}
-                  remove={() => onChange(board.filter((x) => x.id !== b.id))}
+                  remove={() => onRemove(b.id)}
                 />
               ) : (() => {
                 const card = b.source
                   ? live(
                       b,
                       (change) => update(b.id, change),
-                      () => onChange(board.filter((x) => x.id !== b.id)),
+                      () => onRemove(b.id),
                     )
                   : null;
                 return card ? (
@@ -107,7 +108,7 @@ export default function BoardPage({ board, onChange, onNote, onSection, pagePath
                       <button
                         className="link"
                         aria-label={`Unpin ${b.title}`}
-                        onClick={() => onChange(board.filter((x) => x.id !== b.id))}
+                        onClick={() => onRemove(b.id)}
                       >
                         Unpin
                       </button>
@@ -119,7 +120,7 @@ export default function BoardPage({ board, onChange, onNote, onSection, pagePath
               <Item
                 b={b}
                 update={(change) => update(b.id, change)}
-                remove={() => onChange(board.filter((x) => x.id !== b.id))}
+                remove={() => onRemove(b.id)}
                 pagePath={pagePath}
               />
               )}

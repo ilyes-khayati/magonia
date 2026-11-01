@@ -1,14 +1,18 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMatch, useNavigate } from "react-router";
 import {
   createArea,
   createWorkspace,
   deleteArea,
+  deleteWorkspace,
+  deleteWorkspaceForever,
   earthEngineStatus,
   fetchCatalogue,
   listWorkspaces,
   openWorkspace,
   renameArea,
+  restoreArea,
+  restoreWorkspace,
   updateWorkspace,
   type Area,
   type EarthEngineStatus,
@@ -43,12 +47,24 @@ import Rail from "./components/Rail";
 import Sidebar from "./components/Sidebar";
 import Toolbar from "./components/Toolbar";
 import TopBar from "./components/TopBar";
+import UndoBar from "./components/UndoBar";
 import { PAGES, isPage, pagePath, type Page } from "./pages";
 import { DEFAULTS, readSettings, seriesKey, seriesOptions, variableTitle, type Settings } from "./settings";
 import { applyTheme, areaColour, initialTheme, type Theme } from "./theme";
+import { removeFrom, restoreAt, type Removed, type Undo } from "./undo";
 import { useSeries } from "./useSeries";
 
 type Message = { text: string; error?: boolean } | null;
+
+// The workspace as it is now, for undoing a removal made earlier
+type Latest = {
+  analyses: Analysis[];
+  experiments: Experiment[];
+  board: BoardItem[];
+  changeAnalyses: (next: Analysis[]) => void;
+  changeExperiments: (next: Experiment[]) => void;
+  changeBoard: (next: BoardItem[]) => void;
+};
 
 const LAST_WORKSPACE = "magonia-workspace";
 
@@ -125,6 +141,7 @@ export default function App() {
   const [earthEngine, setEarthEngine] = useState<EarthEngineStatus | null>(null);
   const [setupOpen, setSetupOpen] = useState(false);
   const [focus, setFocus] = useState(false);
+  const [undo, setUndo] = useState<Undo | null>(null);
   const saving = useRef<number | undefined>(undefined);
 
   // The address names the workspace and the page: /workspaces/<id>/<page>
@@ -171,8 +188,18 @@ export default function App() {
     return () => window.clearTimeout(timer);
   }, [message]);
 
-  const fail = (error: unknown) =>
-    setMessage({ text: error instanceof Error ? error.message : String(error), error: true });
+  const fail = useCallback(
+    (error: unknown) => setMessage({ text: error instanceof Error ? error.message : String(error), error: true }),
+    [],
+  );
+
+  // What was removed, offered back from the bar at the foot of the page. An undo runs later
+  // than the removal, so it acts on the workspace as it is then, through `latest`.
+  const latest = useRef<Latest | null>(null);
+  function offer(text: string, run: () => void | Promise<void>, everywhere = false) {
+    setUndo({ key: Date.now(), text, run, workspace: everywhere ? null : workspaceId });
+  }
+  const clearUndo = useCallback(() => setUndo(null), []);
 
   function show(id: number, workspace: Workspace) {
     setWorkspaceId(id);
@@ -227,7 +254,7 @@ export default function App() {
     return () => {
       current = false;
     };
-  }, [routed, valid, page, workspaces, workspaceId, navigate]);
+  }, [routed, valid, page, workspaces, workspaceId, navigate, fail]);
 
   async function newWorkspace() {
     try {
@@ -299,6 +326,43 @@ export default function App() {
     try {
       await deleteArea(area.id);
       setAreas(areas.filter((a) => a.id !== area.id));
+      offer(`${area.name} deleted`, async () => {
+        const back = await restoreArea(area.id);
+        setAreas((now) => [...now.filter((a) => a.id !== back.id), back].sort((a, b) => a.id - b.id));
+      });
+    } catch (error) {
+      fail(error);
+    }
+  }
+
+  // A deleted workspace waits in Recently deleted; another one opens meanwhile
+  async function removeWorkspace(id: number) {
+    const gone = workspaces.find((w) => w.id === id);
+    try {
+      await deleteWorkspace(id);
+      let rest = workspaces.filter((w) => w.id !== id);
+      if (!rest.length) rest = [await createWorkspace("My workspace")];
+      setWorkspaces(rest);
+      if (id === workspaceId) navigate(pagePath(rest[0].id, page));
+      offer(
+        `${gone?.name ?? "Workspace"} moved to Recently deleted`,
+        () => bringBack(id),
+        true,
+      );
+    } catch (error) {
+      fail(error);
+    }
+  }
+
+  async function bringBack(id: number) {
+    const back = await restoreWorkspace(id);
+    setWorkspaces((now) => [back, ...now.filter((w) => w.id !== id)]);
+    navigate(pagePath(id, page));
+  }
+
+  async function forget(id: number) {
+    try {
+      await deleteWorkspaceForever(id);
     } catch (error) {
       fail(error);
     }
@@ -355,6 +419,39 @@ export default function App() {
   function changeBoard(next: BoardItem[]) {
     setBoard(next);
     save({ board: next });
+  }
+
+  latest.current = { analyses, experiments, board, changeAnalyses, changeExperiments, changeBoard };
+
+  function removeAnalysis(id: number) {
+    const { rest, removed } = removeFrom(analyses, id);
+    if (!removed) return;
+    changeAnalyses(rest);
+    offer("Analysis removed", () => {
+      const now = latest.current!;
+      now.changeAnalyses(restoreAt(now.analyses, removed));
+    });
+  }
+
+  function removeExperiment(id: number) {
+    const { rest, removed } = removeFrom(experiments, id);
+    if (!removed) return;
+    changeExperiments(rest);
+    offer(`${removed.item.name} deleted`, () => {
+      const now = latest.current!;
+      now.changeExperiments(restoreAt(now.experiments, removed as Removed<Experiment>));
+    });
+  }
+
+  function removePin(id: number) {
+    const { rest, removed } = removeFrom(board, id);
+    if (!removed) return;
+    changeBoard(rest);
+    const what = removed.item.kind === "section" ? "Section" : removed.item.kind === "note" ? "Note" : "Pin";
+    offer(`${what} removed from the board`, () => {
+      const now = latest.current!;
+      now.changeBoard(restoreAt(now.board, removed));
+    });
   }
 
   // A card pinned to the board: drawn live there from its own copy of the card's choices. Its
@@ -574,6 +671,9 @@ export default function App() {
         onOpen={(id) => navigate(pagePath(id, page))}
         onNew={newWorkspace}
         onRename={renameWorkspace}
+        onDelete={removeWorkspace}
+        onRestore={(id) => bringBack(id).catch(fail)}
+        onForget={forget}
         earthEngine={earthEngine}
         onEarthEngine={() => setSetupOpen(true)}
         magonia={{
@@ -639,7 +739,7 @@ export default function App() {
             onChange={(id, update) =>
               changeAnalyses(analyses.map((a) => (a.id === id ? ({ ...a, ...update } as Analysis) : a)))
             }
-            onRemove={(id) => changeAnalyses(analyses.filter((a) => a.id !== id))}
+            onRemove={removeAnalysis}
             onReorder={changeAnalyses}
             onSettings={change}
             onPin={pinCard}
@@ -650,6 +750,7 @@ export default function App() {
           <BoardPage
             board={board}
             onChange={changeBoard}
+            onRemove={removePin}
             onNote={() => changeBoard(pin(board, { kind: "note", title: "Note", lines: [] }))}
             onSection={() => changeBoard(pin(board, { kind: "section", title: "New section", lines: [] }))}
             pagePath={(p) => (workspaceId === null || !isPage(p) ? null : pagePath(workspaceId, p))}
@@ -661,6 +762,7 @@ export default function App() {
           <ModelPage
             experiments={experiments}
             onChange={changeExperiments}
+            onRemove={removeExperiment}
             areas={shown}
             variables={catalogue}
             title={(v) => variableTitle(v, settings)}
@@ -673,6 +775,12 @@ export default function App() {
             onPin={pinCard}
           />
         )}
+
+        <UndoBar
+          undo={undo && (undo.workspace === null || undo.workspace === workspaceId) ? undo : null}
+          onDone={clearUndo}
+          onError={fail}
+        />
 
         {(hint || message) && (
           <p
@@ -711,6 +819,7 @@ export default function App() {
           onPropose={adopt}
           onPin={pinAnswer}
           onPinPassage={pinPassage}
+          onUndoable={(text, run) => offer(text, run)}
           loading={{
             opening: earthEngine === null || workspaceId === null,
             series: progress.total - progress.done - progress.failed,

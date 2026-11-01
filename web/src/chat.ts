@@ -1,4 +1,4 @@
-import type { AnswerDetails, ChatEvent, ChatMessage, CheckedNumber } from "./api";
+import type { AnswerDetails, ChatEvent, ChatMessage, CheckedNumber, Conversation } from "./api";
 
 // One message in the conversation as the chat panel shows it
 export type Turn = {
@@ -8,6 +8,14 @@ export type Turn = {
   status?: string; // what the assistant is doing right now, e.g. searching
   error?: string;
 };
+
+// What a conversation is called: its name, else its first question
+export function conversationTitle(c: Pick<Conversation, "title" | "first_question">): string {
+  if (c.title) return c.title;
+  const q = c.first_question?.trim();
+  if (!q) return "New conversation";
+  return q.length > 60 ? `${q.slice(0, 57).trimEnd()}…` : q;
+}
 
 export const fromSaved = (m: ChatMessage): Turn => ({ role: m.role, content: m.content, details: m.details ?? {} });
 

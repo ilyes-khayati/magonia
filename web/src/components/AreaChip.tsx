@@ -11,10 +11,9 @@ type Props = {
   onDelete: () => void;
 };
 
-// One area: click to show or hide it, double-click to rename, × twice to delete
+// One area: click to show or hide it, double-click to rename, × to delete (with an Undo)
 export default function AreaChip({ area, colour, hidden, onToggle, onRename, onDelete }: Props) {
   const [editing, setEditing] = useState(false);
-  const [confirming, setConfirming] = useState(false);
 
   function finish(name: string) {
     setEditing(false);
@@ -46,13 +45,8 @@ export default function AreaChip({ area, colour, hidden, onToggle, onRename, onD
           <span className="km2">{area.area_km2.toFixed(2)} km²</span>
         </button>
       )}
-      <button
-        className={confirming ? "remove confirm" : "remove"}
-        aria-label={confirming ? `Confirm deleting ${area.name}` : `Delete ${area.name}`}
-        onClick={() => (confirming ? onDelete() : setConfirming(true))}
-        onBlur={() => setConfirming(false)}
-      >
-        {confirming ? "Delete?" : <CloseIcon size={14} />}
+      <button className="remove" aria-label={`Delete ${area.name}`} title="Delete" onClick={onDelete}>
+        <CloseIcon size={14} />
       </button>
     </span>
   );

@@ -1982,3 +1982,194 @@ button:disabled {
 .tile-group .group-name {
   margin-bottom: 8px;
 }
+
+/* Undo, at the foot of the page, for whatever was just removed */
+.undo-bar {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 10px 8px 16px;
+  max-width: calc(100% - 32px);
+}
+
+.undo-bar .link {
+  font-weight: 600;
+}
+
+.workspaces .meta-button {
+  color: var(--muted);
+}
+
+.recently-deleted {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.recently-deleted > .meta {
+  padding: 0 10px;
+}
+
+.recently-deleted ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 280px;
+  overflow: auto;
+}
+
+.recently-deleted li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+
+.recently-deleted li .link {
+  padding: 2px 0;
+}
+
+.link.danger {
+  color: var(--danger);
+}
+
+.recently-deleted .link {
+  color: var(--accent);
+}
+
+.recently-deleted .link.danger {
+  color: var(--danger);
+}
+
+/* Mago's conversations in this workspace */
+.conversations-menu {
+  position: relative;
+  margin: -4px 0 4px;
+}
+
+.conversation-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 8px;
+  padding: 4px 6px;
+  margin-left: -6px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.conversation-name span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conversation-name:hover:not(:disabled) {
+  border-color: var(--line);
+}
+
+.conversations {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 20;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.conversations > button {
+  border: none;
+  background: transparent;
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: var(--ink);
+  text-align: left;
+}
+
+.conversations > button:hover,
+.conversations li:hover {
+  background: var(--ground);
+}
+
+.conversations hr {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 4px 0;
+}
+
+.conversations ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.conversations li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 8px;
+  padding-right: 4px;
+}
+
+.conversations li[aria-current="true"] .open span:first-child {
+  font-weight: 600;
+}
+
+.conversations li .open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  border: none;
+  background: transparent;
+  padding: 8px 10px;
+  color: var(--ink);
+  text-align: left;
+}
+
+.conversations li .open span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conversations li .link,
+.conversations li .icon-button {
+  opacity: 0;
+}
+
+.conversations li:hover .link,
+.conversations li:hover .icon-button,
+.conversations li:focus-within .link,
+.conversations li:focus-within .icon-button {
+  opacity: 1;
+}
+
+.conversations li form {
+  flex: 1;
+  padding: 4px;
+}
+
+.conversations li form .input {
+  width: 100%;
+}
+
+.conversations li .open .meta {
+  white-space: nowrap;
+}

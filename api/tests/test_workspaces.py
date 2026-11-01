@@ -19,6 +19,40 @@ def test_create_list_rename_delete(client):
     assert client.get(f"/workspaces/{workspace['id']}").status_code == 404
 
 
+def test_a_deleted_workspace_waits_in_recently_deleted(client):
+    workspace = make_workspace(client)
+    wid = workspace["id"]
+    client.patch(f"/workspaces/{wid}", json={"settings": {"board": [1]}})
+    client.delete(f"/workspaces/{wid}")
+
+    [deleted] = client.get("/workspaces", params={"deleted": True}).json()
+    assert deleted["name"] == "Jendouba" and deleted["deleted"]
+
+    restored = client.post(f"/workspaces/{wid}/restore").json()
+    assert restored["deleted"] is None
+    assert client.get(f"/workspaces/{wid}").json()["settings"] == {"board": [1]}
+    assert client.get("/workspaces", params={"deleted": True}).json() == []
+
+
+def test_only_a_deleted_workspace_can_be_deleted_forever(client):
+    wid = make_workspace(client)["id"]
+    assert client.delete(f"/workspaces/{wid}", params={"forever": True}).status_code == 404
+    client.delete(f"/workspaces/{wid}")
+    assert client.delete(f"/workspaces/{wid}", params={"forever": True}).status_code == 204
+    assert client.post(f"/workspaces/{wid}/restore").status_code == 404
+
+
+def test_what_was_deleted_long_ago_is_purged(tmp_path):
+    from api.store import Store
+
+    store = Store(tmp_path / "m.db")
+    wid = store.create_workspace("old")["id"]
+    store.execute(
+        "UPDATE workspaces SET deleted = '2020-01-01T00:00:00+00:00' WHERE id = ?", (wid,)
+    )
+    assert Store(tmp_path / "m.db").workspace(wid, deleted=True) is None
+
+
 def test_areas_are_validated_measured_and_named(client):
     workspace = make_workspace(client)
     url = f"/workspaces/{workspace['id']}/areas"
@@ -38,6 +72,12 @@ def test_areas_are_validated_measured_and_named(client):
 
     assert client.delete(f"/areas/{area['id']}").status_code == 204
     assert client.get(url).json() == []
+
+    # deleted areas can be restored, until a new area takes the name
+    assert client.post(f"/areas/{area['id']}/restore").json()["name"] == "olive"
+    client.delete(f"/areas/{area['id']}")
+    client.post(url, json={"name": "olive", "geometry": SQUARE})
+    assert client.post(f"/areas/{area['id']}/restore").status_code == 404
 
 
 def test_job_on_a_saved_area(client):
@@ -79,10 +119,12 @@ def test_reopening_restores_everything_without_recomputing(client, earth_engine)
     assert earth_engine.calls == calls  # nothing was recomputed
 
 
-def test_deleting_a_workspace_deletes_its_areas(client, store):
+def test_deleting_a_workspace_forever_deletes_its_areas(client, store):
     workspace = make_workspace(client)
     client.post(f"/workspaces/{workspace['id']}/areas", json={"name": "a", "geometry": SQUARE})
     client.delete(f"/workspaces/{workspace['id']}")
+    assert len(store.rows("SELECT * FROM areas")) == 1  # kept while it can be restored
+    client.delete(f"/workspaces/{workspace['id']}", params={"forever": True})
     assert store.rows("SELECT * FROM areas") == []
 
 
