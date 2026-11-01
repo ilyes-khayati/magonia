@@ -22,6 +22,6 @@ An invented reference cannot reach the researcher as a citation, whatever the
 model, and the guarantee is tested without a model (`test_citations.py`,
 `test_agent.py`). The check proves that a cited paper was retrieved, not that it
 supports the sentence; that needs reading the passage, which comes with full
-text (1.4) and is measured in the evaluation (`scripts/evaluate_assistant.py`).
+text (1.4) and is measured in the evaluation (`engine/evaluation/`).
 Numbered citations are less readable than author–year ones, so the interface
 shows the author and year beside each number.
