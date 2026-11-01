@@ -50,6 +50,12 @@ def month_of(date: str) -> int:
     return int(date[:4]) * 12 + int(date[5:7]) - 1
 
 
+def titled(analysis: dict, card: str) -> str:
+    """A card's label, with the name the researcher gave it: Trend 2 "Drought years"."""
+    name = (analysis.get("name") or "").strip()
+    return f'{card} "{name}"' if name else card
+
+
 def label(month: int) -> str:
     return f"{month // 12}-{month % 12 + 1:02d}"
 
@@ -485,14 +491,18 @@ class View:
             if analysis.get("kind") == "decomposition":
                 for area in areas:
                     if s := self.find(area, analysis["variable"], "native"):
-                        facts.extend(decomposition_facts(f"Decomposition {n}: {s.title}", s))
+                        facts.extend(
+                            decomposition_facts(
+                                f"{titled(analysis, f'Decomposition {n}')}: {s.title}", s
+                            )
+                        )
                 continue
             if analysis.get("kind") == "phenology":
                 from engine.phenology import PhenologyError, phenology
 
                 for area in areas:
                     if s := self.find(area, "ndvi", "native"):
-                        card = f"Season dates {n}: {s.title}"
+                        card = f"{titled(analysis, f'Season dates {n}')}: {s.title}"
                         try:
                             found = phenology(s.area, s.title, s.key, s.points)
                         except PhenologyError as exc:
@@ -506,7 +516,7 @@ class View:
 
                 for area in areas:
                     if s := self.find(area, analysis["variable"]):
-                        card = f"Trend {n}: {s.title}"
+                        card = f"{titled(analysis, f'Trend {n}')}: {s.title}"
                         found = trend(s.area, s.title, s.key, s.units, s.points)
                         facts += [Fact(card, line) for line in found.summary]
                         facts += caution_facts(card, found.cautions)
@@ -516,7 +526,7 @@ class View:
                     response = self.find(area, analysis["response"])
                     drivers = [d for k in analysis.get("drivers", []) if (d := self.find(area, k))]
                     if response:
-                        card = f"Lags {n}: {response.title}"
+                        card = f"{titled(analysis, f'Lags {n}')}: {response.title}"
                         facts.extend(
                             lag_facts(card, response, drivers, analysis.get("deseasonalise", True))
                         )
@@ -527,7 +537,7 @@ class View:
                 response = self.find(area, analysis["response"])
                 driver = self.find(area, analysis["driver"])
                 if response and driver:
-                    card = f"Correlation {n}: {response.title} and {driver.title}"
+                    card = f"{titled(analysis, f'Correlation {n}')}: {response.title} and {driver.title}"
                     kept = analysis.get("deseasonalise", True)
                     facts.append(correlation_fact(card, response, driver, kept))
                     facts += caution_facts(card, correlation_cautions(response, driver, kept))

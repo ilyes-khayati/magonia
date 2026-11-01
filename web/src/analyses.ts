@@ -3,26 +3,29 @@ import type { VariableKey } from "./api";
 // The analyses a researcher adds to a workspace. Each kind has its own options; a new kind
 // is a new member of the union, an entry in KINDS and a card for the Analyses page.
 
-export type Correlation = {
+// The researcher's own name for an analysis, shown instead of its kind's
+type Named = { name?: string };
+
+export type Correlation = Named & {
   kind: "correlation";
   response: VariableKey;
   driver: VariableKey;
   deseasonalise: boolean;
 };
 
-export type Decomposition = {
+export type Decomposition = Named & {
   kind: "decomposition";
   variable: VariableKey;
 };
 
-export type Trend = {
+export type Trend = Named & {
   kind: "trend";
   variable: VariableKey;
 };
 
-export type Phenology = { kind: "phenology" }; // always NDVI, the greenness of vegetation
+export type Phenology = Named & { kind: "phenology" }; // always NDVI, the greenness of vegetation
 
-export type Lags = {
+export type Lags = Named & {
   kind: "lags";
   response: VariableKey;
   drivers: VariableKey[];
@@ -130,6 +133,16 @@ export const variablesOf = (analysis: Analysis): VariableKey[] => needsOf(analys
 export function addAnalysis(analyses: Analysis[], kind: Kind, chosen: VariableKey[]): Analysis[] {
   const id = Math.max(0, ...analyses.map((a) => a.id)) + 1;
   return [...analyses, { id, ...KINDS.find((k) => k.kind === kind)!.create(chosen) }];
+}
+
+// A copy placed right after the original, to change one thing and compare
+export function duplicateAnalysis(analyses: Analysis[], id: number): Analysis[] {
+  const index = analyses.findIndex((a) => a.id === id);
+  if (index < 0) return analyses;
+  const original = analyses[index];
+  const name = `${original.name ?? KINDS.find((k) => k.kind === original.kind)!.label} (copy)`;
+  const copy: Analysis = { ...structuredClone(original), id: Math.max(0, ...analyses.map((a) => a.id)) + 1, name };
+  return [...analyses.slice(0, index + 1), copy, ...analyses.slice(index + 1)];
 }
 
 // Saved analyses of a kind this version does not know are dropped

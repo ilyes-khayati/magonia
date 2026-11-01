@@ -1,3 +1,4 @@
+import CardTitle from "./CardTitle";
 import {
   CartesianGrid,
   Line,
@@ -62,7 +63,7 @@ export default function CorrelationCard({ analysis, onChange, onRemove, variable
     <section className="card" aria-label="Correlation chart">
       <div className="card-head">
         <div>
-          <h3>Correlation</h3>
+          <CardTitle name={analysis.name} fallback="Correlation" onRename={(name) => onChange({ name })} />
           <span className="meta">Monthly means · {name(driver)} leading {name(response)} by 0–12 months</span>
         </div>
         <button className="icon-button" aria-label="Remove this analysis" title="Remove this analysis" onClick={onRemove}>

@@ -573,6 +573,29 @@ test("a trend card tests the annual means and warns about short records", async 
   expect(results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? "")).map((v) => v.id)).toEqual([]);
 });
 
+test("an analysis can be duplicated and renamed, and keeps its name", async ({ page }) => {
+  await page.getByTestId("upload").setInputFiles({
+    name: "fields.geojson",
+    mimeType: "application/geo+json",
+    buffer: Buffer.from(JSON.stringify(SQUARE)),
+  });
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Analyses" }).click();
+  await page.getByRole("region", { name: "Suggested analyses" }).getByRole("button", { name: /rising or falling/ }).click();
+  await page.getByRole("button", { name: "Duplicate Long-term trend" }).click();
+  const cards = page.getByRole("region", { name: "Trend chart" });
+  await expect(cards).toHaveCount(2);
+  await expect(cards.nth(1).getByRole("heading", { name: "Long-term trend (copy)" })).toBeVisible();
+
+  await cards.nth(0).getByRole("heading", { name: "Long-term trend" }).dblclick();
+  await page.getByRole("textbox", { name: "New name for Long-term trend" }).fill("Drought years");
+  await page.getByRole("textbox", { name: "New name for Long-term trend" }).press("Enter");
+  await expect(cards.nth(0).getByRole("heading", { name: "Drought years" })).toBeVisible();
+  await page.waitForTimeout(700); // saving waits half a second after the last change
+  await page.reload();
+  await expect(cards.nth(0).getByRole("heading", { name: "Drought years" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Duplicate Drought years" })).toBeVisible();
+});
+
 test("season dates are found from NDVI at its own time step", async ({ page }) => {
   await page.getByTestId("upload").setInputFiles({
     name: "fields.geojson",

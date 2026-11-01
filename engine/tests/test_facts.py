@@ -120,6 +120,13 @@ def test_correlation_facts_name_their_card_and_direction():
     assert fact.values[0] < -0.6
 
 
+def test_an_analysis_the_researcher_named_is_called_by_that_name():
+    view = correlated_view()
+    view.analyses[0]["name"] = "Heat and greenness"
+    cards = view.cards()
+    assert 'Correlation 1 "Heat and greenness": NDVI and LST' in cards
+
+
 def test_the_sheet_groups_facts_under_their_cards():
     sheet = correlated_view().sheet()
     assert sheet.startswith("What is open in Magonia now")

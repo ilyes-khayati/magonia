@@ -1,3 +1,4 @@
+import CardTitle from "./CardTitle";
 import { useMemo } from "react";
 import {
   Bar,
@@ -76,7 +77,7 @@ export default function LagsCard(props: Props) {
     <section className="card" aria-label="Lags chart">
       <div className="card-head">
         <div>
-          <h3>Memory and lags</h3>
+          <CardTitle name={analysis.name} fallback="Memory and lags" onRename={(name) => onChange({ name })} />
           <span className="meta">
             {name(analysis.response)} {analysis.deseasonalise ? "anomalies" : "values"} against their own past and
             their drivers&apos;, 1 to 12 months earlier
