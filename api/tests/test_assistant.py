@@ -164,6 +164,23 @@ def test_the_model_sees_the_earlier_conversation(client, model):
     ]
 
 
+def test_a_follow_up_is_given_the_papers_cited_before(client, library):
+    model = Scripted(
+        ToolCall("search_papers", {"query": "olive drought"}),
+        "Drought lowers olive NDVI [1].",
+        "That study was in Tunisia [1].",
+    )
+    main.app.dependency_overrides[main.get_provider] = lambda: model
+    c = conversation(client)
+    client.post(f"/conversations/{c}/chat", json={"content": "Drought and olives?"})
+    got = events(client.post(f"/conversations/{c}/chat", json={"content": "Where was it?"}))
+
+    # the earlier answer reads with names, and its paper can be cited again as [1]
+    assert "Drought lowers olive NDVI (Sghaier, 2022)." in [m["content"] for m in model.seen]
+    assert next(e for e in got if e["type"] == "papers")["papers"][0]["short"] == "Sghaier, 2022"
+    assert got[-1]["cited"] == [1] and got[-1]["removed"] == []
+
+
 def test_conversations_are_listed_named_and_kept_apart(client, model):
     ws = workspace(client)
     first, second = conversation(client, ws), conversation(client, ws)
@@ -301,7 +318,7 @@ def test_the_model_reads_the_open_workspace_from_the_cache(client, model, store)
     assert got[1] == {"type": "view", "cards": ["NDVI chart"]}
     question = model.seen[-1]["content"]
     assert question.endswith("The researcher asks: When does it peak?")
-    assert "The researcher is on the charts page." in question
+    assert 'The researcher is in the workspace "Jendouba", on the charts page.' in question
     assert (
         "Areas: Orchard (" in question and "Period 2020-01 to 2021-12, monthly values" in question
     )

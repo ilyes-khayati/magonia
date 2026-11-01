@@ -130,6 +130,15 @@ class Library:
         with ThreadPoolExecutor(max_workers=6) as pool:
             return dict(zip([p.id for p in papers], pool.map(self.add, papers), strict=True))
 
+    def opening(self, paper_id: str) -> tuple[int, str] | None:
+        """The first passage of a paper, with its page."""
+        with self.connect() as db:
+            row = db.execute(
+                "SELECT page, text FROM passages WHERE paper = ? ORDER BY n LIMIT 1",
+                (paper_id,),
+            ).fetchone()
+        return (row[0], row[1]) if row else None
+
     def best(
         self, question: str, papers: dict[int, Paper], keep: int = 12, per_paper: int = 3
     ) -> list[Found]:
@@ -239,6 +248,29 @@ class Uploads:
             )
             for u in self.all()
         ]
+
+    def asked_about(
+        self, question: str, files: list[dict], first: int, keep: int = 2
+    ) -> tuple[list[Paper], list[Found]]:
+        """Files the question is about, numbered from first, with their passages that answer it
+        best and their opening passage, which usually says what the file is. No similarity
+        threshold: the researcher asked for these files. Of many, the closest few are kept."""
+        wanted = {f["id"] for f in files}
+        mine = [p for p in self.papers() if p.id in wanted]
+        if not mine:
+            return [], []
+        numbered = {first + i: p for i, p in enumerate(mine)}
+        found = self.library.best(question, numbered, keep=OWN * len(mine), per_paper=OWN)
+        kept = list(dict.fromkeys(f.n for f in found))[:keep] or list(numbered)[:keep]
+        chosen = [f for f in found if f.n in kept][: OWN + 1]
+        for n in kept:  # the opening passage, unless it was chosen already
+            opening = self.library.opening(numbered[n].id)
+            if opening and not any(f.n == n and f.text == opening[1] for f in chosen):
+                chosen.insert(0, Found(n, opening[0], opening[1], 1.0))
+        renumber = {old: first + i for i, old in enumerate(kept)}
+        for f in chosen:
+            f.n = renumber[f.n]
+        return [numbered[old] for old in kept], chosen
 
     def relevant(self, question: str, first: int) -> tuple[list[Paper], list[Found]]:
         """The files that speak to the question, numbered from first, and their passages."""
