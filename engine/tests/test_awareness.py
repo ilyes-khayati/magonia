@@ -173,6 +173,10 @@ def test_a_question_about_an_uploaded_paper_reads_it_without_searching(tmp_path)
     assert passages["passages"][0]["text"].startswith("Abstract.")  # its opening is given
     system = model.seen[0]["content"]
     assert "holds 1 file:" in system and "sfax drought (sfax_drought.pdf, 2 pages" in system
+    # its passages come right before the question, not at the end of the rules
+    asked = model.seen[-1]["content"]
+    assert "18 percent" not in system
+    assert asked.index("18 percent") < asked.index("The researcher asks: What are the key")
     assert events[-1]["text"] == "Your paper found an 18 percent fall [1, p. 1]."
 
 
