@@ -127,8 +127,21 @@ def month(text: str, end: bool) -> str:
     return f"{m[1]}-{m[2] or ('12' if end else '01')}"
 
 
-def proposal(arguments: dict, areas: list[str]) -> dict:
-    """The proposal, checked and in the interface's terms."""
+def named(text: str) -> list[str]:
+    """The variables a message names, each once: "air temperature" is not also LST."""
+    text = text.lower()
+    found = []
+    for w, key in sorted(((w, k) for k, ws in WORDS.items() for w in ws), key=lambda p: -len(p[0])):
+        pattern = rf"\b{re.escape(w)}\w*"
+        if re.search(pattern, text):
+            found.append(key)
+            text = re.sub(pattern, " ", text)
+    return list(dict.fromkeys(found))
+
+
+def proposal(arguments: dict, areas: list[str], question: str = "") -> dict:
+    """The proposal, checked and in the interface's terms. A one-variable analysis of the one
+    variable the question names is of that variable, whatever the model wrote (measured, a01)."""
     kind = str(arguments.get("kind", "")).lower().strip()
     kind = ALIASES.get(kind, kind)
     if kind not in KINDS:
@@ -146,6 +159,8 @@ def proposal(arguments: dict, areas: list[str]) -> dict:
 
     if kind in ("correlation", "decomposition", "trend", "lags", "experiment"):
         out["variable"] = variable("variable", arguments.get("variable") or "ndvi")
+    if kind in ("decomposition", "trend") and len(asked := named(question)) == 1:
+        out["variable"] = asked[0]
     if kind == "phenology":
         out["variable"] = "ndvi"
     if kind == "correlation":
