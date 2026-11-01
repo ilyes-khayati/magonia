@@ -1,3 +1,4 @@
+import { useReader, whereToRead } from "../reader";
 import { type CheckedNumber, type PaperCard, type PassageCard, type ReadStatus, type SupportCheck } from "../api";
 import { answerParts, styled, type Turn } from "../chat";
 
@@ -39,6 +40,7 @@ function Num({ n }: { n: CheckedNumber }) {
 // and each checked number marked
 export function AnswerText(props: { text: string; papers: PaperCard[]; numbers?: CheckedNumber[]; anchor: string }) {
   const { text, papers, numbers, anchor } = props;
+  const read = useReader();
   return (
     <>
       {styled(answerParts(text, numbers)).map((part, i) => {
@@ -55,9 +57,15 @@ export function AnswerText(props: { text: string; papers: PaperCard[]; numbers?:
                 return (
                   <a
                     key={n}
-                    className="cite"
+                    className={page && paper && read && whereToRead(paper, page) ? "cite readable" : "cite"}
                     href={`#${anchor}-${n}`}
-                    title={paper ? `${paper.short}. ${paper.title}${page ? `, p. ${page}` : ""}` : undefined}
+                    title={paper ? `${paper.short}. ${paper.title}${page ? `, p. ${page} (click to open it there)` : ""}` : undefined}
+                    onClick={(e) => {
+                      // a cited page opens the paper at that page; a plain citation goes to the source below
+                      if (!page || !paper || !read || !whereToRead(paper, page)) return;
+                      e.preventDefault();
+                      read(paper, page);
+                    }}
                   >
                     {n}
                     {page && <span className="cite-page">p. {page}</span>}
@@ -84,6 +92,8 @@ type PaperProps = {
 
 function Paper({ paper, anchor, read, passages, onPinPassage }: PaperProps) {
   const link = paper.doi ? `https://doi.org/${paper.doi}` : paper.open_access_url;
+  const open = useReader();
+  const readable = open && whereToRead(paper, 1);
   return (
     <li id={`${anchor}-${paper.n}`} className="paper">
       <span className="cite">{paper.n}</span>
@@ -116,6 +126,14 @@ function Paper({ paper, anchor, read, passages, onPinPassage }: PaperProps) {
             {passages.map((p, k) => (
               <blockquote key={k} className="passage">
                 <span className="meta">Page {p.page}</span> {p.text}
+                {readable && (
+                  <>
+                    {" "}
+                    <button className="link" aria-label={`Open ${paper.short} at page ${p.page}`} onClick={() => open(paper, p.page)}>
+                      Open
+                    </button>
+                  </>
+                )}
                 {onPinPassage && (
                   <>
                     {" "}

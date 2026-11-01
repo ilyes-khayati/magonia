@@ -75,3 +75,32 @@ def test_magonia_cites_the_researchers_files_and_follows_their_instructions(tmp_
     check = events[-1]
     assert check["cited"] == [1] and check["pages_removed"] == []
     assert check["support"][0]["status"] == "supported"
+
+
+def test_the_pdf_is_kept_once_by_its_content_and_can_be_restored(mine):
+    pdf = make_pdf([FIELD])
+    first = mine.add("survey.pdf", pdf)
+    second = mine.add("survey copy.pdf", pdf)
+    assert first["pdf"] and second["pdf"]
+    kept = list(mine.library.files.iterdir())
+    assert len(kept) == 1 and kept[0].read_bytes() == pdf  # the same bytes are stored once
+    assert mine.pdf("U1") == kept[0]
+
+    mine.remove("U1")
+    assert [u["id"] for u in mine.all()] == ["U2"]
+    assert [p.id for p in mine.papers()] == ["U2"]  # a removed file is not given to Mago
+    assert mine.restore("U1")["title"] == "survey"
+    assert [u["id"] for u in mine.all()] == ["U1", "U2"]
+
+
+def test_a_file_removed_long_ago_is_deleted_for_good(tmp_path):
+    shelf = Library(tmp_path / "library.db")
+    mine = Uploads(shelf)
+    mine.add("survey.pdf", make_pdf([FIELD]))
+    mine.remove("U1")
+    with shelf.connect() as db:
+        db.execute("UPDATE uploads SET deleted = '2020-01-01 00:00:00'")
+    Library(tmp_path / "library.db")  # opening the library purges
+    assert list(shelf.files.iterdir()) == []
+    with pytest.raises(KeyError):
+        mine.restore("U1")

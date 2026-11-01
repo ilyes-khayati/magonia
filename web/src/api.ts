@@ -329,6 +329,7 @@ export type PaperCard = {
   doi: string | null;
   abstract: string | null;
   open_access_url: string | null;
+  pdf_url?: string | null; // the open-access PDF itself
   cited_by: number;
   countries: string[];
   relevance?: number | null; // how well it answers the question, from the ranking
@@ -451,10 +452,18 @@ export type ChatEvent =
   | { type: "passages"; passages: PassageCard[]; read: Record<string, ReadStatus> };
 
 // The researcher's library: their own PDFs, which Magonia reads and cites like papers
-export type LibraryFile = { id: string; title: string; filename: string; added: string; pages: number };
+export type LibraryFile = {
+  id: string;
+  title: string;
+  filename: string;
+  added: string;
+  pages: number;
+  pdf?: boolean; // whether the PDF itself is kept, to read it in Magonia
+};
 
 export const listFiles = () => call<LibraryFile[]>("/library");
 export const removeFile = (id: string) => call<void>(`/library/${id}`, send("DELETE"));
+export const restoreFile = (id: string) => call<LibraryFile>(`/library/${id}/restore`, send("POST"));
 export function addFile(file: File) {
   const body = new FormData();
   body.append("file", file);

@@ -10,8 +10,13 @@ To answer a question, the question is embedded the same way and compared with ev
 of the papers found; the closest ones, at most a few per paper so one long paper cannot fill
 the answer, go to the model with their page numbers. Without an embedding model, passages
 are compared by the words they share with the question.
+
+The researcher's own PDFs are kept too, beside the database in files/, named by the SHA-256 of
+their bytes: the same file added twice is stored once, and a citation can open the page it
+cites. A removed file waits 30 days before it is deleted for good, so that it can be restored.
 """
 
+import hashlib
 import os
 import sqlite3
 from collections.abc import Callable
@@ -60,6 +65,9 @@ class Found:
         return {"n": self.n, "page": self.page, "text": self.text}
 
 
+KEEP_REMOVED_DAYS = 30
+
+
 class Library:
     def __init__(
         self,
@@ -68,10 +76,31 @@ class Library:
         reader: Callable[[str], list[Passage]] = read,
     ):
         self.path = str(path)
+        self.files = Path(self.path).parent / "files"  # the researcher's PDFs, by content hash
         self.embed = embed
         self.reader = reader  # replaced in tests
         with self.connect() as db:
             db.executescript(SCHEMA)
+            columns = {row[1] for row in db.execute("PRAGMA table_info(uploads)")}
+            for column in ("sha", "deleted"):  # keeping files and restoring them, added in 1.5
+                if column not in columns:
+                    db.execute(f"ALTER TABLE uploads ADD COLUMN {column} TEXT")
+        self.purge()
+
+    def purge(self) -> None:
+        """Delete for good the files removed more than 30 days ago."""
+        with self.connect() as db:
+            old = db.execute(
+                "SELECT id, sha FROM uploads WHERE deleted < datetime('now', ?)",
+                (f"-{KEEP_REMOVED_DAYS} days",),
+            ).fetchall()
+            for upload_id, _ in old:
+                for table, column in (("passages", "paper"), ("papers", "id"), ("uploads", "id")):
+                    db.execute(f"DELETE FROM {table} WHERE {column} = ?", (upload_id,))
+            for _, sha in old:
+                kept = db.execute("SELECT 1 FROM uploads WHERE sha = ?", (sha,)).fetchone()
+                if sha and not kept:
+                    (self.files / f"{sha}.pdf").unlink(missing_ok=True)
 
     def connect(self) -> sqlite3.Connection:
         return sqlite3.connect(self.path, timeout=30)
@@ -195,6 +224,11 @@ class Uploads:
         upload_id = f"U{number}"
         vectors = lib.vectors([p.text for p in found], "search_document")
         name = title or Path(filename).stem.replace("_", " ")
+        sha = hashlib.sha256(pdf).hexdigest()
+        lib.files.mkdir(parents=True, exist_ok=True)
+        kept = lib.files / f"{sha}.pdf"
+        if not kept.exists():
+            kept.write_bytes(pdf)
         with lib.connect() as db:
             db.executemany(
                 "INSERT INTO passages VALUES (?, ?, ?, ?, ?)",
@@ -205,30 +239,57 @@ class Uploads:
             )
             db.execute("INSERT INTO papers VALUES (?, 'read', ?, NULL)", (upload_id, "uploaded"))
             db.execute(
-                "INSERT INTO uploads VALUES (?, ?, ?, datetime('now'), ?)",
-                (upload_id, name, filename, len(texts)),
+                "INSERT INTO uploads (id, title, filename, added, pages, sha) "
+                "VALUES (?, ?, ?, datetime('now'), ?, ?)",
+                (upload_id, name, filename, len(texts), sha),
             )
         return {**self.get(upload_id), "passages": len(found)}
 
-    def get(self, upload_id: str) -> dict:
+    def get(self, upload_id: str, removed: bool = False) -> dict:
+        """A file of the library, with whether its PDF is kept; a removed one only if asked."""
         with self.library.connect() as db:
             row = db.execute(
-                "SELECT id, title, filename, added, pages FROM uploads WHERE id = ?", (upload_id,)
+                "SELECT id, title, filename, added, pages, sha FROM uploads "
+                "WHERE id = ? AND (deleted IS NULL OR ?)",
+                (upload_id, removed),
             ).fetchone()
         if row is None:
             raise KeyError(upload_id)
-        return dict(zip(("id", "title", "filename", "added", "pages"), row, strict=True))
+        found = dict(zip(("id", "title", "filename", "added", "pages"), row[:5], strict=True))
+        return {**found, "pdf": bool(row[5]) and (self.library.files / f"{row[5]}.pdf").exists()}
 
     def all(self) -> list[dict]:
         with self.library.connect() as db:
-            ids = [r[0] for r in db.execute("SELECT id FROM uploads ORDER BY added, id")]
+            ids = [
+                r[0]
+                for r in db.execute(
+                    "SELECT id FROM uploads WHERE deleted IS NULL ORDER BY added, id"
+                )
+            ]
         return [self.get(i) for i in ids]
 
     def remove(self, upload_id: str) -> None:
+        """Remove a file from the library; it can be restored for 30 days."""
         self.get(upload_id)
         with self.library.connect() as db:
-            for table, column in (("passages", "paper"), ("papers", "id"), ("uploads", "id")):
-                db.execute(f"DELETE FROM {table} WHERE {column} = ?", (upload_id,))
+            db.execute("UPDATE uploads SET deleted = datetime('now') WHERE id = ?", (upload_id,))
+
+    def restore(self, upload_id: str) -> dict:
+        self.get(upload_id, removed=True)
+        with self.library.connect() as db:
+            db.execute("UPDATE uploads SET deleted = NULL WHERE id = ?", (upload_id,))
+        return self.get(upload_id)
+
+    def pdf(self, upload_id: str) -> Path | None:
+        """The kept PDF of a file, if there is one (files added before 1.5 were not kept)."""
+        with self.library.connect() as db:
+            row = db.execute(
+                "SELECT sha FROM uploads WHERE id = ? AND deleted IS NULL", (upload_id,)
+            ).fetchone()
+        if row is None:
+            raise KeyError(upload_id)
+        path = self.library.files / f"{row[0]}.pdf" if row[0] else None
+        return path if path and path.exists() else None
 
     def papers(self) -> list[Paper]:
         """Each file as a paper, named by its title, to be cited like the papers found."""

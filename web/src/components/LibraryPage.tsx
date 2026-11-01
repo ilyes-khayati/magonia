@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { addFile, getInstructions, listFiles, removeFile, setInstructions, type LibraryFile } from "../api";
+import { addFile, getInstructions, listFiles, removeFile, restoreFile, setInstructions, type LibraryFile, type PaperCard } from "../api";
+import { useReader } from "../reader";
 import { CloseIcon, UploadIcon } from "./Icons";
 
 const EXAMPLES = [
@@ -10,7 +11,13 @@ const EXAMPLES = [
 
 // The researcher's library: their own PDFs, which Magonia reads and cites like the papers it
 // finds, and their instructions for how Magonia should answer in this workspace
-export default function LibraryPage({ workspaceId }: { workspaceId: number }) {
+type Props = {
+  workspaceId: number;
+  onUndoable?: (text: string, undo: () => Promise<void>) => void; // offer to bring a file back
+};
+
+export default function LibraryPage({ workspaceId, onUndoable }: Props) {
+  const read = useReader();
   const [files, setFiles] = useState<LibraryFile[] | null>(null);
   const [busy, setBusy] = useState<string[]>([]); // the files being read
   const [error, setError] = useState("");
@@ -103,7 +110,17 @@ export default function LibraryPage({ workspaceId }: { workspaceId: number }) {
               {files.map((f) => (
                 <li key={f.id}>
                   <div>
-                    <strong>{f.title}</strong>
+                    {f.pdf && read ? (
+                      <button
+                        className="link file-title"
+                        title="Read it here"
+                        onClick={() => read({ id: f.id, title: f.title, short: f.title, doi: null, open_access_url: null } as PaperCard)}
+                      >
+                        {f.title}
+                      </button>
+                    ) : (
+                      <strong title={f.pdf === false ? "Added before Magonia kept PDFs: add it again to read it here" : undefined}>{f.title}</strong>
+                    )}
                     <span className="meta">
                       {f.filename} · {f.pages} {f.pages === 1 ? "page" : "pages"} · added {f.added.slice(0, 10)}
                     </span>
@@ -114,7 +131,13 @@ export default function LibraryPage({ workspaceId }: { workspaceId: number }) {
                     title="Remove from the library"
                     onClick={() =>
                       removeFile(f.id).then(
-                        () => setFiles((all) => (all ?? []).filter((x) => x.id !== f.id)),
+                        () => {
+                          setFiles((all) => (all ?? []).filter((x) => x.id !== f.id));
+                          onUndoable?.(`${f.title} removed from the library`, async () => {
+                            const back = await restoreFile(f.id);
+                            setFiles((all) => [...(all ?? []).filter((x) => x.id !== back.id), back].sort((a, b) => a.added.localeCompare(b.added)));
+                          });
+                        },
                         (e: Error) => setError(e.message),
                       )
                     }
