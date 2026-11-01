@@ -31,8 +31,10 @@ import json
 import os
 import re
 import sys
+import threading
 import time
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
@@ -97,25 +99,43 @@ TITLE = re.compile(r"[\"“]([A-Z][^\"”\n]{25,200}?)[\"”]")
 
 
 class Cache:
+    """Results of slow lookups, kept on disk; safe to use from several threads (a lookup may
+    then run twice, which costs time but not correctness)."""
+
     def __init__(self, path: Path):
         self.path = path
         self.data = json.loads(path.read_text()) if path.exists() else {}
         self.unsaved = 0
+        self.lock = threading.Lock()
 
     def get(self, key: str, compute: Callable[[], object]):
-        if key not in self.data:
-            self.data[key] = compute()
+        with self.lock:
+            if key in self.data:
+                return self.data[key]
+        value = compute()
+        with self.lock:
+            self.data[key] = value
             self.unsaved += 1
             if self.unsaved >= 20:
                 self.save()
-        return self.data[key]
+        return value
 
     def save(self) -> None:
         self.path.write_text(json.dumps(self.data, ensure_ascii=False))
         self.unsaved = 0
 
 
+class BudgetSpent(Exception):
+    """OpenAlex's daily budget is used up: references cannot be checked until it resets."""
+
+
+SPENT = False  # once spent, references are left unchecked instead of asking again
+
+
 def openalex(params: dict) -> dict:
+    global SPENT
+    if SPENT:
+        raise BudgetSpent
     if key := os.environ.get("OPENALEX_API_KEY"):
         params = {**params, "api_key": key}
     request = Request(
@@ -127,10 +147,12 @@ def openalex(params: dict) -> dict:
                 return json.load(response)
         except HTTPError as exc:
             if exc.code == 429:  # waiting does not help: the daily budget is spent
-                raise RuntimeError(
-                    "OpenAlex's daily budget is used up; set OPENALEX_API_KEY or wait until "
-                    "midnight UTC, then score again (answers already checked are cached)"
-                ) from exc
+                SPENT = True
+                print(
+                    "OpenAlex's daily budget is used up: references are left unchecked. Set "
+                    "OPENALEX_API_KEY or wait until midnight UTC, and score again to check them."
+                )
+                raise BudgetSpent from exc
             time.sleep(2 + 4 * attempt)
         except (URLError, TimeoutError):
             time.sleep(2 + 4 * attempt)
@@ -151,7 +173,15 @@ def titles(text: str) -> list[str]:
     return list(dict.fromkeys(t.strip(" .,") for t in TITLE.findall(text)))
 
 
-def mention_exists(cache: Cache, name: str, year: int, topic: set[str]) -> bool:
+def unless_spent(look):
+    """True or False when OpenAlex could answer, None when its budget was spent."""
+    try:
+        return look()
+    except BudgetSpent:
+        return None
+
+
+def mention_exists(cache: Cache, name: str, year: int, topic: set[str]) -> bool | None:
     def look() -> bool:
         found = openalex(
             {
@@ -163,10 +193,10 @@ def mention_exists(cache: Cache, name: str, year: int, topic: set[str]) -> bool:
         )
         return any(topic & words(w.get("title") or "") for w in found.get("results", []))
 
-    return cache.get(f"mention|{name}|{year}|{' '.join(sorted(topic))}", look)
+    return unless_spent(lambda: cache.get(f"mention|{name}|{year}|{' '.join(sorted(topic))}", look))
 
 
-def title_exists(cache: Cache, title: str) -> bool:
+def title_exists(cache: Cache, title: str) -> bool | None:
     def look() -> bool:
         asked = words(title)
         clean = re.sub(r"[^\w\s-]", " ", title)
@@ -177,7 +207,7 @@ def title_exists(cache: Cache, title: str) -> bool:
                 return True
         return False
 
-    return cache.get(f"title|{title}", look)
+    return unless_spent(lambda: cache.get(f"title|{title}", look))
 
 
 def sentences(text: str) -> list[str]:
@@ -310,6 +340,31 @@ def relevance(cache: Cache, question: str, paper: dict, stream) -> str:
     return cache.get(f"relevance|{question}|{paper['title']}", look)
 
 
+# A judge's question needs a word, not Mago's rules: a short system message, a few tokens and
+# no randomness make each verdict about forty times cheaper than an assistant turn
+JUDGE_SYSTEM = "You are a careful, strict judge. Answer with one word only."
+WORKERS = 4  # answers scored at once; Ollama serves parallel requests when it has the memory
+
+
+def judge_stream(url: str, model: str):
+    def stream(messages: list[dict], tools=None):
+        body = {
+            "model": model,
+            "messages": [{"role": "system", "content": JUDGE_SYSTEM}, *messages],
+            "stream": False,
+            "options": {"num_predict": 4, "num_ctx": 4096, "temperature": 0},
+        }
+        request = Request(
+            f"{url.rstrip('/')}/api/chat",
+            json.dumps(body).encode(),
+            {"Content-Type": "application/json"},
+        )
+        with urlopen(request, timeout=300) as response:
+            yield json.load(response)["message"]["content"]
+
+    return stream
+
+
 def main() -> None:
     folder = Path(sys.argv[1])
     raw = [json.loads(line) for line in (folder / "raw.jsonl").read_text().splitlines()]
@@ -318,7 +373,8 @@ def main() -> None:
         os.environ.get("MAGONIA_MODEL_URL", "http://localhost:11434"),
         os.environ.get("MAGONIA_MODEL", "qwen2.5:7b"),
     )
-    judge = judge_with(provider.stream)
+    lean = judge_stream(provider.url, provider.model)
+    judge = judge_with(lean)
     embed = provider.embed
     view = jendouba_view()
     # the true data of the orchard: its facts and every reading Magonia could give
@@ -339,15 +395,17 @@ def main() -> None:
             chunks += [p["text"] for p in r.get("passages", [])]
         pools[case] = Pool(list(dict.fromkeys(chunks)), embed)
 
-    scored = []
-    for i, r in enumerate(raw, 1):
+    done = 0
+    lock = threading.Lock()
+
+    def score(r: dict) -> dict:
+        nonlocal done
         case = BY_ID[r["case"]]
         text = r.get("answer") or ""
         out = {k: r[k] for k in ("case", "kind", "system", "repeat", "question")}
         out["error"] = bool(r.get("error"))
         if r.get("error"):
-            scored.append(out)
-            continue
+            return out
         out["seconds"] = r["seconds"]
         out["first_word"] = r["first_word"]
         out["words"] = len(text.split())
@@ -382,7 +440,7 @@ def main() -> None:
             out["page_citations"] = sum(bool(m.group(2)) for m in cites)
             out["all_citations"] = len(cites)
             out["relevance"] = [
-                relevance(cache, case.question, p, provider.stream)
+                relevance(cache, case.question, p, lean)
                 for p in r.get("papers", [])
                 if p.get("venue") != "Your library"
             ]
@@ -390,8 +448,13 @@ def main() -> None:
         if r["kind"] == "data" or (case.workspace and r["kind"] == "follow-up"):
             checked = check_numbers(text, [("question", case.question), *truth])
             out["numbers"] = [{"text": n.text, "true": n.status == "verified"} for n in checked]
-        scored.append(out)
-        print(f"[{i}/{len(raw)}] {r['case']} {r['system']} #{r['repeat']}", flush=True)
+        with lock:
+            done += 1
+            print(f"[{done}/{len(raw)}] {r['case']} {r['system']} #{r['repeat']}", flush=True)
+        return out
+
+    with ThreadPoolExecutor(WORKERS) as pool:
+        scored = list(pool.map(score, raw))  # in the order of raw, whatever order they finish
     cache.save()
     with (folder / "scored.jsonl").open("w") as f:
         for s in scored:
