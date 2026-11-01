@@ -11,6 +11,8 @@ from urllib.request import Request, urlopen
 
 from dotenv import load_dotenv
 
+from engine.awareness import earlier_papers, files_asked_about, restated, wants_literature
+from engine.awareness import listing as library_listing
 from engine.catalogue import CATALOGUE
 from engine.citations import check
 from engine.facts import View
@@ -62,7 +64,8 @@ ABOUT = """Facts about yourself (state only these; do not guess beyond them):
 come back. Earlier messages in it are shown to you.
 - You can search the literature through OpenAlex, and read the full text of open-access \
 papers; of the others you see only the title and abstract. The researcher can add their own \
-PDFs on the Library page; when one speaks to a question, its passages are given to you.
+PDFs on the Library page. You are told which files are in their library; when a question is \
+about one of them, or speaks to one, its passages are given to you.
 - You can see the areas, variables and analyses open in Magonia, as facts computed by code, \
 when the researcher has some open. You cannot see the map or the charts as pictures, and \
 you cannot run new analyses yet."""
@@ -318,6 +321,14 @@ def answer(
 
     areas = list(dict.fromkeys(s.area for s in view.series)) if view is not None else []
     kind = route(text, areas, view is not None)
+    # the researcher's own files: listed for every question, read when one is about them
+    files = Uploads(library).all() if library is not None else []
+    own = files_asked_about(text, files)
+    if own and kind == "chat":
+        kind = "research"  # a question about their paper is not small talk
+    # the papers earlier answers cited, which the model may cite again by new numbers
+    earlier = earlier_papers(conversation[-HISTORY - 1 : -1])
+    conversation = restated(conversation)
     yield {"type": "route", "kind": kind, "source": SOURCES[kind]}
     facts = view is not None and kind in ("data", "general")
     messages = [
@@ -342,6 +353,24 @@ def answer(
     papers: list[Paper] = []
     pages: dict[int, set[int]] = {}  # the pages of each paper whose passages the model read
     evidence: dict[int, list[tuple[str, str]]] = {}  # what the model was given from each paper
+    if library is not None:
+        messages[0]["content"] += f"\n\n{library_listing(files)}"
+        sources.append(("your library", library_listing(files)))
+    if earlier:
+        papers.extend(earlier)
+        for n, p in enumerate(earlier, start=1):
+            evidence[n] = [(f"[{n}] abstract", f"{p.title}. {p.abstract or ''}")]
+            sources.append(
+                (f"paper [{n}]", f"{p.short}. {p.title}. {p.venue or ''}. {p.abstract or ''}")
+            )
+        yield {
+            "type": "papers",
+            "papers": [{"n": n, **p.to_dict()} for n, p in enumerate(earlier, 1)],
+        }
+        messages[0]["content"] += (
+            "\n\nPapers cited earlier in this conversation. When you mention one of them again, "
+            f"cite it by the number given here:\n{for_the_model(earlier, 1)}"
+        )
     if judge is None and isinstance(provider, Ollama):
         judge = judge_with(provider.stream, (ProviderError, OSError))
     if instructions.strip():
@@ -350,9 +379,14 @@ def answer(
             "\n\nThe researcher's instructions for you. Follow them unless they conflict with "
             f"the rules above:\n{instructions.strip()[:MAX_INSTRUCTIONS]}"
         )
-    if library is not None and kind in ("research", "general"):
-        # the researcher's own files that speak to the question, cited like papers
-        mine, chosen = Uploads(library).relevant(text, len(papers) + 1)
+    if library is not None and (own or kind in ("research", "general")):
+        # the researcher's own files the question is about, or that speak to it, cited like
+        # papers
+        mine, chosen = (
+            Uploads(library).asked_about(text, own, len(papers) + 1)
+            if own
+            else Uploads(library).relevant(text, len(papers) + 1)
+        )
         if mine:
             papers.extend(mine)
             yield {
@@ -380,6 +414,8 @@ def answer(
             )
     said: list[str] = []
     searches = reads = proposed = refused = 0
+    if own and not wants_literature(text):
+        searches = max_searches  # a question about their own file needs no search
     if not asks_to_run(text):
         proposed = MAX_PROPOSALS
     while True:
