@@ -282,12 +282,19 @@ def test_a_proposal_that_does_not_fit_is_sent_back_to_the_model():
         ("Add a season-dates analysis for NDVI.", True),
         ("Please forecast NDVI for 2025", True),
         ("Let's build an experiment with XGBoost only", True),
+        # asked for in the words of the analysis, not "run" (measured, a01)
+        ("Can you split my orchard's LST into its trend and seasonal parts?", True),
+        ("Decompose my LST", True),
+        ("I'd like you to correlate NDVI with SPEI-3", True),
+        ("Could you do a phenology analysis of my NDVI?", True),
         # from a conversation where proposals drowned the questions
         ("no don't propose anything, just give me a list of hyperparameters", False),
         ("What hyperparameters should I try for Random Forest?", False),
         ("Is there a trend in my orchard's NDVI?", False),
         ("Let's just chat: why would olive and forest differ?", False),
         ("Don't run anything, add it to my notes later", False),
+        ("Can you tell me when NDVI peaks?", False),
+        ("Was 2024 unusual?", False),
     ],
 )
 def test_proposing_is_offered_only_when_asked_to_run_something(question, offered):

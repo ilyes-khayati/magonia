@@ -97,7 +97,11 @@ MAX_PROPOSALS = 2
 # something to be run, and never when it says not to
 RUN = re.compile(
     r"\b(run|add|propose|compute|calculate|start|set up|build|fit|train)\b"
-    r"|\b(can you|could you|please|let'?s)\b.{0,20}\b(forecast|predict|decompose)",
+    r"|\b(can you|could you|would you|please|let'?s|i'?d like( you)? to|i want( you)? to)\b"
+    r".{0,20}\b(forecast|predict|decompose|split|separate|break (it |them )?down|detrend|"
+    r"deseasonali[sz]e|correlate|do an?)\b"
+    r"|^\s*(forecast|predict|decompose|split|separate|break down|detrend|deseasonali[sz]e|"
+    r"correlate)\b",
     re.IGNORECASE,
 )
 NOT_RUN = re.compile(
