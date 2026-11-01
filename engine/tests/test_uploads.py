@@ -104,3 +104,20 @@ def test_a_file_removed_long_ago_is_deleted_for_good(tmp_path):
     assert list(shelf.files.iterdir()) == []
     with pytest.raises(KeyError):
         mine.restore("U1")
+
+
+def test_a_workspace_sees_only_its_own_files(tmp_path):
+    shelf = Library(tmp_path / "library.db")
+    Uploads(shelf.scoped(1)).add("jendouba.pdf", make_pdf(["Olive groves in Jendouba. " * 20]))
+    Uploads(shelf.scoped(2)).add("sfax.pdf", make_pdf(["Olive groves near Sfax. " * 20]))
+    assert [f["title"] for f in Uploads(shelf.scoped(1)).all()] == ["jendouba"]
+    assert [f["title"] for f in Uploads(shelf.scoped(2)).all()] == ["sfax"]
+    assert [p.title for p in Uploads(shelf.scoped(2)).papers()] == ["sfax"]
+    assert len(Uploads(shelf).all()) == 2  # unscoped: every file, as before
+
+
+def test_files_added_before_workspaces_go_to_the_first_one_opened(tmp_path):
+    shelf = Library(tmp_path / "library.db")
+    Uploads(shelf).add("old.pdf", make_pdf(["An older file. " * 30]))  # no workspace
+    assert [f["title"] for f in Uploads(shelf.scoped(3)).all()] == ["old"]
+    assert Uploads(shelf.scoped(4)).all() == []

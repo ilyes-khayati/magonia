@@ -461,13 +461,14 @@ export type LibraryFile = {
   pdf?: boolean; // whether the PDF itself is kept, to read it in Magonia
 };
 
-export const listFiles = () => call<LibraryFile[]>("/library");
+// Each workspace has its own files; a file is then reached by its id
+export const listFiles = (workspaceId: number) => call<LibraryFile[]>(`/workspaces/${workspaceId}/library`);
 export const removeFile = (id: string) => call<void>(`/library/${id}`, send("DELETE"));
 export const restoreFile = (id: string) => call<LibraryFile>(`/library/${id}/restore`, send("POST"));
-export function addFile(file: File) {
+export function addFile(workspaceId: number, file: File) {
   const body = new FormData();
   body.append("file", file);
-  return call<LibraryFile & { passages: number }>("/library", { method: "POST", body });
+  return call<LibraryFile & { passages: number }>(`/workspaces/${workspaceId}/library`, { method: "POST", body });
 }
 
 // How the researcher wants Magonia to answer in a workspace
