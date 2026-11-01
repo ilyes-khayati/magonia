@@ -211,7 +211,13 @@ async function fakeApi(page: Page, connected = true) {
   await page.route("**/api/conversations/*/chat", (route) => {
     asked.push(route.request().postDataJSON());
     const question = asked.at(-1)!.content;
-    const answer = question.startsWith("Propose") ? PROPOSING : asked.at(-1)!.view?.series.length ? DATA_ANSWER : ANSWER;
+    const answer = question.startsWith("From now on")
+      ? INSTRUCTING
+      : question.startsWith("Propose")
+        ? PROPOSING
+        : asked.at(-1)!.view?.series.length
+          ? DATA_ANSWER
+          : ANSWER;
     const c = conversationOf(route.request().url());
     const said = answer.find((e) => e.type === "check") as { text: string } | undefined;
     messages[c.id].push(
@@ -398,6 +404,22 @@ const ANSWER = [
       },
     ],
   },
+];
+
+// An instruction asked for in the chat: proposed, saved only on a click
+const INSTRUCTING = [
+  {
+    type: "proposal",
+    proposal: {
+      kind: "instruction",
+      label: "instruction",
+      title: "Answer in French.",
+      why: "Kept for every question in this workspace; edit it on the Library page.",
+      text: "Answer in French.",
+    },
+  },
+  { type: "text", text: "Save it below and I will answer in French." },
+  { type: "check", text: "Save it below and I will answer in French.", cited: [], removed: [], unverified: [] },
 ];
 
 // An answer about the researcher's own data, after a closer look at one year
@@ -1030,6 +1052,21 @@ test("Mago is asked about one card from the card itself, and opens from the rail
   await expect(assistant).toBeHidden();
   await page.getByRole("navigation", { name: "Pages" }).getByRole("button", { name: "Mago" }).click();
   await expect(assistant).toBeVisible();
+});
+
+test("an instruction asked for in the chat is saved only on a click, and can be undone", async ({ page }) => {
+  await page.getByRole("button", { name: "Mago", exact: true }).click();
+  const assistant = page.getByRole("region", { name: "Mago" });
+  await assistant.getByRole("textbox", { name: "Ask Mago" }).fill("From now on, answer in French");
+  await assistant.getByRole("button", { name: "Send" }).click();
+  const proposal = assistant.getByRole("group", { name: "Proposed: Answer in French." });
+  await expect(proposal).toContainText("Keep as an instruction?");
+  expect(instructions).toBe(""); // nothing is saved by Mago itself
+  await proposal.getByRole("button", { name: "Save" }).click();
+  await expect(proposal).toContainText("Saved");
+  await expect.poll(() => instructions).toBe("- Answer in French.");
+  await page.getByRole("status").filter({ hasText: "Saved as an instruction" }).getByRole("button", { name: "Undo" }).click();
+  await expect.poll(() => instructions).toBe("");
 });
 
 test("Magonia is sent what is open and says which cards it read", async ({ page }) => {

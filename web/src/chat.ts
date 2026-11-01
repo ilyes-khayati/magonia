@@ -9,6 +9,13 @@ export type Turn = {
   error?: string;
 };
 
+// The workspace's instructions with one more line, unless it is there already
+export function withInstruction(existing: string, instruction: string): string {
+  const lines = existing.split("\n").filter((l) => l.trim());
+  if (lines.some((l) => l.replace(/^[\s-]+/, "").trim().toLowerCase() === instruction.toLowerCase())) return existing;
+  return [...lines, `- ${instruction}`].join("\n");
+}
+
 // What a conversation is called: its name, else its first question
 export function conversationTitle(c: Pick<Conversation, "title" | "first_question">): string {
   if (c.title) return c.title;

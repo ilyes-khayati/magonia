@@ -395,7 +395,7 @@ export type Route = { kind: "data" | "research" | "method" | "chat" | "general";
 
 // An analysis Magonia proposes; nothing runs until the researcher adds it (AI-07)
 export type Proposal = {
-  kind: "correlation" | "decomposition" | "trend" | "phenology" | "lags" | "experiment";
+  kind: "correlation" | "decomposition" | "trend" | "phenology" | "lags" | "experiment" | "instruction";
   label: string;
   title: string;
   why: string;
@@ -406,6 +406,7 @@ export type Proposal = {
   models?: ("Ridge" | "RandomForest" | "XGBoost")[];
   test_years?: number;
   period?: { start: string | null; end: string | null };
+  text?: string; // an instruction, in the researcher's words
 };
 
 // What is open when a question is asked, so the assistant can discuss it
