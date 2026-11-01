@@ -34,7 +34,7 @@ import sys
 import time
 from collections.abc import Callable
 from pathlib import Path
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -116,6 +116,8 @@ class Cache:
 
 
 def openalex(params: dict) -> dict:
+    if key := os.environ.get("OPENALEX_API_KEY"):
+        params = {**params, "api_key": key}
     request = Request(
         f"https://api.openalex.org/works?{urlencode(params)}", headers={"User-Agent": "Magonia"}
     )
@@ -123,6 +125,13 @@ def openalex(params: dict) -> dict:
         try:
             with urlopen(request, timeout=30, context=CERTIFICATES) as response:
                 return json.load(response)
+        except HTTPError as exc:
+            if exc.code == 429:  # waiting does not help: the daily budget is spent
+                raise RuntimeError(
+                    "OpenAlex's daily budget is used up; set OPENALEX_API_KEY or wait until "
+                    "midnight UTC, then score again (answers already checked are cached)"
+                ) from exc
+            time.sleep(2 + 4 * attempt)
         except (URLError, TimeoutError):
             time.sleep(2 + 4 * attempt)
     raise RuntimeError("OpenAlex could not be reached")
