@@ -97,7 +97,11 @@ MAX_PROPOSALS = 2
 # something to be run, and never when it says not to
 RUN = re.compile(
     r"\b(run|add|propose|compute|calculate|start|set up|build|fit|train)\b"
-    r"|\b(can you|could you|please|let'?s)\b.{0,20}\b(forecast|predict|decompose)",
+    r"|\b(can you|could you|would you|please|let'?s|i'?d like( you)? to|i want( you)? to)\b"
+    r".{0,20}\b(forecast|predict|decompose|split|separate|break (it |them )?down|detrend|"
+    r"deseasonali[sz]e|correlate|do an?)\b"
+    r"|^\s*(forecast|predict|decompose|split|separate|break down|detrend|deseasonali[sz]e|"
+    r"correlate)\b",
     re.IGNORECASE,
 )
 NOT_RUN = re.compile(
@@ -482,7 +486,7 @@ def answer(
             if call.name == "propose_analysis" and facts and proposed < MAX_PROPOSALS:
                 areas = list(dict.fromkeys(s.area for s in view.series))
                 try:
-                    found = proposal(call.arguments, areas)
+                    found = proposal(call.arguments, areas, text)
                 except ProposalError as exc:
                     # a refused proposal does not use up a try, so the model can correct it
                     messages.append(
