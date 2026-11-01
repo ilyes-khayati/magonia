@@ -8,6 +8,8 @@ import {
   deleteWorkspaceForever,
   earthEngineStatus,
   fetchCatalogue,
+  getInstructions,
+  setInstructions,
   listWorkspaces,
   openWorkspace,
   renameArea,
@@ -25,7 +27,7 @@ import {
   type PassageCard,
 } from "./api";
 import { addAnalysis, needsOf, readAnalyses, type Analysis, type Kind, type Models, type Need } from "./analyses";
-import type { Turn } from "./chat";
+import { withInstruction, type Turn } from "./chat";
 import { boardForMagonia, pin, readBoard, snapshotLines, type BoardItem, type Source } from "./board";
 import AnalysisCard from "./components/AnalysisCard";
 import ChartCard from "./components/ChartCard";
@@ -527,10 +529,28 @@ export default function App() {
     setMessage({ text: `Pinned the passage from ${title} to the board.` });
   }
 
+  // An instruction asked for in the chat, saved because the researcher clicked; Undo puts
+  // the instructions back as they were
+  async function keepInstruction(id: number, instruction: string) {
+    try {
+      const before = (await getInstructions(id)).text;
+      await setInstructions(id, withInstruction(before, instruction));
+      offer(`Saved as an instruction for Mago: ${instruction}`, async () => {
+        await setInstructions(id, before);
+      });
+    } catch (error) {
+      fail(error);
+    }
+  }
+
   // What Magonia proposed, added because the researcher clicked (AI-07): its card, and the
   // period if one was asked for
   function adopt(p: Proposal) {
     if (workspaceId === null) return;
+    if (p.kind === "instruction") {
+      keepInstruction(workspaceId, p.text ?? p.title);
+      return;
+    }
     const nextSettings = p.period
       ? { ...settings, start: p.period.start ?? settings.start, end: p.period.end ?? settings.end }
       : settings;

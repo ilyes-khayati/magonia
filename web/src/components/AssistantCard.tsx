@@ -159,12 +159,12 @@ function ProposalCard({ proposal, onAdd }: { proposal: Proposal; onAdd?: (p: Pro
   return (
     <div className="proposal" role="group" aria-label={`Proposed: ${proposal.title}`}>
       <div>
-        <span className="meta">Mago proposes</span>
+        <span className="meta">{proposal.kind === "instruction" ? "Keep as an instruction?" : "Mago proposes"}</span>
         <strong>{proposal.title}</strong>
         {proposal.why && <span className="meta">{proposal.why}</span>}
       </div>
       {added ? (
-        <span className="meta">Added</span>
+        <span className="meta">{proposal.kind === "instruction" ? "Saved" : "Added"}</span>
       ) : (
         <button
           className="primary"
@@ -174,7 +174,7 @@ function ProposalCard({ proposal, onAdd }: { proposal: Proposal; onAdd?: (p: Pro
             setAdded(true);
           }}
         >
-          Add it
+          {proposal.kind === "instruction" ? "Save" : "Add it"}
         </button>
       )}
     </div>

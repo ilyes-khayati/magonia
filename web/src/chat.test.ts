@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CheckedNumber, PaperCard } from "./api";
-import { answerParts, applyEvent, citationParts, conversationTitle, styled, type Turn } from "./chat";
+import { answerParts, applyEvent, citationParts, conversationTitle, styled, withInstruction, type Turn } from "./chat";
 
 const empty: Turn = { role: "assistant", content: "", details: {} };
 const card = (n: number): PaperCard => ({
@@ -134,6 +134,14 @@ describe("styled", () => {
       { cites: [1], bold: false },
       { text: "]", bold: false },
     ]);
+  });
+});
+
+describe("instructions from the chat", () => {
+  it("are added as a line, once", () => {
+    expect(withInstruction("", "Answer in French.")).toBe("- Answer in French.");
+    expect(withInstruction("Be brief.", "Cite pages.")).toBe("Be brief.\n- Cite pages.");
+    expect(withInstruction("- Answer in French.", "answer in french.")).toBe("- Answer in French.");
   });
 });
 
