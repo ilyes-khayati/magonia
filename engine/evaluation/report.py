@@ -84,8 +84,8 @@ def main() -> None:
         made_up = [
             r
             for r in by[s]
-            if any(not m["found"] for m in r.get("mentions", []))
-            or any(not t["found"] for t in r.get("titles", []))
+            if any(m["found"] is False for m in r.get("mentions", []))
+            or any(t["found"] is False for t in r.get("titles", []))
         ]
         statements = [x["pool"] for r in lit for x in r["statements"]]
         own = [x for r in lit for x in r.get("own_support", [])]
@@ -94,7 +94,10 @@ def main() -> None:
         cites = sum(r.get("all_citations", 0) for r in lit)
         m = metrics[s]
         m["answers with a made-up reference"] = share(len(made_up), len(by[s]))
-        m["references written, made up"] = share(refs.count(False), len(refs))
+        checked = [x for x in refs if x is not None]
+        m["references written, made up"] = share(checked.count(False), len(checked))
+        if len(checked) < len(refs):
+            m["references not checked yet (OpenAlex budget spent)"] = str(len(refs) - len(checked))
         m["statements per literature answer"] = f"{len(statements) / len(lit):.1f}" if lit else "–"
         m["statements supported by the literature found"] = share(
             statements.count("supported"), len(statements)
@@ -179,7 +182,7 @@ def main() -> None:
         (r, x)
         for r in scored
         for x in [*r.get("mentions", []), *r.get("titles", [])]
-        if not x["found"]
+        if x["found"] is False
     ]
     if made_up:
         out += ["", "## References not found in OpenAlex", ""]
