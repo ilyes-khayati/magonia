@@ -486,7 +486,7 @@ def answer(
             if call.name == "propose_analysis" and facts and proposed < MAX_PROPOSALS:
                 areas = list(dict.fromkeys(s.area for s in view.series))
                 try:
-                    found = proposal(call.arguments, areas)
+                    found = proposal(call.arguments, areas, text)
                 except ProposalError as exc:
                     # a refused proposal does not use up a try, so the model can correct it
                     messages.append(

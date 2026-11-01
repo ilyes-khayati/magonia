@@ -1,6 +1,6 @@
 import pytest
 
-from engine.proposals import ProposalError, describe, proposal
+from engine.proposals import ProposalError, describe, named, proposal
 
 AREAS = ["Orchard", "Sfax"]
 
@@ -83,3 +83,27 @@ def test_new_variables_are_understood_by_name():
         {"kind": "correlation", "variable": "EVI", "driver": "air temperature", "why": ""}, AREAS
     )
     assert (found["variable"], found["driver"]) == ("evi", "air_temperature")
+
+
+@pytest.mark.parametrize(
+    "question, wrote, made",
+    [
+        ("Can you split my orchard's LST into its trend and seasonal parts?", {}, "lst"),
+        ("Decompose my LST", {"variable": "ndvi"}, "lst"),
+        ("Is the air temperature rising? Run a trend test", {}, "air_temperature"),
+        ("Run a trend test", {"variable": "evi"}, "evi"),  # the question names none
+        ("Compare NDVI and LST trends", {"variable": "lst"}, "lst"),  # it names two
+    ],
+)
+def test_a_one_variable_analysis_is_of_the_variable_the_question_names(question, wrote, made):
+    kind = "decomposition" if "trend" not in question.lower() else "trend"
+    assert proposal({"kind": kind, **wrote}, ["Orchard"], question)["variable"] == made
+
+
+def test_the_variables_a_message_names():
+    assert sorted(named("air temperature and land surface temperature")) == [
+        "air_temperature",
+        "lst",
+    ]
+    assert sorted(named("drought and greenness")) == ["ndvi", "spei"]
+    assert named("hello") == []
