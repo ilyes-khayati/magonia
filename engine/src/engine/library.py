@@ -28,7 +28,7 @@ from urllib.error import URLError
 
 import numpy as np
 
-from engine.fulltext import FullTextError, Passage, pages, passages, read
+from engine.fulltext import FullTextError, Passage, pages, passages, read, title_of
 from engine.literature import Paper
 from engine.rank import Embed, words
 
@@ -234,7 +234,7 @@ class Uploads:
                 number += 1
         upload_id = f"U{number}"
         vectors = lib.vectors([p.text for p in found], "search_document")
-        name = title or Path(filename).stem.replace("_", " ")
+        name = title or title_of(pdf) or Path(filename).stem.replace("_", " ")
         sha = hashlib.sha256(pdf).hexdigest()
         lib.files.mkdir(parents=True, exist_ok=True)
         kept = lib.files / f"{sha}.pdf"
