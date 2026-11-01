@@ -239,7 +239,7 @@ def test_empty_questions_and_unknown_workspaces_are_refused(client, model):
 
 
 def test_assistant_reports_its_name_and_model(client, model):
-    assert client.get("/assistant").json() == {"name": "Magonia", "model": "scripted"}
+    assert client.get("/assistant").json() == {"name": "Mago", "model": "scripted"}
 
 
 def test_database_from_version_1_2_is_upgraded(tmp_path):
@@ -342,3 +342,13 @@ def test_a_view_naming_another_workspaces_area_is_ignored(client, model):
     c = conversation(client, second)
     client.post(f"/conversations/{c}/chat", json={"content": "Hi", "view": view})
     assert "Orchard" not in model.seen[-1]["content"]
+
+
+def test_a_question_asked_from_a_card_is_about_that_card(client, model):
+    c = conversation(client)
+    view = {"page": "analyses", "focus": "Drought years (Trend 1)"}
+    got = events(
+        client.post(f"/conversations/{c}/chat", json={"content": "Is it real?", "view": view})
+    )
+    assert got[0]["kind"] == "data"  # not small talk, though it reads like it
+    assert 'The question is about the card "Drought years (Trend 1)"' in model.seen[-1]["content"]

@@ -468,6 +468,7 @@ class View:
     analyses: list[dict]  # as the interface saves them
     resolution: str = "monthly"  # of the charts
     extra: list[Fact] = field(default_factory=list)  # facts computed elsewhere, e.g. forecasts
+    focus: str | None = None  # the card the researcher asked about ("Ask Mago about this")
 
     def find(self, area: str, key: str, resolution: str | None = None) -> Series | None:
         wanted = resolution or self.resolution
