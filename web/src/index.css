@@ -2173,3 +2173,17 @@ button:disabled {
 .conversations li .open .meta {
   white-space: nowrap;
 }
+
+/* A card's title while it is renamed */
+.card-title-input {
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  border: none;
+  border-bottom: 1px solid var(--accent);
+  background: transparent;
+  outline: none;
+  padding: 0;
+  width: 100%;
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addAnalysis, needsOf, readAnalyses, variablesOf } from "./analyses";
+import { addAnalysis, duplicateAnalysis, needsOf, readAnalyses, variablesOf } from "./analyses";
 
 describe("analyses", () => {
   it("starts a correlation from the charted variables", () => {
@@ -38,5 +38,22 @@ describe("lags", () => {
     expect(charted).toMatchObject({ kind: "lags", response: "ndvi", drivers: ["spei"], deseasonalise: true });
     const [alone] = addAnalysis([], "lags", ["ndvi"]);
     expect(needsOf(alone).map((n) => n.variable)).toEqual(["ndvi", "lst", "spei"]);
+  });
+});
+
+describe("duplicating an analysis", () => {
+  it("places a named copy right after the original, with its own id", () => {
+    const list = addAnalysis(addAnalysis([], "trend", ["ndvi"]), "phenology", ["ndvi"]);
+    const copied = duplicateAnalysis(list, list[0].id);
+    expect(copied.map((a) => a.kind)).toEqual(["trend", "trend", "phenology"]);
+    expect(copied[1]).toMatchObject({ id: 3, name: "Long-term trend (copy)", variable: "ndvi" });
+    // the copy is its own: changing it leaves the original
+    expect(copied[1]).not.toBe(list[0]);
+    expect(duplicateAnalysis(copied, 3)[2].name).toBe("Long-term trend (copy) (copy)");
+  });
+
+  it("ignores an id that is not there", () => {
+    const list = addAnalysis([], "trend", ["ndvi"]);
+    expect(duplicateAnalysis(list, 9)).toBe(list);
   });
 });

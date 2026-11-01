@@ -49,6 +49,8 @@ export default function AnalysisCard({ analysis, onChange, onRemove, catalogue, 
     case "phenology":
       return (
         <PhenologyCard
+          name={analysis.name}
+          onRename={(name) => onChange({ name })}
           onRemove={() => onRemove()}
           entries={entries("ndvi", true)}
           options={(areaId) => options(areaId, "ndvi", true)}

@@ -1,3 +1,4 @@
+import CardTitle from "./CardTitle";
 import { useMemo, useState } from "react";
 import { CartesianGrid, Line, LineChart, ReferenceDot, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { phenologyOf, type SeriesOptions } from "../api";
@@ -7,6 +8,8 @@ import type { Entry } from "./ChartCard";
 import { CloseIcon } from "./Icons";
 
 type Props = {
+  name?: string;
+  onRename?: (name: string | undefined) => void;
   onRemove: () => void;
   entries: Entry[]; // NDVI at its native step, one per area
   options: (areaId: number) => SeriesOptions;
@@ -16,7 +19,7 @@ const TICK = { fill: "var(--muted)", fontSize: 10, fontFamily: "var(--mono)" };
 const TOOLTIP = { background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8 };
 
 // Each growing season's start, peak and end, marked on the smoothed NDVI of one area
-export default function PhenologyCard({ onRemove, entries, options }: Props) {
+export default function PhenologyCard({ name, onRename, onRemove, entries, options }: Props) {
   const signature = JSON.stringify(entries.filter((e) => e.state?.status === "done").map((e) => options(e.area.id)));
   const requests = useMemo(
     () => (JSON.parse(signature) as SeriesOptions[]).map((o) => ({ key: JSON.stringify(o), body: o })),
@@ -33,7 +36,7 @@ export default function PhenologyCard({ onRemove, entries, options }: Props) {
     <section className="card" aria-label="Season dates chart">
       <div className="card-head">
         <div>
-          <h3>Season dates</h3>
+          <CardTitle name={name} fallback="Season dates" onRename={onRename} />
           <span className="meta">NDVI smoothed on 8-day steps · start and end at 20% of the climb to the peak</span>
         </div>
         <button className="icon-button" aria-label="Remove this analysis" title="Remove this analysis" onClick={onRemove}>

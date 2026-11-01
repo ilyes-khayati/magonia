@@ -199,3 +199,10 @@ export const BookIcon = (p: IconProps) => (
     <path d="M4 19V5M8 7h7M8 11h5" />
   </Svg>
 );
+
+export const CopyIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="8" y="8" width="12" height="12" rx="2" />
+    <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
+  </Svg>
+);

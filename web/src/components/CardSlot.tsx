@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import type { CardLayout } from "../cards";
 import { saveChartImage } from "../chartImage";
-import { ChevronIcon, GripIcon, ImageIcon, NotebookIcon, PinIcon, WidthIcon } from "./Icons";
+import { ChevronIcon, CopyIcon, GripIcon, ImageIcon, NotebookIcon, PinIcon, WidthIcon } from "./Icons";
 
 type Props = {
   id: string;
@@ -12,6 +12,7 @@ type Props = {
   onDrop: (from: string) => void; // another card dropped on this one takes its place
   onNotebook?: () => void; // export the analysis as a notebook that reproduces it
   onPin?: (card: HTMLElement) => void; // keep the card as it is now on the board
+  onDuplicate?: () => void; // a copy beside it, to change one thing and compare
   image?: boolean; // whether the card has charts to save as an image
   children: React.ReactNode;
 };
@@ -19,7 +20,7 @@ type Props = {
 // A card's place on the page: dragged by its grip (or moved with the arrow keys on it),
 // half or full width, and folded to its title
 export default function CardSlot(props: Props) {
-  const { id, label, layout, onLayout, onMove, onDrop, onNotebook, onPin, image = true, children } = props;
+  const { id, label, layout, onLayout, onMove, onDrop, onNotebook, onPin, onDuplicate, image = true, children } = props;
   const slot = useRef<HTMLDivElement>(null);
   const [over, setOver] = useState(false);
   return (
@@ -81,6 +82,16 @@ export default function CardSlot(props: Props) {
             }}
           >
             <PinIcon size={14} />
+          </button>
+        )}
+        {onDuplicate && (
+          <button
+            className="tool-button"
+            aria-label={`Duplicate ${label}`}
+            title="Duplicate, to change one thing and compare"
+            onClick={onDuplicate}
+          >
+            <CopyIcon size={14} />
           </button>
         )}
         {image && <button

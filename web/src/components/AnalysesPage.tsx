@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
-import { KINDS, type Analysis, type Kind } from "../analyses";
+import { KINDS, duplicateAnalysis, type Analysis, type Kind } from "../analyses";
 import type { Source } from "../board";
 import { moved } from "../cards";
 import { downloadNotebook, type Area, type SeriesOptions, type Variable, type VariableKey } from "../api";
@@ -95,7 +95,7 @@ export default function AnalysesPage(props: Props) {
       entries(variable, native)
         .filter((e) => e.state?.status === "done")
         .map((e) => e.area.id);
-    const label = KINDS.find((k) => k.kind === analysis.kind)!.label;
+    const label = analysis.name ?? KINDS.find((k) => k.kind === analysis.kind)!.label;
     let series: SeriesOptions[] = [];
     let choices: Record<string, unknown> = {};
     switch (analysis.kind) {
@@ -166,12 +166,13 @@ export default function AnalysesPage(props: Props) {
             <CardSlot
               key={analysis.id}
               id={String(analysis.id)}
-              label={KINDS.find((k) => k.kind === analysis.kind)!.label}
+              label={analysis.name ?? KINDS.find((k) => k.kind === analysis.kind)!.label}
               layout={settings.cards[`analysis:${analysis.id}`] ?? {}}
               onLayout={(layout) => onSettings({ cards: { ...settings.cards, [`analysis:${analysis.id}`]: layout } })}
               onMove={(step) => onReorder(moved(analyses, i, i + step))}
               onDrop={(from) => onReorder(moved(analyses, analyses.findIndex((a) => String(a.id) === from), i))}
               onNotebook={() => exportNotebook(analysis)}
+              onDuplicate={() => onReorder(duplicateAnalysis(analyses, analysis.id))}
               onPin={
                 props.onPin &&
                 ((card) =>
