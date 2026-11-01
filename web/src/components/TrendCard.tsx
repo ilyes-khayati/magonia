@@ -1,3 +1,4 @@
+import CardTitle from "./CardTitle";
 import { useMemo } from "react";
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { Trend } from "../analyses";
@@ -56,7 +57,7 @@ export default function TrendCard({ analysis, onChange, onRemove, variables, tit
     <section className="card" aria-label="Trend chart">
       <div className="card-head">
         <div>
-          <h3>Long-term trend</h3>
+          <CardTitle name={analysis.name} fallback="Long-term trend" onRename={(name) => onChange({ name })} />
           <span className="meta">Annual means, Theil–Sen slope and Mann–Kendall test</span>
         </div>
         <button className="icon-button" aria-label="Remove this analysis" title="Remove this analysis" onClick={onRemove}>
