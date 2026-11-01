@@ -159,7 +159,7 @@ function ProposalCard({ proposal, onAdd }: { proposal: Proposal; onAdd?: (p: Pro
   return (
     <div className="proposal" role="group" aria-label={`Proposed: ${proposal.title}`}>
       <div>
-        <span className="meta">Magonia proposes</span>
+        <span className="meta">Mago proposes</span>
         <strong>{proposal.title}</strong>
         {proposal.why && <span className="meta">{proposal.why}</span>}
       </div>
@@ -191,10 +191,18 @@ type Props = {
   onPin?: (question: string, turn: Turn) => void; // keep an answer on the board
   onPinPassage?: (paper: PaperCard, passage: PassageCard) => void; // keep one passage
   onUndoable?: (text: string, undo: () => Promise<void>) => void; // offer to bring back a deletion
+  attached?: { title: string; key: number } | null; // the card asked about, sent with the question
+  onDetach?: () => void;
 };
 
 export default function AssistantCard(props: Props) {
-  const { workspaceId, view, actions, loading, onPropose, onPin, onPinPassage, onUndoable } = props;
+  const { workspaceId, view, actions, loading, onPropose, onPin, onPinPassage, onUndoable, attached, onDetach } = props;
+  const box = useRef<HTMLTextAreaElement>(null);
+
+  // a card attached from its page: ready to ask about at once
+  useEffect(() => {
+    if (attached) box.current?.focus();
+  }, [attached]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [openId, setOpenId] = useState<number | null>(null);
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -299,6 +307,7 @@ export default function AssistantCard(props: Props) {
         setOpenId(id);
         rememberOpen(workspaceId, id);
       }
+      onDetach?.(); // asked: the next question is about whatever is open again
       await ask(id, question, (event) =>
         setTurns((t) => [...t.slice(0, -1), applyEvent(t[t.length - 1], event)]),
         view,
@@ -314,10 +323,10 @@ export default function AssistantCard(props: Props) {
   }
 
   return (
-    <section className="card assistant" aria-label="Magonia assistant">
+    <section className="card assistant" aria-label="Mago">
       <div className="card-head">
         <div>
-          <h3>Ask Magonia</h3>
+          <h3>Mago</h3>
           <span className="meta">{model ? `Answers by ${model} · literature from OpenAlex` : "Research assistant"}</span>
         </div>
         <div className="row">{actions}</div>
@@ -382,23 +391,35 @@ export default function AssistantCard(props: Props) {
 
       {loading?.opening ? (
         <p className="meta" role="status">
-          Opening your workspace, so that Magonia can see it…
+          Opening your workspace, so that Mago can see it…
         </p>
       ) : loading?.series ? (
         <p className="meta" role="status">
-          {loading.series} {loading.series === 1 ? "series is" : "series are"} still loading; Magonia sees what has loaded.
+          {loading.series} {loading.series === 1 ? "series is" : "series are"} still loading; Mago sees what has loaded.
         </p>
       ) : null}
+      {attached && (
+        <div className="attached" role="group" aria-label="Asking about">
+          <span className="meta">Asking about</span>
+          <strong>{attached.title}</strong>
+          <button className="icon-button" aria-label={`Do not ask about ${attached.title}`} title="Ask about everything open instead" onClick={onDetach}>
+            <CloseIcon size={12} />
+          </button>
+        </div>
+      )}
       <div className="composer">
         <label htmlFor="ask" className="visually-hidden">
-          Ask Magonia
+          Ask Mago
         </label>
         <textarea
+          ref={box}
           id="ask"
           rows={2}
           value={draft}
           disabled={workspaceId === null}
-          placeholder="When does NDVI peak in my areas, and was any year unusual?"
+          placeholder={
+            attached ? `What would you like to know about ${attached.title}?` : "When does NDVI peak in my areas, and was any year unusual?"
+          }
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {

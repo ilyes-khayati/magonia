@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { deletedWorkspaces, type EarthEngineStatus, type WorkspaceSummary } from "../api";
 import type { Theme } from "../theme";
-import { ChevronIcon, MoonIcon, PlusIcon, SparkIcon, SunIcon } from "./Icons";
+import { ChevronIcon, MoonIcon, PlusIcon, SunIcon } from "./Icons";
 
 type Props = {
   theme: Theme;
@@ -16,7 +16,6 @@ type Props = {
   onForget: (id: number) => Promise<void>; // deleted forever, from Recently deleted
   earthEngine: EarthEngineStatus | null;
   onEarthEngine: () => void;
-  magonia: { open: boolean; onToggle: () => void };
 };
 
 // "3 days ago", for when something was deleted
@@ -197,7 +196,7 @@ function WorkspaceMenu(props: MenuProps) {
 }
 
 export default function TopBar(props: Props) {
-  const { theme, onTheme, earthEngine, magonia } = props;
+  const { theme, onTheme, earthEngine } = props;
   return (
     <header className="topbar">
       <span className="brand-name">MAGONIA</span>
@@ -217,15 +216,6 @@ export default function TopBar(props: Props) {
         onClick={onTheme}
       >
         {theme === "light" ? <MoonIcon size={16} /> : <SunIcon size={16} />}
-      </button>
-      <button
-        className="magonia-toggle"
-        aria-label="Magonia"
-        aria-pressed={magonia.open}
-        title={magonia.open ? "Close Magonia" : "Ask Magonia about your data"}
-        onClick={magonia.onToggle}
-      >
-        <SparkIcon size={18} />
       </button>
     </header>
   );

@@ -25,6 +25,7 @@ type Props = {
   dataPath: string | null;
   mapPath: string | null;
   onPin?: (card: HTMLElement, title: string, source: Source) => void;
+  onAsk?: (title: string) => void; // ask Mago about a card
 };
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -33,6 +34,15 @@ const month = (value: string) => {
   return `${MONTHS[m - 1]} ${year}`;
 };
 const STEPS = { native: "each product's own time step", monthly: "monthly", seasonal: "seasonal means" };
+// How Mago's facts label each kind of analysis, numbered in page order (engine/facts.py)
+const FACT_LABEL: Record<Kind, string> = {
+  correlation: "Correlation",
+  decomposition: "Decomposition",
+  trend: "Trend",
+  phenology: "Season dates",
+  lags: "Lags",
+};
+
 const CLOUDS = { pixel: "cloudy pixels removed", date: "cloudy dates removed", none: "no cloud filter" };
 
 // The menu of analysis types, closed by a choice, Escape or a click elsewhere
@@ -173,6 +183,7 @@ export default function AnalysesPage(props: Props) {
               onDrop={(from) => onReorder(moved(analyses, analyses.findIndex((a) => String(a.id) === from), i))}
               onNotebook={() => exportNotebook(analysis)}
               onDuplicate={() => onReorder(duplicateAnalysis(analyses, analysis.id))}
+              onAsk={props.onAsk && ((title) => props.onAsk!(`${title} (${FACT_LABEL[analysis.kind]} ${i + 1})`))}
               onPin={
                 props.onPin &&
                 ((card) =>
