@@ -200,10 +200,17 @@ export const CopyIcon = (p: IconProps) => (
   </Svg>
 );
 
-// Mago: a speech bubble with lines of text, plain like the other pages' icons
+// Mago: an old bearded man with a seedling, after Mago of Carthage, the agronomist; not a chat
+// bubble, so the assistant does not read as a chatbot
 export const MagoIcon = (p: IconProps) => (
   <Svg {...p}>
-    <path d="M4 5h16v11H9l-5 4z" />
-    <path d="M8 9h8M8 12h5" />
+    <path d="M4.5 10a5.5 5.5 0 0 1 11 0" />
+    <path d="M4.5 10c-.4 1.2.1 2.3 1.1 2.6M15.5 10c.4 1.2-.1 2.3-1.1 2.6" />
+    <path d="M5.8 12.4c.5 4.2 2 6.8 4.2 8.6 2.2-1.8 3.7-4.4 4.2-8.6" />
+    <path d="M7.5 12.8c1-.8 1.8-.8 2.5 0 .7-.8 1.5-.8 2.5 0" />
+    <path d="M7.4 8.9l1.7.5M12.6 8.9l-1.7.5" />
+    <path d="M19.5 21c0-4 .2-7 1-10" />
+    <path d="M19.8 15.5c-1.6-.4-2.4-1.6-2.3-3 1.5.2 2.4 1.3 2.3 3z" />
+    <path d="M20.3 12.5c.3-1.5 1.4-2.3 2.6-2.2-.2 1.4-1.2 2.3-2.6 2.2z" />
   </Svg>
 );
