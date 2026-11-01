@@ -25,6 +25,7 @@ from engine.proposals import PROPOSE_TOOL, ProposalError, proposal
 from engine.proposals import describe as describe_proposal
 from engine.rank import ollama_embedder
 from engine.route import SOURCES, glossary, route
+from engine.standing import standing_instruction
 from engine.support import Judge, check_support, faithfulness, judge_with
 
 NAME = "Mago"  # the assistant; Magonia is the whole platform
@@ -414,6 +415,25 @@ def answer(
                 "\n\nThe researcher's own files that speak to this question. Cite them like "
                 f"papers, by their number:\n{listing}\n\n{passages_for_the_model(chosen)}"
             )
+    if wanted := standing_instruction(text):
+        # proposed in their own words; saved only if they click (AI-07)
+        yield {
+            "type": "proposal",
+            "proposal": {
+                "kind": "instruction",
+                "label": "instruction",
+                "title": wanted,
+                "why": "Kept for every question in this workspace; edit it on the Library page.",
+                "text": wanted,
+            },
+        }
+        messages[-1] = {
+            **messages[-1],
+            "content": f"{messages[-1]['content']}\n\n(Note from Magonia: the researcher wants "
+            f'"{wanted}" kept as a standing instruction. Under your answer they see a button to '
+            "save it; it is not saved until they click it. Say so in one short sentence, and "
+            "follow it in this answer.)",
+        }
     said: list[str] = []
     searches = reads = proposed = refused = 0
     if own and not wants_literature(text):
