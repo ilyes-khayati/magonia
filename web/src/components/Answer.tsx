@@ -14,7 +14,7 @@ const READ: Record<ReadStatus, string> = {
 
 const FLAG = {
   sign: "found only with the opposite sign",
-  unverified: "not found in what Magonia was given",
+  unverified: "not found in what Mago was given",
 };
 
 // A number from the answer: underlined with its source when checked, highlighted when not
@@ -111,7 +111,7 @@ function Paper({ paper, anchor, read, passages, onPinPassage }: PaperProps) {
           // what Magonia actually read in this paper, so a statement can be checked at its source
           <details>
             <summary>
-              Passages Magonia read ({passages.map((p) => `p. ${p.page}`).join(", ")})
+              Passages Mago read ({passages.map((p) => `p. ${p.page}`).join(", ")})
             </summary>
             {passages.map((p, k) => (
               <blockquote key={k} className="passage">
@@ -262,14 +262,14 @@ export function Sources({ turn, anchor, onPinPassage }: { turn: Turn; anchor: st
       {check?.pages_removed && check.pages_removed.length > 0 && (
         <p className="removed">
           Removed {check.pages_removed.length === 1 ? "a page" : "pages"} from{" "}
-          {check.pages_removed.join(", ")}: Magonia read no passage from{" "}
+          {check.pages_removed.join(", ")}: Mago read no passage from{" "}
           {check.pages_removed.length === 1 ? "that page" : "those pages"}.
         </p>
       )}
       {numbers.length > 0 && (
         <span className="meta">
           {verified.length} of {numbers.length} {numbers.length === 1 ? "number" : "numbers"} checked against what
-          Magonia was given{verified.length ? "; hover one to see where it comes from" : ""}.
+          Mago was given{verified.length ? "; hover one to see where it comes from" : ""}.
         </span>
       )}
       {flagged.length > 0 && (

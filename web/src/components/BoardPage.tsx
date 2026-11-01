@@ -19,7 +19,7 @@ type Props = {
   live: (item: BoardItem, update: (change: Partial<BoardItem>) => void, remove: () => void) => React.ReactNode | null;
 };
 
-const FROM: Record<string, string> = { data: "Data", analyses: "Analyses", model: "Model", assistant: "Magonia" };
+const FROM: Record<string, string> = { data: "Data", analyses: "Analyses", model: "Model", assistant: "Mago" };
 
 // The research board: findings pinned from anywhere, as they were when pinned, with notes
 export default function BoardPage({ board, onChange, onRemove, onNote, onSection, pagePath, live }: Props) {
@@ -56,13 +56,13 @@ export default function BoardPage({ board, onChange, onRemove, onNote, onSection
             <div className="tile">
               <strong>Pin an answer or a passage</strong>
               <span className="meta">
-                Under each of Magonia&apos;s answers, &quot;Pin&quot; keeps it with its question; a passage of a paper can
+                Under each of Mago&apos;s answers, &quot;Pin&quot; keeps it with its question; a passage of a paper can
                 be pinned on its own.
               </span>
             </div>
             <button className="tile" onClick={onNote}>
               <strong>Write a note</strong>
-              <span className="meta">Ideas, doubts, what to check next. Magonia reads them too.</span>
+              <span className="meta">Ideas, doubts, what to check next. Mago reads them too.</span>
             </button>
           </div>
         </section>
@@ -134,7 +134,7 @@ export default function BoardPage({ board, onChange, onRemove, onNote, onSection
 
 const KIND: Record<BoardItem["kind"], string> = {
   note: "Note",
-  answer: "Magonia's answer",
+  answer: "Mago's answer",
   experiment: "Experiment",
   card: "Card",
   passage: "Passage",

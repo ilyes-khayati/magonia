@@ -142,6 +142,7 @@ export default function App() {
   const [setupOpen, setSetupOpen] = useState(false);
   const [focus, setFocus] = useState(false);
   const [undo, setUndo] = useState<Undo | null>(null);
+  const [attached, setAttached] = useState<{ title: string; key: number } | null>(null);
   const saving = useRef<number | undefined>(undefined);
 
   // The address names the workspace and the page: /workspaces/<id>/<page>
@@ -155,6 +156,12 @@ export default function App() {
 
   const docked = panel.open && page !== "assistant";
   const setDocked = (open: boolean) => setPanel((p) => ({ ...p, open }));
+
+  // "Ask Mago about this" on a card: Mago opens beside the page with the card attached
+  function askAbout(title: string) {
+    setAttached({ title, key: Date.now() });
+    if (page !== "assistant") setDocked(true);
+  }
 
   // Magonia opens full size from its panel, and goes back to the page it came from
   const lastPage = useRef<Page>("map");
@@ -502,7 +509,7 @@ export default function App() {
     const answer = turn.content;
     const next = pin(board, {
       kind: "answer",
-      title: `Magonia: ${question.length > 60 ? `${question.slice(0, 57)}…` : question}`,
+      title: `Mago: ${question.length > 60 ? `${question.slice(0, 57)}…` : question}`,
       question,
       lines: answer.split("\n").filter((l) => l.trim()),
       answer: { text: answer, details: turn.details },
@@ -635,6 +642,7 @@ export default function App() {
     series: requests.map((r) => r.options),
     display: describeDisplay(settings.display),
     board: boardForMagonia(board),
+    focus: attached?.title ?? null,
   };
   const states = requests.map((r) => results.get(r.key));
   const progress = {
@@ -657,6 +665,10 @@ export default function App() {
         : null;
 
   const label = PAGES.find((p) => p.key === page)!.label;
+  const mago = {
+    open: docked || page === "assistant",
+    onToggle: () => (page === "assistant" ? magoniaSmaller() : setDocked(!docked)),
+  };
 
   return (
     <div
@@ -676,12 +688,8 @@ export default function App() {
         onForget={forget}
         earthEngine={earthEngine}
         onEarthEngine={() => setSetupOpen(true)}
-        magonia={{
-          open: docked || page === "assistant",
-          onToggle: () => (page === "assistant" ? magoniaSmaller() : setDocked(!docked)),
-        }}
       />
-      <Rail workspaceId={workspaceId} />
+      <Rail workspaceId={workspaceId} mago={mago} />
 
       {page === "data" && (
         <Sidebar>
@@ -723,6 +731,7 @@ export default function App() {
             entries={entries}
             mapPath={workspaceId === null ? null : pagePath(workspaceId, "map")}
             onPin={pinCard}
+            onAsk={askAbout}
           />
         )}
         {page === "analyses" && (
@@ -743,6 +752,7 @@ export default function App() {
             onReorder={changeAnalyses}
             onSettings={change}
             onPin={pinCard}
+            onAsk={askAbout}
           />
         )}
 
@@ -794,13 +804,13 @@ export default function App() {
 
       {/* One assistant for every page, so a conversation carries on when the page changes:
           a full page of its own, or a panel beside the others */}
-      <aside className="dock" aria-label="Magonia">
+      <aside className="dock" aria-label="Mago's panel">
         {page !== "assistant" && (
           <div
             className="dock-handle"
             role="separator"
             aria-orientation="vertical"
-            aria-label="Resize Magonia"
+            aria-label="Resize Mago's panel"
             aria-valuenow={panel.width}
             aria-valuemin={PANEL_WIDTH.min}
             tabIndex={0}
@@ -820,6 +830,8 @@ export default function App() {
           onPin={pinAnswer}
           onPinPassage={pinPassage}
           onUndoable={(text, run) => offer(text, run)}
+          attached={attached}
+          onDetach={() => setAttached(null)}
           loading={{
             opening: earthEngine === null || workspaceId === null,
             series: progress.total - progress.done - progress.failed,
@@ -828,7 +840,7 @@ export default function App() {
             page === "assistant" ? (
               <button
                 className="icon-button"
-                aria-label="Make Magonia smaller"
+                aria-label="Make Mago smaller"
                 title="Back to the side panel"
                 onClick={magoniaSmaller}
               >
@@ -838,16 +850,16 @@ export default function App() {
               <>
                 <button
                   className="icon-button"
-                  aria-label="Make Magonia bigger"
-                  title="Open Magonia full size"
+                  aria-label="Make Mago bigger"
+                  title="Open Mago full size"
                   onClick={() => workspaceId !== null && navigate(pagePath(workspaceId, "assistant"))}
                 >
                   <ExpandIcon size={14} />
                 </button>
                 <button
                   className="icon-button"
-                  aria-label="Close Magonia"
-                  title="Close Magonia"
+                  aria-label="Close Mago"
+                  title="Close Mago"
                   onClick={() => setDocked(false)}
                 >
                   <CloseIcon size={14} />

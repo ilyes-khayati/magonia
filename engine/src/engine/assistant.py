@@ -27,7 +27,7 @@ from engine.rank import ollama_embedder
 from engine.route import SOURCES, glossary, route
 from engine.support import Judge, check_support, faithfulness, judge_with
 
-NAME = "Magonia"
+NAME = "Mago"  # the assistant; Magonia is the whole platform
 
 SETTINGS = "; ".join(
     f"{LABELS[name]}: {', '.join(f'{k} ({low:g} to {high:g})' for k, (low, high) in keys.items())}"
@@ -321,6 +321,8 @@ def answer(
 
     areas = list(dict.fromkeys(s.area for s in view.series)) if view is not None else []
     kind = route(text, areas, view is not None)
+    if view is not None and view.focus and kind != "research":
+        kind = "data"  # asked from a card: about what the card shows
     # the researcher's own files: listed for every question, read when one is about them
     files = Uploads(library).all() if library is not None else []
     own = files_asked_about(text, files)
