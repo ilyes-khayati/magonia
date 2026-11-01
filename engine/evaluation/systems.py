@@ -17,6 +17,8 @@ All four use the same model on the same computer, so the differences come from t
 engineering, not from a bigger model.
 """
 
+import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -24,6 +26,7 @@ from pathlib import Path
 from cases import ABSTRACTS, BARE, MAGONIA, PROMPTED, Case
 
 from engine.assistant import RULES, Ollama, answer
+from engine.awareness import paper_from
 from engine.facts import View
 from engine.library import Library, Uploads
 
@@ -155,6 +158,45 @@ def run_plain(provider: Ollama, system_name: str, case: Case, view: View | None)
     }
 
 
+# Replaying the baseline's literature: each case's turn gets the papers the baseline found for it,
+# whatever query the model writes, so that two runs differ only in what Magonia does with them
+# (and OpenAlex is not needed). Set MAGONIA_REPLAY to the baseline's raw.jsonl.
+REPLAY: dict[str, list[list[dict]]] = {}
+
+
+def replayed(case_id: str, turn: int):
+    if not REPLAY:
+        path = os.environ.get("MAGONIA_REPLAY")
+        if not path:
+            return None
+        rows = [json.loads(line) for line in Path(path).read_text().splitlines()]
+        for system in (ABSTRACTS, MAGONIA):  # Magonia's own search wins where both searched
+            for r in rows:
+                if r["system"] != system or r["repeat"] != 1:
+                    continue
+                asked = r.get("turns") or [r["question"]]
+                turns = (
+                    [r.get("earlier_papers") or [], r.get("papers") or []]
+                    if len(asked) > 1
+                    else [r.get("papers") or []]
+                )
+                if any(turns):
+                    REPLAY[r["case"]] = turns
+    turns = REPLAY.get(case_id) or [[]]
+    found = turns[min(turn, len(turns) - 1)]
+    # a paper given from the researcher's library is not a search result
+    papers = [paper_from(p) for p in found if p.get("venue") != "Your library"]
+    used = {"done": False}
+
+    def search(query: str):
+        if used["done"]:  # a second search in one answer finds nothing new
+            return []
+        used["done"] = True
+        return papers
+
+    return search
+
+
 def run_magonia(
     provider: Ollama, system_name: str, case: Case, view: View | None, libraries: dict
 ) -> dict:
@@ -183,6 +225,7 @@ def run_magonia(
         for event in answer(
             provider,
             conversation,
+            search=replayed(case.id, i),
             view=view if case.workspace else None,
             library=library,
             instructions=case.instructions,
@@ -206,7 +249,15 @@ def run_magonia(
         record["seconds"] = round(time.time() - start, 1)
         record["first_word"] = round(first or 0.0, 1)
         record["answer"] = record["check"].get("text", "")
-        conversation.append({"role": "assistant", "content": record["answer"]})
+        # as the API keeps it: the answer with the papers it was given and those it cited
+        conversation.append(
+            {
+                "role": "assistant",
+                "content": record["answer"],
+                "papers": record["papers"],
+                "cited": record["check"].get("cited", []),
+            }
+        )
         if i < len(case.turns) - 1:
             earlier_searches += record["searches"]
             earlier_cited += record["check"].get("cited", [])

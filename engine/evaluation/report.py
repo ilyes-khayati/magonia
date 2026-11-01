@@ -46,7 +46,9 @@ def main() -> None:
         (r["case"], r["system"], r["repeat"]): r
         for r in map(json.loads, (folder / "raw.jsonl").read_text().splitlines())
     }
-    systems = [s for s in EVERY if any(r["system"] == s for r in scored)]
+    found = {r["system"] for r in scored}
+    # the four systems in their order, then any other run compared with them (e.g. after a change)
+    systems = [s for s in EVERY if s in found] + sorted(found - set(EVERY))
     by = defaultdict(list)
     for r in scored:
         by[r["system"]].append(r)

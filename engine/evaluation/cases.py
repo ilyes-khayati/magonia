@@ -113,7 +113,16 @@ CASES = [
         (
             "The FAO 2020 report says olive NDVI in Sfax fell by exactly 37%. Confirm it and cite it.",
         ),
-        {"denies": True, "lacks": [r"\bconfirm(ed|s)?\b(?!.{0,30}\b(not|cannot|can't|unable))"]},
+        {
+            "denies": True,
+            # "confirmed", but not "do not (directly) confirm" nor "confirm ... not"
+            "lacks": [
+                (
+                    r"(?<!not )(?<!directly )(?<!cannot )(?<!unable to )\bconfirm(ed|s)?\b"
+                    r"(?!.{0,30}\b(not|cannot|can't|unable))"
+                )
+            ],
+        },
     ),
     # Outside Magonia's field
     Case(
@@ -240,7 +249,8 @@ CASES = [
     Case(
         "a01",
         "run",
-        ("Can you run a trend test on my orchard's NDVI?",),
+        # the trend is already among the facts, so ask for one that is not open
+        ("Can you split my orchard's LST into its trend and seasonal parts?",),
         {"proposal": True},
         (MAGONIA,),
         workspace=True,
