@@ -70,7 +70,13 @@ export type Area = {
   area_km2: number;
 };
 
-export type WorkspaceSummary = { id: number; name: string; created: string; updated: string };
+export type WorkspaceSummary = {
+  id: number;
+  name: string;
+  created: string;
+  updated: string;
+  deleted?: string | null; // when it was moved to Recently deleted
+};
 
 export type Workspace = WorkspaceSummary & {
   settings: Record<string, unknown>;
@@ -111,12 +117,20 @@ export const updateWorkspace = (
   id: number,
   change: { name?: string; settings?: Record<string, unknown> },
 ) => call<Workspace>(`/workspaces/${id}`, send("PATCH", change));
+// Deleting moves a workspace to Recently deleted for 30 days; from there it can be restored or
+// deleted forever
+export const deleteWorkspace = (id: number) => call<void>(`/workspaces/${id}`, send("DELETE"));
+export const deletedWorkspaces = () => call<WorkspaceSummary[]>("/workspaces?deleted=true");
+export const restoreWorkspace = (id: number) => call<WorkspaceSummary>(`/workspaces/${id}/restore`, send("POST"));
+export const deleteWorkspaceForever = (id: number) =>
+  call<void>(`/workspaces/${id}?forever=true`, send("DELETE"));
 
 export const createArea = (workspaceId: number, name: string, geometry: unknown) =>
   call<Area>(`/workspaces/${workspaceId}/areas`, send("POST", { name, geometry }));
 export const renameArea = (id: number, name: string) =>
   call<Area>(`/areas/${id}`, send("PATCH", { name }));
 export const deleteArea = (id: number) => call<void>(`/areas/${id}`, send("DELETE"));
+export const restoreArea = (id: number) => call<Area>(`/areas/${id}/restore`, send("POST"));
 
 type Job = {
   id: number;
@@ -452,18 +466,36 @@ export const setInstructions = (workspaceId: number, text: string) =>
   call<{ text: string }>(`/workspaces/${workspaceId}/instructions`, send("PUT", { text }));
 
 export const assistantInfo = () => call<{ name: string; model: string }>("/assistant");
-export const listMessages = (workspaceId: number) => call<ChatMessage[]>(`/workspaces/${workspaceId}/messages`);
-export const clearMessages = (workspaceId: number) =>
-  call<void>(`/workspaces/${workspaceId}/messages`, send("DELETE"));
+
+// Conversations with Magonia, several per workspace; a deleted one can be restored for 30 days
+export type Conversation = {
+  id: number;
+  workspace_id: number;
+  title: string | null; // null until named: shown as its first question
+  first_question: string | null;
+  messages: number;
+  created: string;
+  updated: string;
+};
+
+export const listConversations = (workspaceId: number) =>
+  call<Conversation[]>(`/workspaces/${workspaceId}/conversations`);
+export const createConversation = (workspaceId: number) =>
+  call<Conversation>(`/workspaces/${workspaceId}/conversations`, send("POST"));
+export const renameConversation = (id: number, title: string) =>
+  call<Conversation>(`/conversations/${id}`, send("PATCH", { title }));
+export const deleteConversation = (id: number) => call<void>(`/conversations/${id}`, send("DELETE"));
+export const restoreConversation = (id: number) => call<Conversation>(`/conversations/${id}/restore`, send("POST"));
+export const listMessages = (conversationId: number) => call<ChatMessage[]>(`/conversations/${conversationId}/messages`);
 
 // Sends a question and hands each event to onEvent as it arrives (one JSON object per line)
 export async function ask(
-  workspaceId: number,
+  conversationId: number,
   content: string,
   onEvent: (event: ChatEvent) => void,
   view?: View,
 ) {
-  const response = await fetch(`/api/workspaces/${workspaceId}/chat`, {
+  const response = await fetch(`/api/conversations/${conversationId}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ content, view }),

@@ -21,6 +21,7 @@ import { large } from "../variables";
 type Props = {
   experiments: Experiment[];
   onChange: (experiments: Experiment[]) => void;
+  onRemove: (id: number) => void; // deleted with an Undo
   areas: Area[];
   variables: Variable[];
   title: (v: Variable) => string;
@@ -36,7 +37,7 @@ type Props = {
 // Forecasting experiments, kept like the runs of a notebook: each has its recipe and its
 // results, and two can be put side by side
 export default function ModelPage(props: Props) {
-  const { experiments, onChange, areas, variables, title, entries, options, seasonal, dataPath, mapPath, onShown } = props;
+  const { experiments, onChange, onRemove, areas, variables, title, entries, options, seasonal, dataPath, mapPath, onShown } = props;
   const [openId, setOpenId] = useState<number | null>(null);
   const [comparing, setComparing] = useState<number[]>([]);
   const open = experiments.find((e) => e.id === openId) ?? experiments[0] ?? null;
@@ -60,7 +61,7 @@ export default function ModelPage(props: Props) {
     setComparing([]);
   };
   const remove = (id: number) => {
-    onChange(experiments.filter((e) => e.id !== id));
+    onRemove(id);
     setComparing(comparing.filter((c) => c !== id));
     if (openId === id) setOpenId(null);
   };

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CheckedNumber, PaperCard } from "./api";
-import { answerParts, applyEvent, citationParts, styled, type Turn } from "./chat";
+import { answerParts, applyEvent, citationParts, conversationTitle, styled, type Turn } from "./chat";
 
 const empty: Turn = { role: "assistant", content: "", details: {} };
 const card = (n: number): PaperCard => ({
@@ -134,5 +134,16 @@ describe("styled", () => {
       { cites: [1], bold: false },
       { text: "]", bold: false },
     ]);
+  });
+});
+
+describe("conversation titles", () => {
+  it("are the name given, else the first question, shortened", () => {
+    expect(conversationTitle({ title: "Drought lags", first_question: "Is there a lag?" })).toBe("Drought lags");
+    expect(conversationTitle({ title: null, first_question: "Is there a lag?" })).toBe("Is there a lag?");
+    expect(conversationTitle({ title: null, first_question: null })).toBe("New conversation");
+    const long = conversationTitle({ title: null, first_question: "word ".repeat(30) });
+    expect(long.length).toBeLessThanOrEqual(58);
+    expect(long.endsWith("…")).toBe(true);
   });
 });

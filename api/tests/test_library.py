@@ -6,6 +6,10 @@ from api import main
 SURVEY = "Rainfed olive groves in Jendouba lost NDVI after the dry spring of 2023. " * 5
 
 
+def conversation(client, ws):
+    return client.post(f"/workspaces/{ws}/conversations").json()["id"]
+
+
 def test_a_pdf_is_uploaded_listed_and_removed(client):
     added = client.post(
         "/library", files={"file": ("field_survey.pdf", make_pdf([SURVEY]), "application/pdf")}
@@ -38,5 +42,5 @@ def test_instructions_are_kept_per_workspace_and_given_to_magonia(client):
 
     model = Scripted("Bonjour.")
     main.app.dependency_overrides[main.get_provider] = lambda: model
-    client.post(f"/workspaces/{ws}/chat", json={"content": "Hello"})
+    client.post(f"/conversations/{conversation(client, ws)}/chat", json={"content": "Hello"})
     assert "Answer in French." in model.seen[0]["content"]
