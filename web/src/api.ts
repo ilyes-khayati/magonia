@@ -432,6 +432,7 @@ export type ChatMessage = {
 
 export type ChatEvent =
   | { type: "text"; text: string }
+  | { type: "rewrite"; text: string }
   | { type: "search"; query: string }
   | { type: "search_failed"; query: string; error: string }
   | { type: "papers"; papers: PaperCard[] }
