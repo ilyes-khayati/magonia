@@ -210,7 +210,9 @@ export default function AssistantCard(props: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [model, setModel] = useState<string | null>(null);
-  const end = useRef<HTMLDivElement>(null);
+  const log = useRef<HTMLDivElement>(null);
+  // follows the answer as it is written, until the researcher scrolls up to read
+  const [following, setFollowing] = useState(true);
 
   useEffect(() => {
     assistantInfo()
@@ -234,6 +236,7 @@ export default function AssistantCard(props: Props) {
       setOpenId(id);
       setError(null);
       setTurns([]);
+      setFollowing(true);
       if (workspaceId !== null) rememberOpen(workspaceId, id);
       if (id !== null)
         listMessages(id)
@@ -281,11 +284,14 @@ export default function AssistantCard(props: Props) {
     }
   }
 
-  // braces matter: newer browsers return a promise from scrollIntoView, which React would
-  // take for a clean-up function
   useEffect(() => {
-    end.current?.scrollIntoView({ block: "nearest" });
-  }, [turns]);
+    if (following && log.current) log.current.scrollTop = log.current.scrollHeight;
+  }, [turns, following]);
+
+  function scrolled() {
+    const el = log.current;
+    if (el) setFollowing(el.scrollHeight - el.scrollTop - el.clientHeight < 24);
+  }
 
   async function submit() {
     const question = draft.trim();
@@ -293,6 +299,7 @@ export default function AssistantCard(props: Props) {
     setDraft("");
     setError(null);
     setBusy(true);
+    setFollowing(true);
     setTurns((t) => [
       ...t,
       { role: "user", content: question, details: {} },
@@ -341,7 +348,7 @@ export default function AssistantCard(props: Props) {
       />
 
       {turns.length > 0 && (
-        <div className="conversation" aria-live="polite">
+        <div className="conversation" aria-live="polite" ref={log} onScroll={scrolled}>
           {turns.map((turn, i) => {
             const anchor = `answer-${i}`;
             const last = busy && i === turns.length - 1;
@@ -379,7 +386,17 @@ export default function AssistantCard(props: Props) {
               </div>
             );
           })}
-          <div ref={end} />
+          {!following && (
+            <button
+              type="button"
+              className="icon-button round to-latest"
+              aria-label="Go to the latest"
+              title="Go to the latest"
+              onClick={() => setFollowing(true)}
+            >
+              <ChevronIcon size={15} />
+            </button>
+          )}
         </div>
       )}
 

@@ -164,7 +164,7 @@ async function fakeApi(page: Page, connected = true) {
           json: { id: 1, name: "My workspace", created: "", updated: "", settings, areas, jobs: [] },
         }),
   );
-  await page.route("**/api/library", (route) => {
+  await page.route("**/api/workspaces/1/library", (route) => {
     if (route.request().method() === "POST") {
       const file = { id: `U${library.length + 1}`, title: "field survey", filename: "field_survey.pdf", added: "2026-10-31 10:00:00", pages: 12, pdf: true };
       library.push(file);

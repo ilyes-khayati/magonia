@@ -26,8 +26,8 @@ export default function LibraryPage({ workspaceId, onUndoable }: Props) {
   const input = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    listFiles().then(setFiles, (e: Error) => setError(e.message));
-  }, []);
+    listFiles(workspaceId).then(setFiles, (e: Error) => setError(e.message));
+  }, [workspaceId]);
   useEffect(() => {
     getInstructions(workspaceId).then(
       (r) => setText(r.text),
@@ -40,7 +40,7 @@ export default function LibraryPage({ workspaceId, onUndoable }: Props) {
     for (const file of chosen ? [...chosen] : []) {
       setBusy((b) => [...b, file.name]);
       try {
-        const added = await addFile(file);
+        const added = await addFile(workspaceId, file);
         setFiles((f) => [...(f ?? []), added]);
       } catch (e) {
         setError(`${file.name}: ${(e as Error).message}`);

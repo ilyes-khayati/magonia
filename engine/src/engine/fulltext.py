@@ -76,6 +76,21 @@ def pages(pdf: bytes) -> list[str]:
     return [re.sub(r"(\w)-\n(\w)", r"\1\2", t) for t in texts]
 
 
+def title_of(pdf: bytes) -> str | None:
+    """The title a PDF carries in its metadata, when it looks like one: publishers set it,
+    while word processors leave a file name or "Microsoft Word - draft.docx"."""
+    try:
+        title = (PdfReader(io.BytesIO(pdf)).metadata or {}).get("/Title")
+    except (PdfReadError, ValueError, KeyError, TypeError):
+        return None
+    title = re.sub(r"\s+", " ", str(title or "")).strip()
+    if len(title.split()) < 3 or len(title) > 300:
+        return None
+    if re.search(r"^(microsoft|untitled)|\.(docx?|pdf|tex|odt)$", title, re.IGNORECASE):
+        return None
+    return title
+
+
 def without_references(texts: list[str]) -> list[str]:
     """The pages up to the reference list, when it starts in the second half of the paper."""
     for i in range(len(texts) - 1, len(texts) // 2 - 1, -1):
