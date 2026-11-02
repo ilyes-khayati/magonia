@@ -16,6 +16,7 @@ their bytes: the same file added twice is stored once, and a citation can open t
 cites. A removed file waits 30 days before it is deleted for good, so that it can be restored.
 """
 
+import copy
 import hashlib
 import os
 import sqlite3
@@ -27,7 +28,7 @@ from urllib.error import URLError
 
 import numpy as np
 
-from engine.fulltext import FullTextError, Passage, pages, passages, read
+from engine.fulltext import FullTextError, Passage, pages, passages, read, title_of
 from engine.literature import Paper
 from engine.rank import Embed, words
 
@@ -79,13 +80,23 @@ class Library:
         self.files = Path(self.path).parent / "files"  # the researcher's PDFs, by content hash
         self.embed = embed
         self.reader = reader  # replaced in tests
+        self.workspace: int | None = None  # whose files Uploads sees; None: every file
         with self.connect() as db:
             db.executescript(SCHEMA)
             columns = {row[1] for row in db.execute("PRAGMA table_info(uploads)")}
             for column in ("sha", "deleted"):  # keeping files and restoring them, added in 1.5
                 if column not in columns:
                     db.execute(f"ALTER TABLE uploads ADD COLUMN {column} TEXT")
+            if "workspace" not in columns:  # each workspace its own files, added in 1.6
+                db.execute("ALTER TABLE uploads ADD COLUMN workspace INTEGER")
         self.purge()
+
+    def scoped(self, workspace: int) -> "Library":
+        """The same library, whose files are those of one workspace. Papers found, passages and
+        kept PDFs stay shared: they are a cache, and the same paper reads the same anywhere."""
+        mine = copy.copy(self)
+        mine.workspace = workspace
+        return mine
 
     def purge(self) -> None:
         """Delete for good the files removed more than 30 days ago."""
@@ -223,7 +234,7 @@ class Uploads:
                 number += 1
         upload_id = f"U{number}"
         vectors = lib.vectors([p.text for p in found], "search_document")
-        name = title or Path(filename).stem.replace("_", " ")
+        name = title or title_of(pdf) or Path(filename).stem.replace("_", " ")
         sha = hashlib.sha256(pdf).hexdigest()
         lib.files.mkdir(parents=True, exist_ok=True)
         kept = lib.files / f"{sha}.pdf"
@@ -239,9 +250,9 @@ class Uploads:
             )
             db.execute("INSERT INTO papers VALUES (?, 'read', ?, NULL)", (upload_id, "uploaded"))
             db.execute(
-                "INSERT INTO uploads (id, title, filename, added, pages, sha) "
-                "VALUES (?, ?, ?, datetime('now'), ?, ?)",
-                (upload_id, name, filename, len(texts), sha),
+                "INSERT INTO uploads (id, title, filename, added, pages, sha, workspace) "
+                "VALUES (?, ?, ?, datetime('now'), ?, ?, ?)",
+                (upload_id, name, filename, len(texts), sha, lib.workspace),
             )
         return {**self.get(upload_id), "passages": len(found)}
 
@@ -259,11 +270,18 @@ class Uploads:
         return {**found, "pdf": bool(row[5]) and (self.library.files / f"{row[5]}.pdf").exists()}
 
     def all(self) -> list[dict]:
+        """The files of the library's workspace, or every file when it has none."""
+        workspace = self.library.workspace
         with self.library.connect() as db:
+            if workspace is not None:
+                # files added before they belonged to a workspace go to the first one opened
+                db.execute("UPDATE uploads SET workspace = ? WHERE workspace IS NULL", (workspace,))
             ids = [
                 r[0]
                 for r in db.execute(
-                    "SELECT id FROM uploads WHERE deleted IS NULL ORDER BY added, id"
+                    "SELECT id FROM uploads WHERE deleted IS NULL AND (? IS NULL OR workspace = ?) "
+                    "ORDER BY added, id",
+                    (workspace, workspace),
                 )
             ]
         return [self.get(i) for i in ids]

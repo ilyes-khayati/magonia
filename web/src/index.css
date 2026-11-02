@@ -1072,6 +1072,16 @@ button:disabled {
   overflow-y: auto;
 }
 
+/* stays at the foot of the conversation while the researcher reads further up */
+.to-latest {
+  position: sticky;
+  bottom: 6px;
+  align-self: center;
+  flex-shrink: 0;
+  background: var(--card);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.15);
+}
+
 .turn {
   white-space: pre-wrap;
   line-height: 1.55;
@@ -1819,6 +1829,7 @@ button:disabled {
 
 .note-text {
   width: 100%;
+  box-sizing: border-box; /* the padding inside the card's width */
   resize: vertical;
   border: 1px solid var(--line);
   border-radius: 8px;

@@ -37,6 +37,12 @@ describe("applyEvent", () => {
     });
   });
 
+  it("takes back what was said when the model wrote out a tool call", () => {
+    let turn = applyEvent(empty, { type: "text", text: '```json {"name": "read_series"} ```' });
+    turn = applyEvent(turn, { type: "rewrite", text: "" });
+    expect(turn.content).toBe("");
+  });
+
   it("keeps errors visible", () => {
     const turn = applyEvent(empty, { type: "search_failed", query: "olive", error: "no network" });
     expect(turn.error).toBe('The search "olive" failed: no network');

@@ -979,7 +979,8 @@ def forecast_facts(store: Store, view: View, areas: dict[int, dict]) -> list[fac
     return found
 
 
-# The researcher's library: their own PDFs, which Magonia reads and cites like papers
+# The researcher's library: their own PDFs, which Magonia reads and cites like papers. Each
+# workspace has its own files; a file is then reached by its id, which is unique.
 
 MAX_UPLOAD = 30_000_000
 
@@ -988,21 +989,25 @@ class Instructions(BaseModel):
     text: str = Field(max_length=assistant.MAX_INSTRUCTIONS)
 
 
-@app.get("/library")
-def list_files(library: LibraryDep) -> list[dict]:
-    return Uploads(library).all()
+@app.get("/workspaces/{workspace_id}/library")
+def list_files(workspace_id: int, store: StoreDep, library: LibraryDep) -> list[dict]:
+    existing_workspace(store, workspace_id)
+    return Uploads(library.scoped(workspace_id)).all()
 
 
-@app.post("/library", status_code=201)
-async def add_file(file: UploadFile, library: LibraryDep) -> dict:
-    """Read an uploaded PDF into the library: its passages, their pages and embeddings."""
+@app.post("/workspaces/{workspace_id}/library", status_code=201)
+async def add_file(
+    workspace_id: int, file: UploadFile, store: StoreDep, library: LibraryDep
+) -> dict:
+    """Read an uploaded PDF into the workspace's library: its passages, pages and embeddings."""
+    existing_workspace(store, workspace_id)
     data = await file.read(MAX_UPLOAD + 1)
     if len(data) > MAX_UPLOAD:
         raise HTTPException(413, "The PDF is larger than 30 MB.")
     if not data.startswith(b"%PDF"):
         raise HTTPException(400, f"{file.filename} is not a PDF.")
     try:
-        return Uploads(library).add(file.filename or "file.pdf", data)
+        return Uploads(library.scoped(workspace_id)).add(file.filename or "file.pdf", data)
     except FullTextError as exc:
         raise HTTPException(400, str(exc)) from exc
 
@@ -1086,7 +1091,11 @@ def chat(
     question = {"role": "user", "content": body.content}
     instructions = store.setting(f"instructions:{workspace_id}") or ""
     events = assistant.answer(
-        provider, [*history, question], view=view, library=library, instructions=instructions
+        provider,
+        [*history, question],
+        view=view,
+        library=library.scoped(workspace_id),  # this workspace's files only
+        instructions=instructions,
     )
     # fail with a clear status before streaming starts, if the model cannot be reached: the
     # route and view events come before the model is asked anything
@@ -1109,6 +1118,8 @@ def chat(
                 match event["type"]:
                     case "text":
                         said.append(event["text"])
+                    case "rewrite":
+                        said = [event["text"]]
                     case "search":
                         searches.append(event["query"])
                     case "papers":

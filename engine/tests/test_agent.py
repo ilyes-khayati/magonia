@@ -1,6 +1,6 @@
 import pytest
 
-from engine.assistant import SEARCH_TOOL, Scripted, ToolCall, answer
+from engine.assistant import SEARCH_TOOL, Scripted, ToolCall, answer, written_calls
 from engine.literature import LiteratureError, Paper
 
 
@@ -170,6 +170,47 @@ def test_the_model_can_read_a_year_of_the_researchers_data():
     assert reading["role"] == "tool" and reading["content"].startswith(
         "Orchard, NDVI, monthly means in 2021"
     )
+
+
+WRITTEN = """This will give the NDVI data:
+
+```json
+{
+  "name": "read_series",
+  "arguments": {"area": "Orchard", "variable": "ndvi", "year": 2021}
+}
+```"""
+
+
+def test_a_call_written_out_as_json_is_found_and_taken_out_of_the_text():
+    [call], rest = written_calls(WRITTEN)
+    assert call == ToolCall("read_series", {"area": "Orchard", "variable": "ndvi", "year": 2021})
+    assert rest == "This will give the NDVI data:"
+    bare = 'Searching. {"name": "search_papers", "parameters": {"query": "olive"}} Done.'
+    assert written_calls(bare) == (
+        [ToolCall("search_papers", {"query": "olive"})],
+        "Searching.  Done.",
+    )
+    plain = 'NDVI is {"high": 0.8} in spring, see {"name": "Orchard"}.'
+    assert written_calls(plain) == ([], plain)
+
+
+def test_a_call_the_model_wrote_out_is_made_and_its_json_never_shown():
+    model = Scripted(WRITTEN, "NDVI peaked in April 2021 at 0.62.")
+    events = list(answer(model, [{"role": "user", "content": "And 2021?"}], view=orchard_view()))
+
+    assert {"type": "read", "area": "Orchard", "variable": "ndvi", "year": 2021} in events
+    assert {"type": "rewrite", "text": ""} in events  # what it said on the way is taken back
+    assert events[-1]["text"] == "NDVI peaked in April 2021 at 0.62."
+
+
+def test_a_written_call_that_can_no_longer_be_made_is_still_not_shown():
+    model = Scripted(WRITTEN)
+    events = list(
+        answer(model, [{"role": "user", "content": "And 2021?"}], view=orchard_view(), max_reads=0)
+    )
+    assert not any(e["type"] == "read" for e in events)
+    assert events[-1]["text"] == "This will give the NDVI data:"
 
 
 def test_reads_are_limited_then_the_model_must_answer():
