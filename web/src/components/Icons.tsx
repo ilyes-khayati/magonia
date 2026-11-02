@@ -120,13 +120,6 @@ export const AnalysisIcon = (p: IconProps) => (
   </Svg>
 );
 
-export const PanelIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <rect x="3" y="4" width="18" height="16" rx="2" />
-    <path d="M14 4v16" />
-  </Svg>
-);
-
 export const ChevronIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M6 9l6 6 6-6" />
