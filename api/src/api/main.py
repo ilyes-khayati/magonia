@@ -1118,6 +1118,8 @@ def chat(
                 match event["type"]:
                     case "text":
                         said.append(event["text"])
+                    case "rewrite":
+                        said = [event["text"]]
                     case "search":
                         searches.append(event["query"])
                     case "papers":

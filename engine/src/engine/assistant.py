@@ -182,6 +182,40 @@ class ToolCall:
     arguments: dict
 
 
+TOOLS = {"search_papers", "read_series", "propose_analysis"}
+
+
+def written_calls(text: str) -> tuple[list[ToolCall], str]:
+    """Tool calls the model wrote into its answer as JSON instead of making them.
+
+    A small model sometimes does: the researcher would see the JSON. Returns the calls
+    and the text without them.
+    """
+    decoder = json.JSONDecoder()
+    calls, kept, at = [], [], 0
+    for start in re.finditer(r"(```(?:json)?\s*)?\{", text):
+        if start.start() < at:
+            continue
+        try:
+            found, end = decoder.raw_decode(text, start.end() - 1)
+        except ValueError:
+            continue
+        if not (isinstance(found, dict) and found.get("name") in TOOLS):
+            continue
+        arguments = found.get("arguments") or found.get("parameters") or {}
+        if not isinstance(arguments, dict):
+            continue
+        if start.group(1) and (fence := re.match(r"\s*```", text[end:])):
+            end += fence.end()
+        calls.append(ToolCall(found["name"], arguments))
+        kept.append(text[at : start.start()])
+        at = end
+    if not calls:
+        return [], text
+    kept.append(text[at:])
+    return calls, re.sub(r"\n{3,}", "\n\n", "".join(kept)).strip()
+
+
 class ProviderError(Exception):
     """The language model could not be reached or refused the request."""
 
@@ -463,14 +497,23 @@ def answer(
         if facts and proposed < MAX_PROPOSALS:
             tools.append(PROPOSE_TOOL)
         calls = []
+        begun = len(said)
         for piece in provider.stream(messages, tools or None):
             if isinstance(piece, ToolCall):
                 calls.append(piece)
             else:
                 said.append(piece)
                 yield {"type": "text", "text": piece}
-        # Done when the model answered, or asked only for tools it was no longer offered
         offered = {t["function"]["name"] for t in tools}
+        if not calls:
+            written, _ = written_calls("".join(said[begun:]))
+            if any(c.name in offered for c in written):
+                # it wrote the call out instead of making it: make it, and take back what
+                # it said on the way, as it would have said nothing
+                calls = written
+                del said[begun:]
+                yield {"type": "rewrite", "text": "".join(said)}
+        # Done when the model answered, or asked only for tools it was no longer offered
         if not calls or not any(c.name in offered for c in calls):
             break
         messages.append(
@@ -576,7 +619,8 @@ def answer(
                     given += "\n\n" + passages_for_the_model(chosen)
             messages.append({"role": "tool", "content": given})
 
-    verdict = check("".join(said), papers, pages)
+    _, said_text = written_calls("".join(said))  # a call it can no longer make is not shown
+    verdict = check(said_text, papers, pages)
     event = {"type": "check", "text": verdict.text, **verdict.to_dict()}
     # numbers are checked when there was something to check them against
     if facts or papers or kind == "method":

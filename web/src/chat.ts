@@ -32,6 +32,8 @@ export function applyEvent(turn: Turn, event: ChatEvent): Turn {
   switch (event.type) {
     case "text":
       return { ...turn, content: turn.content + event.text, status: undefined };
+    case "rewrite":
+      return { ...turn, content: event.text };
     case "search":
       return {
         ...turn,
