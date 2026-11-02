@@ -9,7 +9,9 @@
 4. Run the checks locally from the package folder:
    `uv run ruff check .` and `uv run pytest`.
 5. Push and open a pull request with `Closes #<number>` in the description.
-6. Merge only when CI is green, with **squash and merge**, and delete the branch.
+6. Merge only when CI is green, and delete the branch. A single pull request: **squash and
+   merge**. Pull requests stacked on one another: **merge commit** (`gh pr merge N --merge`),
+   because squashing the first one makes the next one conflict with `main`.
 7. Back on `main`: `git switch main && git pull`.
 
 `main` is never committed to directly.
@@ -29,6 +31,24 @@
   (extraction, preparation, forecasting) changes. Results are cached by request and
   `engine.__version__`, so if a change can alter a result, bump the version; then copy
   the new hash the test prints into it.
+
+- `web/e2e/` drives the interface in a browser against a faked API (`npm run test:e2e`).
+
+## Evaluating Mago
+
+`engine/evaluation/` asks 52 cases to four systems on the same model (the bare model, the
+model with Mago's rules, the pipeline on abstracts, the full pipeline) and scores them:
+
+```bash
+cd engine
+uv run python evaluation/run.py results/ --repeats 2        # needs the Ollama server
+uv run python evaluation/score.py results/ && uv run python evaluation/report.py results/
+```
+
+To compare a change with an earlier run on the same papers, replay its searches:
+`MAGONIA_REPLAY=results/raw.jsonl uv run python evaluation/run.py after/ --systems magonia`.
+Read the failures in `report.md` by hand before trusting a number: some will be faults of
+the case or of the scorer.
 
 ## Configuration
 
