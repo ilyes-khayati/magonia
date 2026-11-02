@@ -800,7 +800,7 @@ export default function App() {
           />
         )}
         {page === "library" && workspaceId !== null && (
-          <LibraryPage workspaceId={workspaceId} onUndoable={(text, run) => offer(text, run)} />
+          <LibraryPage key={workspaceId} workspaceId={workspaceId} onUndoable={(text, run) => offer(text, run)} />
         )}
         {page === "model" && (
           <ModelPage
