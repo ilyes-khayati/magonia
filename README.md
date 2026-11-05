@@ -14,7 +14,9 @@ analyses, forecasts and the literature in one place. Every number shows where it
 ![Ollama](https://img.shields.io/badge/Ollama-qwen2.5-000000?logo=ollama&logoColor=white)
 
 </div>
-## Demo
+
+## A Demo
+
 
 https://github.com/user-attachments/assets/d3312055-112f-4f2b-b3aa-71946c39ff0b
 
