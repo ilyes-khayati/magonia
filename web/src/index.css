@@ -2191,3 +2191,9 @@ button:disabled {
   font-weight: 600;
   text-align: left;
 }
+
+/* which areas a chart shows: as wide as its names, not the card */
+.area-choice {
+  width: fit-content;
+  max-width: 100%;
+}

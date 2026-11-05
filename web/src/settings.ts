@@ -17,6 +17,7 @@ export type Settings = {
   cards: Record<string, CardLayout>; // by card: "chart:ndvi", "analysis:3"
   chartOrder: VariableKey[];
   display: Display; // how the Data page shows the series; analyses keep them as extracted
+  hiddenAreas: Partial<Record<VariableKey, number[]>>; // by chart: the areas left out of it
 };
 
 export const DEFAULTS: Settings = {
@@ -32,6 +33,7 @@ export const DEFAULTS: Settings = {
   cards: {},
   chartOrder: [],
   display: NO_DISPLAY,
+  hiddenAreas: {},
 };
 
 // A month as "YYYY-MM", or null when the text is not one. Browsers without a month
@@ -53,6 +55,7 @@ export function readSettings(saved: Record<string, unknown> | undefined): Settin
   merged.end = parseMonth(String(merged.end)) ?? DEFAULTS.end;
   const d = merged.display as Partial<Display> | undefined;
   if (!d || !Array.isArray(d.months)) merged.display = NO_DISPLAY;
+  if (typeof merged.hiddenAreas !== "object" || merged.hiddenAreas === null) merged.hiddenAreas = {};
   return Array.isArray(merged.variables) ? merged : DEFAULTS;
 }
 

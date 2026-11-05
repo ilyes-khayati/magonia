@@ -105,6 +105,8 @@ export default function DataPage({ catalogue, settings, onChange, areas, entries
                 mode={settings.mode}
                 shown={describeDisplay(settings.display)}
                 anomaly={settings.display.anomaly !== null}
+                hidden={settings.hiddenAreas[v.key] ?? []}
+                onHidden={(ids) => onChange({ hiddenAreas: { ...settings.hiddenAreas, [v.key]: ids } })}
               />
             </CardSlot>
           ))}

@@ -1014,6 +1014,32 @@ test("the period chosen in the month fields is the one extracted", async ({ page
   await expect(page.getByText("Type a month as YYYY-MM")).toHaveCount(0);
 });
 
+test("a chart shows the areas together or one at a time, and keeps the choice", async ({ page }) => {
+  const forest = { ...SQUARE.features[0], properties: { name: "Forest" } };
+  await page.getByTestId("upload").setInputFiles({
+    name: "fields.geojson",
+    mimeType: "application/geo+json",
+    buffer: Buffer.from(JSON.stringify({ ...SQUARE, features: [...SQUARE.features, forest] })),
+  });
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Data" }).click();
+  const chart = page.getByRole("region", { name: "NDVI chart" });
+  const choice = chart.getByRole("group", { name: "Areas in the NDVI chart" });
+  await expect(chart.locator(".recharts-line")).toHaveCount(2);
+
+  await choice.getByRole("button", { name: "Forest" }).click();
+  await expect(chart.locator(".recharts-line")).toHaveCount(1);
+  await expect(chart.getByRole("rowheader", { name: "Orchard" })).toHaveCount(0);
+
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Map" }).click();
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Data" }).click();
+  await expect(choice.getByRole("button", { name: "Forest" })).toHaveAttribute("aria-pressed", "true");
+  await expect(chart.locator(".recharts-line")).toHaveCount(1);
+
+  await choice.getByRole("button", { name: "Together" }).click();
+  await expect(chart.locator(".recharts-line")).toHaveCount(2);
+});
+
+
 test("areas and data choices survive a change of page", async ({ page }) => {
   await page.getByTestId("upload").setInputFiles({
     name: "fields.geojson",
