@@ -490,7 +490,15 @@ export default function App() {
     const title = (v: Variable) => variableTitle(v, settings);
     if (source.type === "chart") {
       const v = catalogue.find((x) => x.key === source.variable);
-      return v ? <ChartCard variable={v} title={title(v)} entries={entries(v.key)} mode={settings.mode} /> : null;
+      return v ? (
+        <ChartCard
+          variable={v}
+          title={title(v)}
+          entries={entries(v.key)}
+          mode={settings.mode}
+          hidden={settings.hiddenAreas[v.key] ?? []}
+        />
+      ) : null;
     }
     if (source.type === "analysis")
       return (
@@ -725,7 +733,7 @@ export default function App() {
 
       {page === "data" && (
         <Sidebar>
-          <DataPanel catalogue={catalogue} settings={settings} onChange={change} progress={progress} />
+          <DataPanel catalogue={catalogue} areas={areas} settings={settings} onChange={change} progress={progress} />
         </Sidebar>
       )}
 

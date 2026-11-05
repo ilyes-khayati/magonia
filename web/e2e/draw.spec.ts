@@ -1014,6 +1014,61 @@ test("the period chosen in the month fields is the one extracted", async ({ page
   await expect(page.getByText("Type a month as YYYY-MM")).toHaveCount(0);
 });
 
+test("a chart shows the areas together or one at a time, and keeps the choice", async ({ page }) => {
+  const forest = { ...SQUARE.features[0], properties: { name: "Forest" } };
+  await page.getByTestId("upload").setInputFiles({
+    name: "fields.geojson",
+    mimeType: "application/geo+json",
+    buffer: Buffer.from(JSON.stringify({ ...SQUARE, features: [...SQUARE.features, forest] })),
+  });
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Data" }).click();
+  const chart = page.getByRole("region", { name: "NDVI chart" });
+  const choice = chart.getByRole("group", { name: "Areas in the NDVI chart" });
+  await expect(chart.locator(".recharts-line")).toHaveCount(2);
+
+  await choice.getByRole("button", { name: "Forest" }).click();
+  await expect(chart.locator(".recharts-line")).toHaveCount(1);
+  await expect(chart.getByRole("rowheader", { name: "Orchard" })).toHaveCount(0);
+
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Map" }).click();
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Data" }).click();
+  await expect(choice.getByRole("button", { name: "Forest" })).toHaveAttribute("aria-pressed", "true");
+  await expect(chart.locator(".recharts-line")).toHaveCount(1);
+
+  await choice.getByRole("button", { name: "Together" }).click();
+  await expect(chart.locator(".recharts-line")).toHaveCount(2);
+});
+
+
+test("SPEI can be extracted at a different time scale for one area", async ({ page }) => {
+  const spei = { key: "spei", name: "SPEI", units: "", product: "SPEIbase", resolution: "0.5°", cadence: "monthly", scales: [3, 12] };
+  await page.route("**/api/catalogue", (route) => route.fulfill({ json: [...CATALOGUE, spei] }));
+  await page.reload();
+  await expect(page.locator(".map[data-ready=true]")).toBeVisible();
+  const forest = { ...SQUARE.features[0], properties: { name: "Forest" } };
+  await page.getByTestId("upload").setInputFiles({
+    name: "fields.geojson",
+    mimeType: "application/geo+json",
+    buffer: Buffer.from(JSON.stringify({ ...SQUARE, features: [...SQUARE.features, forest] })),
+  });
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Data" }).click();
+  await page.getByRole("checkbox", { name: /SPEI/ }).check();
+  await expect(page.getByRole("region", { name: "SPEI-12 chart" })).toBeVisible();
+
+  await page.getByText("A different scale for an area").click();
+  await page.locator(".per-area").getByLabel("Orchard").selectOption("3");
+  const chart = page.getByRole("region", { name: "SPEI chart" });
+  await expect(chart.locator(".legend").getByRole("button", { name: "Orchard · SPEI-3" })).toBeVisible();
+  await expect(chart.locator(".legend").getByRole("button", { name: "Forest · SPEI-12" })).toBeVisible();
+  const spe = () => (jobs as unknown as { variable: string; scale: number | null }[]).filter((j) => j.variable === "spei");
+  await expect.poll(() => spe().some((j) => j.scale === 3)).toBe(true);
+
+  // the same scale as the one for all areas is not kept as the area's own
+  await page.locator(".per-area").getByLabel("Orchard").selectOption("12");
+  await expect(page.getByRole("region", { name: "SPEI-12 chart" })).toBeVisible();
+});
+
+
 test("areas and data choices survive a change of page", async ({ page }) => {
   await page.getByTestId("upload").setInputFiles({
     name: "fields.geojson",
