@@ -7,6 +7,7 @@ import { GRIDDED } from "./variables";
 export type Settings = {
   variables: VariableKey[];
   scale: number; // SPEI time scale in months
+  scaleByArea: Record<string, number>; // by area id: a SPEI time scale other than scale
   start: string; // first month, "YYYY-MM"
   end: string; // last month, included
   resolution: Resolution;
@@ -23,6 +24,7 @@ export type Settings = {
 export const DEFAULTS: Settings = {
   variables: ["ndvi"],
   scale: 12,
+  scaleByArea: {},
   start: "2020-01",
   end: "2024-12",
   resolution: "monthly",
@@ -56,6 +58,7 @@ export function readSettings(saved: Record<string, unknown> | undefined): Settin
   const d = merged.display as Partial<Display> | undefined;
   if (!d || !Array.isArray(d.months)) merged.display = NO_DISPLAY;
   if (typeof merged.hiddenAreas !== "object" || merged.hiddenAreas === null) merged.hiddenAreas = {};
+  if (typeof merged.scaleByArea !== "object" || merged.scaleByArea === null) merged.scaleByArea = {};
   return Array.isArray(merged.variables) ? merged : DEFAULTS;
 }
 
@@ -79,7 +82,7 @@ export function seriesOptions(
     end: monthAfter(settings.end),
     // gridded climate data have no quality flags, so their cloud filter is fixed
     masking: GRIDDED.has(variable) ? "none" : settings.masking,
-    scale: variable === "spei" ? settings.scale : null,
+    scale: variable === "spei" ? speiScale(settings, areaId) : null,
     resolution: settings.resolution,
     max_gap: settings.fill ? settings.maxGap : 0,
   };
@@ -90,6 +93,14 @@ export function seriesOptions(
 export const seriesKey = (options: SeriesOptions, geometry: unknown) =>
   JSON.stringify({ ...options, workspace_id: undefined, geometry });
 
-// A variable's name as charts show it; SPEI carries its time scale
+// The SPEI time scale extracted for an area. Areas can differ: a shallow-rooted crop
+// may answer to SPEI-3 where a forest answers to SPEI-12.
+export const speiScale = (settings: Settings, areaId: number) => settings.scaleByArea[areaId] ?? settings.scale;
+
+// A variable's name as charts show it; SPEI carries its time scale, unless the areas differ
 export const variableTitle = (v: Variable, settings: Settings) =>
-  v.key === "spei" ? `SPEI-${settings.scale}` : v.name;
+  v.key !== "spei" ? v.name : Object.keys(settings.scaleByArea).length ? "SPEI" : `SPEI-${settings.scale}`;
+
+// An area's name beside a variable: with a scale per area, SPEI says which one each has
+export const areaLabel = (v: Variable, settings: Settings, area: { id: number; name: string }) =>
+  v.key === "spei" && Object.keys(settings.scaleByArea).length ? `${area.name} · SPEI-${speiScale(settings, area.id)}` : area.name;

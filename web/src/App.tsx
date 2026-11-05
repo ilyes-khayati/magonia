@@ -733,7 +733,7 @@ export default function App() {
 
       {page === "data" && (
         <Sidebar>
-          <DataPanel catalogue={catalogue} settings={settings} onChange={change} progress={progress} />
+          <DataPanel catalogue={catalogue} areas={areas} settings={settings} onChange={change} progress={progress} />
         </Sidebar>
       )}
 

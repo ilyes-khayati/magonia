@@ -2197,3 +2197,14 @@ button:disabled {
   width: fit-content;
   max-width: 100%;
 }
+
+/* SPEI time scale for single areas, under the one for all */
+.per-area {
+  display: grid;
+  gap: 6px;
+  padding-left: 26px;
+}
+
+.per-area summary {
+  cursor: pointer;
+}

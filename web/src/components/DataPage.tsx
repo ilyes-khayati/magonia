@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import type { Area, Variable, VariableKey } from "../api";
-import { variableTitle, type Settings } from "../settings";
+import { areaLabel, variableTitle, type Settings } from "../settings";
 import { summarise } from "../stats";
 import type { Source } from "../board";
 import { moved, ordered } from "../cards";
@@ -35,7 +35,7 @@ export default function DataPage({ catalogue, settings, onChange, areas, entries
       variableTitle(v, settings),
       entries(v.key).flatMap((e) =>
         e.state?.status === "done"
-          ? [{ name: e.area.name, units: v.units, key: v.key, points: e.state.data.points }]
+          ? [{ name: areaLabel(v, settings, e.area), units: v.units, key: v.key, points: e.state.data.points }]
           : [],
       ),
     ),
@@ -97,11 +97,12 @@ export default function DataPage({ catalogue, settings, onChange, areas, entries
               <ChartCard
                 variable={v}
                 title={variableTitle(v, settings)}
-                entries={entries(v.key).map((e) =>
-                  e.state?.status === "done"
-                    ? { ...e, state: { ...e.state, data: { ...e.state.data, points: display(e.state.data.points, settings.display) } } }
-                    : e,
-                )}
+                entries={entries(v.key).map((e) => {
+                  const named = { ...e, area: { ...e.area, name: areaLabel(v, settings, e.area) } };
+                  return named.state?.status === "done"
+                    ? { ...named, state: { ...named.state, data: { ...named.state.data, points: display(named.state.data.points, settings.display) } } }
+                    : named;
+                })}
                 mode={settings.mode}
                 shown={describeDisplay(settings.display)}
                 anomaly={settings.display.anomaly !== null}
