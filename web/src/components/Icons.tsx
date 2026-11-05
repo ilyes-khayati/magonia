@@ -193,9 +193,9 @@ export const CopyIcon = (p: IconProps) => (
   </Svg>
 );
 
-// Mago: an old bearded man with a seedling, after Mago of Carthage, the agronomist; not a chat
+// Magon: an old bearded man with a seedling, after Magon of Carthage, the agronomist; not a chat
 // bubble, so the assistant does not read as a chatbot
-export const MagoIcon = (p: IconProps) => (
+export const MagonIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M4.5 10a5.5 5.5 0 0 1 11 0" />
     <path d="M4.5 10c-.4 1.2.1 2.3 1.1 2.6M15.5 10c.4 1.2-.1 2.3-1.1 2.6" />

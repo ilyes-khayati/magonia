@@ -77,7 +77,7 @@ export default function LibraryPage({ workspaceId, onUndoable }: Props) {
             <div>
               <h3 id="files-title">Your papers</h3>
               <span className="meta">
-                PDFs you add are read page by page. When one speaks to a question, Mago cites it like a paper it found,
+                PDFs you add are read page by page. When one speaks to a question, Magon cites it like a paper it found,
                 and checks what it says against it. Useful for papers whose publisher blocks downloads, your reports and
                 theses.
               </span>
@@ -153,16 +153,16 @@ export default function LibraryPage({ workspaceId, onUndoable }: Props) {
         <section className="card" aria-labelledby="instructions-title">
           <div className="card-head">
             <div>
-              <h3 id="instructions-title">How Mago should answer</h3>
+              <h3 id="instructions-title">How Magon should answer</h3>
               <span className="meta">
-                Given to Mago with every question in this workspace, after its own rules: it still cites only what it
+                Given to Magon with every question in this workspace, after its own rules: it still cites only what it
                 found and checks every number.
               </span>
             </div>
           </div>
           <textarea
             className="instructions"
-            aria-label="Instructions for Mago"
+            aria-label="Instructions for Magon"
             rows={8}
             maxLength={2000}
             placeholder={EXAMPLES.join("\n")}

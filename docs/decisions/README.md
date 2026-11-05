@@ -17,7 +17,7 @@ Numbered in order; superseded records are kept and marked as such.
 | [0010](0010-soft-deletion.md) | Soft deletion with a 30-day purge |
 | [0011](0011-chat-as-ndjson-events.md) | Chat as NDJSON events over a POST response |
 | [0012](0012-questions-routed-by-code.md) | Questions routed by code to a reduced prompt and tool set |
-| [0013](0013-mago-proposes-the-researcher-acts.md) | Mago proposes, the researcher acts |
+| [0013](0013-magon-proposes-the-researcher-acts.md) | Magon proposes, the researcher acts |
 | [0014](0014-local-open-weights-model.md) | A local open-weights model behind a one-method provider protocol |
 | [0015](0015-files-and-citations-decided-by-code.md) | Which files and earlier citations a question is about is decided by code |
 | [0016](0016-evaluation-ladder.md) | Evaluate against a ladder of systems with a shared evidence pool |

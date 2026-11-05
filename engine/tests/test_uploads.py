@@ -88,7 +88,7 @@ def test_the_pdf_is_kept_once_by_its_content_and_can_be_restored(mine):
 
     mine.remove("U1")
     assert [u["id"] for u in mine.all()] == ["U2"]
-    assert [p.id for p in mine.papers()] == ["U2"]  # a removed file is not given to Mago
+    assert [p.id for p in mine.papers()] == ["U2"]  # a removed file is not given to Magon
     assert mine.restore("U1")["title"] == "survey"
     assert [u["id"] for u in mine.all()] == ["U1", "U2"]
 

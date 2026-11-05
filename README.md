@@ -15,10 +15,10 @@ analyses, forecasts and the literature in one place. Every number shows where it
 
 </div>
 
-![Mago answering a question about an olive orchard near Jendouba, next to its NDVI and SPEI charts](docs/images/mago-data.jpg)
+![Magon answering a question about an olive orchard near Jendouba, next to its NDVI and SPEI charts](docs/images/magon-data.jpg)
 
-Named after Mago of Carthage, whose 28-book treatise on agriculture Rome had translated
-after the city fell. **Mago** is also the research assistant inside it.
+Named after Magon of Carthage, whose 28-book treatise on agriculture Rome had translated
+after the city fell. **Magon** is also the research assistant inside it.
 
 ## A tour
 
@@ -44,17 +44,17 @@ what it means.
 </tr>
 <tr>
 <td><img src="docs/images/board.jpg" alt="The board with a pinned NDVI chart and a note"></td>
-<td><img src="docs/images/mago-literature.jpg" alt="Mago answering from the literature, with citations"></td>
+<td><img src="docs/images/magon-literature.jpg" alt="Magon answering from the literature, with citations"></td>
 </tr>
 <tr>
 <td><b>Board</b>: pin charts and results, and write notes. The day's work on one page.</td>
-<td><b>Mago</b>: answers from your data, your PDFs and the open literature, with every citation checked.</td>
+<td><b>Magon</b>: answers from your data, your PDFs and the open literature, with every citation checked.</td>
 </tr>
 </table>
 
-## Mago, the assistant
+## Magon, the assistant
 
-Mago runs on a small open model on your own network, so your data and papers stay with
+Magon runs on a small open model on your own network, so your data and papers stay with
 you. It is not trusted blindly:
 
 - **It answers from your workspace.** It reads the charts and analyses you have open, and
@@ -62,7 +62,7 @@ you. It is not trusted blindly:
 - **It cites, and the citations are checked.** A citation to a paper that wasn't found is
   removed, a statement its paper doesn't support is flagged, and a page reference opens the
   paper at that page.
-- **Its numbers are checked.** Every number in an answer is matched against what Mago was
+- **Its numbers are checked.** Every number in an answer is matched against what Magon was
   given.
 - **It proposes, you act.** It can suggest an analysis, but nothing runs until you click.
 
@@ -77,12 +77,12 @@ Its quality is measured against the bare model it runs on, by the evaluation har
 | **Preparation** | Cloud filtering, monthly or seasonal means, gap filling with filled values marked, and a warning when a pixel is larger than the field |
 | **Analyses** | Correlation and lag, trend and season, Mann–Kendall trend, season dates, memory and lags |
 | **Forecasting** | Ridge, Random Forest and XGBoost, tuned on the training years only, compared with persistence and climatology, and with what each model relies on |
-| **Library** | Your own PDFs, kept per workspace, plus standing instructions for Mago |
+| **Library** | Your own PDFs, kept per workspace, plus standing instructions for Magon |
 | **Safety net** | Deletions can be undone (⌘Z); deleted workspaces and conversations are kept for 30 days |
 
 ## Running it
 
-Requires Python 3.12+, [uv](https://docs.astral.sh/uv/), Node 24 (`.nvmrc`) and, for Mago,
+Requires Python 3.12+, [uv](https://docs.astral.sh/uv/), Node 24 (`.nvmrc`) and, for Magon,
 an [Ollama](https://ollama.com) server with `qwen2.5:7b` and `nomic-embed-text`.
 
 ```bash
@@ -100,15 +100,15 @@ cd web && npm install && npm run dev
 
 The first time, Magonia asks for your Earth Engine project id and checks that it answers.
 Workspaces, areas, results and the library are kept in `~/.magonia/`. Without an Ollama
-server everything works except Mago; `MAGONIA_MODEL_URL=scripted` gives fixed answers.
+server everything works except Magon; `MAGONIA_MODEL_URL=scripted` gives fixed answers.
 
 ## Structure
 
 | Folder | Contents |
 |---|---|
-| `engine/` | Python package, no web code: extraction, preparation, analyses, models, Mago's pipeline and its checks |
+| `engine/` | Python package, no web code: extraction, preparation, analyses, models, Magon's pipeline and its checks |
 | `engine/evaluation/` | The evaluation harness: test cases, systems compared, scorer and report |
-| `api/` | FastAPI service: workspaces, background jobs, the results cache, the library, Mago's streamed answers |
+| `api/` | FastAPI service: workspaces, background jobs, the results cache, the library, Magon's streamed answers |
 | `web/` | React interface: the pages above |
 | `docs/requirements/` | Software requirements specification |
 | `docs/decisions/` | Architecture decision records |
@@ -117,4 +117,16 @@ server everything works except Mago; `MAGONIA_MODEL_URL=scripted` gives fixed an
 ## Next
 
 Deep learning forecasting models alongside the current ones, sign-in and cloud deployment,
-and Mago's evaluation on a second, independent set of questions.
+and Magon's evaluation on a second, independent set of questions.
+
+## Contributing
+
+Issues and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Licence
+
+Magonia is free software under the [GNU Affero General Public License v3.0](LICENSE). You can
+use, change and share it. If you run a changed version for others, including as a website,
+you must offer them its source code.
+
+Built by Ilyes Khayati, supervised by Dr. Oumayma Bounouh.

@@ -159,7 +159,7 @@ function ProposalCard({ proposal, onAdd }: { proposal: Proposal; onAdd?: (p: Pro
   return (
     <div className="proposal" role="group" aria-label={`Proposed: ${proposal.title}`}>
       <div>
-        <span className="meta">{proposal.kind === "instruction" ? "Keep as an instruction?" : "Mago proposes"}</span>
+        <span className="meta">{proposal.kind === "instruction" ? "Keep as an instruction?" : "Magon proposes"}</span>
         <strong>{proposal.title}</strong>
         {proposal.why && <span className="meta">{proposal.why}</span>}
       </div>
@@ -330,10 +330,10 @@ export default function AssistantCard(props: Props) {
   }
 
   return (
-    <section className="card assistant" aria-label="Mago">
+    <section className="card assistant" aria-label="Magon">
       <div className="card-head">
         <div>
-          <h3>Mago</h3>
+          <h3>Magon</h3>
           <span className="meta">{model ? `Answers by ${model} · literature from OpenAlex` : "Research assistant"}</span>
         </div>
         <div className="row">{actions}</div>
@@ -408,11 +408,11 @@ export default function AssistantCard(props: Props) {
 
       {loading?.opening ? (
         <p className="meta" role="status">
-          Opening your workspace, so that Mago can see it…
+          Opening your workspace, so that Magon can see it…
         </p>
       ) : loading?.series ? (
         <p className="meta" role="status">
-          {loading.series} {loading.series === 1 ? "series is" : "series are"} still loading; Mago sees what has loaded.
+          {loading.series} {loading.series === 1 ? "series is" : "series are"} still loading; Magon sees what has loaded.
         </p>
       ) : null}
       {attached && (
@@ -426,7 +426,7 @@ export default function AssistantCard(props: Props) {
       )}
       <div className="composer">
         <label htmlFor="ask" className="visually-hidden">
-          Ask Mago
+          Ask Magon
         </label>
         <textarea
           ref={box}

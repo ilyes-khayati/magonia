@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import type { CardLayout } from "../cards";
 import { saveChartImage } from "../chartImage";
-import { ChevronIcon, CopyIcon, GripIcon, ImageIcon, MagoIcon, NotebookIcon, PinIcon, WidthIcon } from "./Icons";
+import { ChevronIcon, CopyIcon, GripIcon, ImageIcon, MagonIcon, NotebookIcon, PinIcon, WidthIcon } from "./Icons";
 
 type Props = {
   id: string;
@@ -13,7 +13,7 @@ type Props = {
   onNotebook?: () => void; // export the analysis as a notebook that reproduces it
   onPin?: (card: HTMLElement) => void; // keep the card as it is now on the board
   onDuplicate?: () => void; // a copy beside it, to change one thing and compare
-  onAsk?: (title: string) => void; // ask Mago about this card, by its title as shown
+  onAsk?: (title: string) => void; // ask Magon about this card, by its title as shown
   image?: boolean; // whether the card has charts to save as an image
   children: React.ReactNode;
 };
@@ -47,11 +47,11 @@ export default function CardSlot(props: Props) {
         {onAsk && (
           <button
             className="tool-button ask"
-            aria-label={`Ask Mago about ${label}`}
-            title="Ask Mago about this"
+            aria-label={`Ask Magon about ${label}`}
+            title="Ask Magon about this"
             onClick={() => onAsk(slot.current?.querySelector(".card h3")?.textContent ?? label)}
           >
-            <MagoIcon size={14} />
+            <MagonIcon size={14} />
           </button>
         )}
         <button

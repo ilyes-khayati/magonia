@@ -3,7 +3,7 @@
 Status: accepted
 
 ## Context
-Mago ranks passages of papers and of the researcher's files by meaning, with 768-dimension
+Magon ranks passages of papers and of the researcher's files by meaning, with 768-dimension
 embeddings from nomic-embed-text.
 
 ## Decision

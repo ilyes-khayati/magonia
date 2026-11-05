@@ -3,7 +3,7 @@
 Status: accepted
 
 ## Context
-A PDF added in one workspace appeared in every other, and Mago read it there: a field
+A PDF added in one workspace appeared in every other, and Magon read it there: a field
 survey of Jendouba showed up while studying Sfax.
 
 ## Decision
@@ -13,5 +13,5 @@ kept PDFs stay shared across workspaces: they are a cache, and the same paper re
 anywhere. Files added before this go to the first workspace whose library is opened.
 
 ## Consequences
-What Mago can cite in a workspace is what that workspace holds. The same PDF added to two
+What Magon can cite in a workspace is what that workspace holds. The same PDF added to two
 workspaces is stored once on disk, but read and embedded twice.
