@@ -34,10 +34,10 @@
 
 - `web/e2e/` drives the interface in a browser against a faked API (`npm run test:e2e`).
 
-## Evaluating Mago
+## Evaluating Magon
 
 `engine/evaluation/` asks 52 cases to four systems on the same model (the bare model, the
-model with Mago's rules, the pipeline on abstracts, the full pipeline) and scores them:
+model with Magon's rules, the pipeline on abstracts, the full pipeline) and scores them:
 
 ```bash
 cd engine

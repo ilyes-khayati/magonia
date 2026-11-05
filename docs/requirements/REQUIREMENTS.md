@@ -4,10 +4,10 @@
 
 | | |
 |---|---|
-| Version | 0.2, draft for client review |
+| Version | 0.2, draft for supervisor review |
 | Date | 8 October 2026 |
 | Author | Ilyes Khayati |
-| Client | Dr. Oumayma Bounouh |
+| Supervisor | Dr. Oumayma Bounouh |
 | Status | Requirements gathering. Not yet approved for development |
 
 ---
@@ -413,7 +413,7 @@ Librarian, tutor, further data products, phenology, sharing, institutional sign-
 
 ---
 
-## 10. Open questions for the client
+## 10. Open questions for the supervisor
 
 | ID | Question |
 |---|---|
@@ -432,7 +432,7 @@ Librarian, tutor, further data products, phenology, sharing, institutional sign-
 
 | ID | Assumption | How to verify |
 |---|---|---|
-| A-1 | Many agricultural researchers do not code or code little. | Literature on researchers' tool use; short survey of the client's lab and contacts |
+| A-1 | Many agricultural researchers do not code or code little. | Literature on researchers' tool use; short survey of the supervisor's lab and contacts |
 
 ---
 
