@@ -1044,6 +1044,7 @@ test("SPEI can be extracted at a different time scale for one area", async ({ pa
   const spei = { key: "spei", name: "SPEI", units: "", product: "SPEIbase", resolution: "0.5°", cadence: "monthly", scales: [3, 12] };
   await page.route("**/api/catalogue", (route) => route.fulfill({ json: [...CATALOGUE, spei] }));
   await page.reload();
+  await expect(page.locator(".map[data-ready=true]")).toBeVisible();
   const forest = { ...SQUARE.features[0], properties: { name: "Forest" } };
   await page.getByTestId("upload").setInputFiles({
     name: "fields.geojson",
