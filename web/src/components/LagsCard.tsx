@@ -34,6 +34,9 @@ type Props = {
 };
 
 const TICK = { fill: "var(--muted)", fontSize: 10, fontFamily: "var(--mono)" };
+// room for the top label and for ticks such as "-1.5", which were cut at the edges
+const MARGIN = { top: 10, right: 12, bottom: 0, left: 4 };
+const AXIS_WIDTH = 36;
 const TOOLTIP = { background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8 };
 
 export default function LagsCard(props: Props) {
@@ -72,6 +75,11 @@ export default function LagsCard(props: Props) {
     found?.drivers.forEach((d, j) => (row[`d${j}`] = d.r[i] / d.bound));
     return row;
   });
+  // whole-number ticks that always include the ±1 bounds, so a line can be seen to cross one
+  const ratios = links.flatMap((row) => Object.entries(row).filter(([k]) => k !== "lag").map(([, v]) => v));
+  const low = Math.min(-1, Math.floor(Math.min(...ratios.filter(Number.isFinite))));
+  const high = Math.max(1, Math.ceil(Math.max(...ratios.filter(Number.isFinite))));
+  const ratioTicks = Array.from({ length: high - low + 1 }, (_, i) => low + i);
 
   return (
     <section className="card" aria-label="Lags chart">
@@ -161,12 +169,12 @@ export default function LagsCard(props: Props) {
             Memory: {name(analysis.response)} against itself, 1 to 24 months earlier (dark bars stand out from chance)
           </span>
           <ResponsiveContainer width="100%" height={130}>
-            <BarChart data={memory} margin={{ top: 6, right: 6, bottom: 0, left: 0 }}>
+            <BarChart data={memory} margin={MARGIN}>
               <CartesianGrid stroke="var(--grid)" vertical={false} />
               <ReferenceArea y1={-found.acf_band} y2={found.acf_band} fill="var(--muted)" fillOpacity={0.12} stroke="none" />
               <ReferenceLine y={0} stroke="var(--zero)" />
               <XAxis dataKey="lag" tick={TICK} interval={1} />
-              <YAxis domain={[-1, 1]} ticks={[-1, 0, 1]} tick={TICK} width={30} />
+              <YAxis domain={[-1, 1]} ticks={[-1, 0, 1]} tick={TICK} width={AXIS_WIDTH} />
               <Tooltip
                 contentStyle={TOOLTIP}
                 labelFormatter={(lag) => `${lag} month(s) earlier`}
@@ -187,12 +195,17 @@ export default function LagsCard(props: Props) {
                 12 lags; beyond ±1 stands out
               </span>
               <ResponsiveContainer width="100%" height={150}>
-                <LineChart data={links} margin={{ top: 6, right: 6, bottom: 0, left: 0 }}>
+                <LineChart data={links} margin={MARGIN}>
                   <CartesianGrid stroke="var(--grid)" vertical={false} />
                   <ReferenceArea y1={-1} y2={1} fill="var(--muted)" fillOpacity={0.12} stroke="none" />
                   <ReferenceLine y={0} stroke="var(--zero)" />
-                  <XAxis dataKey="lag" tick={TICK} />
-                  <YAxis tick={TICK} width={30} />
+                  <XAxis dataKey="lag" tick={TICK} padding={{ left: 8, right: 8 }} />
+                  <YAxis
+                    tick={TICK}
+                    width={AXIS_WIDTH}
+                    domain={[low, high]}
+                    ticks={ratioTicks}
+                  />
                   <Tooltip
                     contentStyle={TOOLTIP}
                     labelFormatter={(lag) => `${lag} month(s) earlier`}
