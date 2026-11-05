@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Masking, Resolution, Variable, VariableKey } from "../api";
-import type { Settings } from "../settings";
+import { parseMonth, type Settings } from "../settings";
 import { InfoIcon } from "./Icons";
 import LearnPanel from "./LearnPanel";
 import { groups } from "../variables";
@@ -11,6 +11,47 @@ type Props = {
   onChange: (change: Partial<Settings>) => void;
   progress: { done: number; total: number; failed: number };
 };
+
+// A month field. Where the browser has no month picker it is a plain text box, so the
+// text is kept as typed and only a readable month reaches the settings.
+function MonthField({ label, value, min, max, onChange }: {
+  label: string;
+  value: string;
+  min?: string;
+  max?: string;
+  onChange: (month: string) => void;
+}) {
+  const [text, setText] = useState(value);
+  const [shown, setShown] = useState(value);
+  // a change from elsewhere (undo, another workspace) replaces the text, unless it is
+  // the month the text already reads as
+  if (value !== shown) {
+    setShown(value);
+    if (parseMonth(text) !== value) setText(value);
+  }
+  const valid = parseMonth(text) !== null;
+  return (
+    <label className="field">
+      {label}
+      <input
+        type="month"
+        className="input"
+        value={text}
+        min={min}
+        max={max}
+        placeholder="YYYY-MM"
+        aria-invalid={!valid}
+        onChange={(e) => {
+          setText(e.target.value);
+          const month = parseMonth(e.target.value);
+          if (month) onChange(month);
+        }}
+        onBlur={() => setText(value)}
+      />
+      {!valid && <span className="reason">Type a month as YYYY-MM, for example 2020-01.</span>}
+    </label>
+  );
+}
 
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -105,27 +146,8 @@ export default function DataPanel({ catalogue, settings, onChange, progress }: P
       <div className="section">
         <span className="label">Period</span>
         <div style={{ display: "grid", gap: 8 }}>
-          <label className="field">
-            From
-            <input
-              type="month"
-              className="input"
-              value={settings.start}
-              min="2000-03"
-              max={settings.end}
-              onChange={(e) => e.target.value && onChange({ start: e.target.value })}
-            />
-          </label>
-          <label className="field">
-            To
-            <input
-              type="month"
-              className="input"
-              value={settings.end}
-              min={settings.start}
-              onChange={(e) => e.target.value && onChange({ end: e.target.value })}
-            />
-          </label>
+          <MonthField label="From" value={settings.start} min="2000-03" max={settings.end} onChange={(start) => onChange({ start })} />
+          <MonthField label="To" value={settings.end} min={settings.start} onChange={(end) => onChange({ end })} />
         </div>
       </div>
 

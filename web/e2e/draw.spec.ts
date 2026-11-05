@@ -1002,6 +1002,18 @@ test("each page has its own address, and back and reload keep it", async ({ page
   await expect(page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Data" })).toHaveAttribute("aria-current", "page");
 });
 
+test("the period chosen in the month fields is the one extracted", async ({ page }) => {
+  await page.getByTestId("upload").setInputFiles({
+    name: "fields.geojson",
+    mimeType: "application/geo+json",
+    buffer: Buffer.from(JSON.stringify(SQUARE)),
+  });
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Data" }).click();
+  await page.getByLabel("From", { exact: true }).fill("2021-03");
+  await expect.poll(() => (jobs.at(-1) as { start?: string } | undefined)?.start).toBe("2021-03-01");
+  await expect(page.getByText("Type a month as YYYY-MM")).toHaveCount(0);
+});
+
 test("areas and data choices survive a change of page", async ({ page }) => {
   await page.getByTestId("upload").setInputFiles({
     name: "fields.geojson",
