@@ -83,6 +83,22 @@ export type Workspace = WorkspaceSummary & {
   areas: Area[];
 };
 
+// FastAPI explains a failure as a string, or, for input it cannot read, as a list of
+// { loc, msg } naming each field
+export function errorText(body: { detail?: unknown }, status: number): string {
+  const { detail } = body;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail) && detail.length > 0) {
+    return detail
+      .map((d: { loc?: unknown[]; msg?: string }) => {
+        const field = (d.loc ?? []).filter((part) => part !== "body" && part !== "query").join(".");
+        return field ? `${field}: ${d.msg}` : String(d.msg);
+      })
+      .join("; ");
+  }
+  return `status ${status}`;
+}
+
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`/api${path}`, {
     ...init,
@@ -91,8 +107,7 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
-    const detail = typeof body.detail === "string" ? body.detail : `status ${response.status}`;
-    throw new Error(detail);
+    throw new Error(errorText(body, response.status));
   }
   return response.status === 204 ? (undefined as T) : response.json();
 }
@@ -515,7 +530,7 @@ export async function ask(
   });
   if (!response.ok || !response.body) {
     const body = await response.json().catch(() => ({}));
-    throw new Error(typeof body.detail === "string" ? body.detail : `status ${response.status}`);
+    throw new Error(errorText(body, response.status));
   }
   const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
   let pending = "";
