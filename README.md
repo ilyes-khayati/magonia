@@ -15,7 +15,12 @@ analyses, forecasts and the literature in one place. Every number shows where it
 
 </div>
 ## Demo
-https://github.com/user-attachments/assets/f349c3d0-5d64-4486-afe0-c72b1fae5403
+
+https://github.com/user-attachments/assets/d3312055-112f-4f2b-b3aa-71946c39ff0b
+
+
+Named after Magon of Carthage, whose 28-book treatise on agriculture Rome had translated
+after the city fell. **Magon** is also the research assistant inside it.
 
 ![Magon answering a question about an olive orchard and a forest near Jendouba, next to their NDVI and land surface temperature charts](docs/images/magon-data.jpg)
 
@@ -24,8 +29,7 @@ https://github.com/user-attachments/assets/f349c3d0-5d64-4486-afe0-c72b1fae5403
 
 
 
-Named after Magon of Carthage, whose 28-book treatise on agriculture Rome had translated
-after the city fell. **Magon** is also the research assistant inside it.
+
 
 ## A tour
 
