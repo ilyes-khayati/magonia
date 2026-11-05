@@ -34,9 +34,23 @@ export const DEFAULTS: Settings = {
   display: NO_DISPLAY,
 };
 
+// A month as "YYYY-MM", or null when the text is not one. Browsers without a month
+// picker (Safari) pass on the text as typed, so "2020-1", "2020/01" and "01/2020" are read too.
+export function parseMonth(text: string): string | null {
+  const t = text.trim();
+  const yearFirst = /^(\d{4})[-/.](\d{1,2})$/.exec(t);
+  const monthFirst = /^(\d{1,2})[-/.](\d{4})$/.exec(t);
+  const [year, month] = yearFirst ? [yearFirst[1], yearFirst[2]] : monthFirst ? [monthFirst[2], monthFirst[1]] : [];
+  if (!year || !month || Number(month) < 1 || Number(month) > 12) return null;
+  return `${year}-${month.padStart(2, "0")}`;
+}
+
 // A saved workspace may predate a setting, so missing or odd values fall back
 export function readSettings(saved: Record<string, unknown> | undefined): Settings {
   const merged = { ...DEFAULTS, ...(saved ?? {}) } as Settings;
+  // a workspace saved from Safari may hold a month exactly as it was typed
+  merged.start = parseMonth(String(merged.start)) ?? DEFAULTS.start;
+  merged.end = parseMonth(String(merged.end)) ?? DEFAULTS.end;
   const d = merged.display as Partial<Display> | undefined;
   if (!d || !Array.isArray(d.months)) merged.display = NO_DISPLAY;
   return Array.isArray(merged.variables) ? merged : DEFAULTS;
