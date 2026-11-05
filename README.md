@@ -14,12 +14,13 @@ analyses, forecasts and the literature in one place. Every number shows where it
 ![Ollama](https://img.shields.io/badge/Ollama-qwen2.5-000000?logo=ollama&logoColor=white)
 
 </div>
+## Demo
+https://github.com/user-attachments/assets/f349c3d0-5d64-4486-afe0-c72b1fae5403
 
 ![Magon answering a question about an olive orchard and a forest near Jendouba, next to their NDVI and land surface temperature charts](docs/images/magon-data.jpg)
 
 
-## Demo
-https://github.com/user-attachments/assets/f349c3d0-5d64-4486-afe0-c72b1fae5403
+
 
 
 
