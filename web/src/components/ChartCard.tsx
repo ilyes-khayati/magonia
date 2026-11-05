@@ -27,7 +27,12 @@ type Props = {
   mode: "series" | "seasonal";
   shown?: string | null; // how the values were changed for display, said under the title
   anomaly?: boolean; // values centred on zero, so the axis follows the data
+  hidden?: number[]; // areas left out of the chart
+  onHidden?: (ids: number[]) => void; // without it, the card starts from hidden and keeps its own choice
 };
+
+// Up to this many areas, each can be shown on its own with one click
+const PICKABLE = 5;
 
 type Row = Record<string, string | number | boolean | [number, number] | null>;
 
@@ -80,10 +85,13 @@ function download(title: string, entries: Entry[]) {
   URL.revokeObjectURL(link.href);
 }
 
-export default function ChartCard({ variable, title, entries, mode, shown: changed, anomaly }: Props) {
+export default function ChartCard({ variable, title, entries, mode, shown: changed, anomaly, hidden, onHidden }: Props) {
   const [provenance, setProvenance] = useState(false);
   const [about, setAbout] = useState(false);
-  const [off, setOff] = useState<Set<number>>(new Set());
+  const [ownHidden, setOwnHidden] = useState<number[]>(hidden ?? []);
+  const off = new Set(onHidden ? (hidden ?? []) : ownHidden);
+  const setOff = (ids: Set<number>) => (onHidden ?? setOwnHidden)([...ids]);
+  const only = (id: number) => setOff(new Set(entries.map((e) => e.area.id).filter((x) => x !== id)));
   const auto: (typeof AXES)[string] = { domain: ["auto", "auto"], digits: large(variable.key) ? 0 : 2 };
   const axis = anomaly ? auto : (AXES[variable.key] ?? auto);
   const data = rows(entries, mode);
@@ -133,6 +141,23 @@ export default function ChartCard({ variable, title, entries, mode, shown: chang
       </div>
 
       {about && <LearnPanel variable={variable} />}
+
+      {entries.length > 1 && entries.length <= PICKABLE && (
+        <div className="segmented small area-choice" role="group" aria-label={`Areas in the ${title} chart`}>
+          <button aria-pressed={off.size === 0} onClick={() => setOff(new Set())}>
+            Together
+          </button>
+          {entries.map(({ area }) => (
+            <button
+              key={area.id}
+              aria-pressed={off.size === entries.length - 1 && !off.has(area.id)}
+              onClick={() => only(area.id)}
+            >
+              {area.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       <ResponsiveContainer width="100%" height={mode === "series" && data.length > 24 ? 210 : 180}>
         <ComposedChart data={data} margin={{ top: 6, right: 6, bottom: 0, left: 0 }}>

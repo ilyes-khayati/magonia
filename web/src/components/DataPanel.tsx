@@ -1,12 +1,13 @@
 import { useState } from "react";
-import type { Masking, Resolution, Variable, VariableKey } from "../api";
-import { parseMonth, type Settings } from "../settings";
+import type { Area, Masking, Resolution, Variable, VariableKey } from "../api";
+import { parseMonth, speiScale, type Settings } from "../settings";
 import { InfoIcon } from "./Icons";
 import LearnPanel from "./LearnPanel";
 import { groups } from "../variables";
 
 type Props = {
   catalogue: Variable[];
+  areas: Area[];
   settings: Settings;
   onChange: (change: Partial<Settings>) => void;
   progress: { done: number; total: number; failed: number };
@@ -53,6 +54,13 @@ function MonthField({ label, value, min, max, onChange }: {
   );
 }
 
+const Scales = ({ scales }: { scales: number[] }) =>
+  scales.map((months) => (
+    <option key={months} value={months}>
+      {months} {months === 1 ? "month" : "months"}
+    </option>
+  ));
+
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 const RESOLUTIONS: [Resolution, string][] = [
@@ -75,13 +83,23 @@ const REASONS = {
   fill: "Recommended: fills short gaps by straight lines in time; longer gaps stay empty.",
 };
 
-export default function DataPanel({ catalogue, settings, onChange, progress }: Props) {
+export default function DataPanel({ catalogue, areas, settings, onChange, progress }: Props) {
   const [open, setOpen] = useState<VariableKey | null>(null);
   function toggle(key: VariableKey) {
     const on = settings.variables.includes(key);
     // keep the catalogue order whatever the order of clicks
     const next = catalogue.map((v) => v.key).filter((k) => (k === key ? !on : settings.variables.includes(k)));
     onChange({ variables: next });
+  }
+
+  // An area keeps its own scale only where it differs from the one for all areas
+  function setScale(scale: number) {
+    const own = Object.entries(settings.scaleByArea).filter(([id, s]) => s !== scale && areas.some((a) => a.id === Number(id)));
+    onChange({ scale, scaleByArea: Object.fromEntries(own) });
+  }
+  function setAreaScale(areaId: number, scale: number) {
+    const { [areaId]: _, ...rest } = settings.scaleByArea;
+    onChange({ scaleByArea: scale === settings.scale ? rest : { ...rest, [areaId]: scale } });
   }
 
   return (
@@ -121,20 +139,31 @@ export default function DataPanel({ catalogue, settings, onChange, progress }: P
                   </div>
                   {open === variable.key && <LearnPanel variable={variable} />}
                   {on && variable.scales.length > 0 && (
-                    <label className="row meta" style={{ justifyContent: "space-between", paddingLeft: 26 }}>
-                      Time scale
-                      <select
-                        className="select"
-                        value={settings.scale}
-                        onChange={(e) => onChange({ scale: Number(e.target.value) })}
-                      >
-                        {variable.scales.map((months) => (
-                          <option key={months} value={months}>
-                            {months} {months === 1 ? "month" : "months"}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                    <>
+                      <label className="row meta" style={{ justifyContent: "space-between", paddingLeft: 26 }}>
+                        Time scale
+                        <select className="select" value={settings.scale} onChange={(e) => setScale(Number(e.target.value))}>
+                          <Scales scales={variable.scales} />
+                        </select>
+                      </label>
+                      {areas.length > 1 && (
+                        <details className="per-area" open={Object.keys(settings.scaleByArea).length > 0}>
+                          <summary className="meta">A different scale for an area</summary>
+                          {areas.map((area) => (
+                            <label key={area.id} className="row meta" style={{ justifyContent: "space-between" }}>
+                              {area.name}
+                              <select
+                                className="select"
+                                value={speiScale(settings, area.id)}
+                                onChange={(e) => setAreaScale(area.id, Number(e.target.value))}
+                              >
+                                <Scales scales={variable.scales} />
+                              </select>
+                            </label>
+                          ))}
+                        </details>
+                      )}
+                    </>
                   )}
                 </div>
               );
