@@ -419,7 +419,7 @@ export type View = {
   series: SeriesOptions[];
   display?: string | null; // how the Data page shows the series, if changed
   board?: { title: string; text: string }[]; // what the researcher pinned
-  focus?: string | null; // the card asked about ("Ask Mago about this"), by its title
+  focus?: string | null; // the card asked about ("Ask Magon about this"), by its title
 };
 
 export type ChatMessage = {

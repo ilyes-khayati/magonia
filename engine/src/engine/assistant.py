@@ -28,7 +28,7 @@ from engine.route import SOURCES, glossary, route
 from engine.standing import standing_instruction
 from engine.support import Judge, check_support, faithfulness, judge_with
 
-NAME = "Mago"  # the assistant; Magonia is the whole platform
+NAME = "Magon"  # the assistant; Magonia is the whole platform
 
 SETTINGS = "; ".join(
     f"{LABELS[name]}: {', '.join(f'{k} ({low:g} to {high:g})' for k, (low, high) in keys.items())}"

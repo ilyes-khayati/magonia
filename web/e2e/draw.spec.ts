@@ -11,7 +11,7 @@ let asked: {
   view?: { page: string; charts: string[]; series: { area_id: number; variable: string }[]; display?: string | null };
 }[] = [];
 
-// Mago's conversations and their messages, as the fake API keeps them
+// Magon's conversations and their messages, as the fake API keeps them
 type FakeConversation = { id: number; workspace_id: number; title: string | null; first_question: string | null; messages: number; created: string; updated: string; deleted?: boolean };
 let conversations: FakeConversation[] = [];
 let messages: Record<number, { id: number; role: string; content: string; details: object; created: string }[]> = {};
@@ -189,7 +189,7 @@ async function fakeApi(page: Page, connected = true) {
     if (route.request().method() === "PUT") instructions = route.request().postDataJSON().text;
     return route.fulfill({ json: { text: instructions } });
   });
-  await page.route("**/api/assistant", (route) => route.fulfill({ json: { name: "Mago", model: "test model" } }));
+  await page.route("**/api/assistant", (route) => route.fulfill({ json: { name: "Magon", model: "test model" } }));
   const stamp = () => new Date().toISOString();
   const listed = () =>
     conversations.filter((c) => !c.deleted).sort((a, b) => b.updated.localeCompare(a.updated) || b.id - a.id);
@@ -802,9 +802,9 @@ test("a deleted workspace can be brought back, at once or from Recently deleted"
 });
 
 test("a new conversation keeps the earlier ones, which can be reopened, renamed and deleted", async ({ page }) => {
-  const assistant = page.getByRole("region", { name: "Mago" });
-  await page.getByRole("button", { name: "Mago", exact: true }).click();
-  await assistant.getByRole("textbox", { name: "Ask Mago" }).fill("What does drought do to olive NDVI?");
+  const assistant = page.getByRole("region", { name: "Magon" });
+  await page.getByRole("button", { name: "Magon", exact: true }).click();
+  await assistant.getByRole("textbox", { name: "Ask Magon" }).fill("What does drought do to olive NDVI?");
   await assistant.getByRole("button", { name: "Send" }).click();
   await expect(assistant.getByText("Drought lowers olive NDVI")).toBeVisible();
 
@@ -812,7 +812,7 @@ test("a new conversation keeps the earlier ones, which can be reopened, renamed 
   await assistant.getByRole("button", { name: "Conversations" }).click();
   await list.getByRole("button", { name: "New conversation" }).click();
   await expect(assistant.getByText("Drought lowers olive NDVI")).toHaveCount(0);
-  await assistant.getByRole("textbox", { name: "Ask Mago" }).fill("What is NDVI?");
+  await assistant.getByRole("textbox", { name: "Ask Magon" }).fill("What is NDVI?");
   await assistant.getByRole("button", { name: "Send" }).click();
   await expect(assistant.getByText("Drought lowers olive NDVI")).toBeVisible();
   await expect(assistant.getByText("What does drought do to olive NDVI?")).toHaveCount(0);
@@ -839,18 +839,18 @@ test("a new conversation keeps the earlier ones, which can be reopened, renamed 
 });
 
 test("Magonia's panel can be widened by its edge, and stays open across pages", async ({ page }) => {
-  await page.getByRole("button", { name: "Mago", exact: true }).click();
-  const panel = page.getByRole("complementary", { name: "Mago" });
+  await page.getByRole("button", { name: "Magon", exact: true }).click();
+  const panel = page.getByRole("complementary", { name: "Magon" });
   const before = (await panel.boundingBox())!.width;
-  const edge = page.getByRole("separator", { name: "Resize Mago's panel" });
+  const edge = page.getByRole("separator", { name: "Resize Magon's panel" });
   await edge.focus();
   await page.keyboard.press("ArrowLeft");
   await page.keyboard.press("ArrowLeft");
   await expect.poll(async () => (await panel.boundingBox())!.width).toBe(before + 80);
   await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Analyses" }).click();
-  await expect(page.getByRole("region", { name: "Mago" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Magon" })).toBeVisible();
   await page.reload();
-  await expect(page.getByRole("region", { name: "Mago" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Magon" })).toBeVisible();
   await expect.poll(async () => (await panel.boundingBox())!.width).toBe(before + 80);
 });
 
@@ -938,9 +938,9 @@ test("the Data page can smooth, show anomalies and keep some months, without ask
   await expect(chart.getByText(/only Feb, Mar/)).toBeVisible();
   expect(jobs.length).toBe(extracted); // nothing extracted again
 
-  await page.getByRole("button", { name: "Mago", exact: true }).click();
-  const assistant = page.getByRole("region", { name: "Mago" });
-  await assistant.getByRole("textbox", { name: "Ask Mago" }).fill("What do the charts show?");
+  await page.getByRole("button", { name: "Magon", exact: true }).click();
+  const assistant = page.getByRole("region", { name: "Magon" });
+  await assistant.getByRole("textbox", { name: "Ask Magon" }).fill("What do the charts show?");
   await assistant.getByRole("button", { name: "Send" }).click();
   await expect.poll(() => asked.at(-1)?.view?.display).toMatch(/^anomalies against/);
 });
@@ -956,9 +956,9 @@ test("cards, answers and notes are pinned to the board, and Magonia is told abou
   await page.getByRole("button", { name: "Pin NDVI to the board" }).click();
   await expect(page.getByText("Pinned NDVI to the board.")).toBeVisible();
 
-  await page.getByRole("button", { name: "Mago", exact: true }).click();
-  const assistant = page.getByRole("region", { name: "Mago" });
-  await assistant.getByRole("textbox", { name: "Ask Mago" }).fill("When does it peak?");
+  await page.getByRole("button", { name: "Magon", exact: true }).click();
+  const assistant = page.getByRole("region", { name: "Magon" });
+  await assistant.getByRole("textbox", { name: "Ask Magon" }).fill("When does it peak?");
   await assistant.getByRole("button", { name: "Send" }).click();
   await expect(assistant.getByText(/Orchard NDVI peaks in Aug/)).toBeVisible();
   await assistant.getByRole("button", { name: "Pin to the board" }).click();
@@ -969,12 +969,12 @@ test("cards, answers and notes are pinned to the board, and Magonia is told abou
   await expect(ndvi.locator(".recharts-line")).toBeVisible();
   await ndvi.getByRole("button", { name: "Where this comes from" }).click();
   await expect(ndvi.getByText("7fd36665e815857e")).toBeVisible();
-  await expect(page.getByRole("region", { name: "Mago: When does it peak?" })).toContainText("Orchard NDVI peaks in Aug");
+  await expect(page.getByRole("region", { name: "Magon: When does it peak?" })).toContainText("Orchard NDVI peaks in Aug");
 
   await page.getByRole("button", { name: "Add a note" }).click();
   await page.getByRole("textbox", { name: "Note", exact: true }).fill("Check the 2024 dip.");
   await page.getByRole("textbox", { name: "Note", exact: true }).blur();
-  await assistant.getByRole("textbox", { name: "Ask Mago" }).fill("What did I note?");
+  await assistant.getByRole("textbox", { name: "Ask Magon" }).fill("What did I note?");
   await assistant.getByRole("button", { name: "Send" }).click();
   await expect.poll(() => (asked.at(-1)?.view as { board?: { text: string }[] } | undefined)?.board?.at(-1)?.text).toBe("Check the 2024 dip.");
 
@@ -1020,37 +1020,37 @@ test("areas and data choices survive a change of page", async ({ page }) => {
 });
 
 test("Magonia opens beside a page, and the conversation carries over to its own page", async ({ page }) => {
-  const assistant = page.getByRole("region", { name: "Mago" });
+  const assistant = page.getByRole("region", { name: "Magon" });
   await expect(assistant).toBeHidden();
-  await page.getByRole("button", { name: "Mago", exact: true }).click();
+  await page.getByRole("button", { name: "Magon", exact: true }).click();
   await expect(assistant).toBeVisible();
-  await assistant.getByRole("textbox", { name: "Ask Mago" }).fill("What does drought do to olive NDVI?");
+  await assistant.getByRole("textbox", { name: "Ask Magon" }).fill("What does drought do to olive NDVI?");
   await assistant.getByRole("button", { name: "Send" }).click();
   await expect(assistant.getByText("Drought lowers olive NDVI")).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Mago" })).toHaveCount(0);
-  await assistant.getByRole("button", { name: "Make Mago bigger" }).click();
+  await expect(page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Magon" })).toHaveCount(0);
+  await assistant.getByRole("button", { name: "Make Magon bigger" }).click();
   await expect(page).toHaveURL(/\/assistant$/);
   await expect(assistant.getByText("Drought lowers olive NDVI")).toBeVisible();
-  await assistant.getByRole("button", { name: "Make Mago smaller" }).click();
+  await assistant.getByRole("button", { name: "Make Magon smaller" }).click();
   await expect(page).toHaveURL(/\/map$/);
   await expect(assistant.getByText("Drought lowers olive NDVI")).toBeVisible();
-  await assistant.getByRole("button", { name: "Close Mago" }).click();
+  await assistant.getByRole("button", { name: "Close Magon" }).click();
   await expect(assistant).toBeHidden();
 });
 
-test("Mago is asked about one card from the card itself, and opens from the rail or ⌘J", async ({ page }) => {
+test("Magon is asked about one card from the card itself, and opens from the rail or ⌘J", async ({ page }) => {
   await page.getByTestId("upload").setInputFiles({
     name: "fields.geojson",
     mimeType: "application/geo+json",
     buffer: Buffer.from(JSON.stringify(SQUARE)),
   });
   await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Data" }).click();
-  const assistant = page.getByRole("region", { name: "Mago" });
+  const assistant = page.getByRole("region", { name: "Magon" });
   await expect(assistant).toBeHidden();
-  await page.getByRole("button", { name: "Ask Mago about NDVI" }).click();
+  await page.getByRole("button", { name: "Ask Magon about NDVI" }).click();
   await expect(assistant).toBeVisible();
   await expect(assistant.getByRole("group", { name: "Asking about" })).toContainText("NDVI chart");
-  await expect(assistant.getByRole("textbox", { name: "Ask Mago" })).toBeFocused();
+  await expect(assistant.getByRole("textbox", { name: "Ask Magon" })).toBeFocused();
   await page.keyboard.type("Was 2024 unusual?");
   await page.keyboard.press("Enter");
   await expect.poll(() => (asked.at(-1)?.view as { focus?: string } | undefined)?.focus).toBe("NDVI chart");
@@ -1059,18 +1059,18 @@ test("Mago is asked about one card from the card itself, and opens from the rail
 
   await page.locator("body").press("ControlOrMeta+j");
   await expect(assistant).toBeHidden();
-  await page.getByRole("navigation", { name: "Pages" }).getByRole("button", { name: "Mago" }).click();
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("button", { name: "Magon" }).click();
   await expect(assistant).toBeVisible();
 });
 
 test("an instruction asked for in the chat is saved only on a click, and can be undone", async ({ page }) => {
-  await page.getByRole("button", { name: "Mago", exact: true }).click();
-  const assistant = page.getByRole("region", { name: "Mago" });
-  await assistant.getByRole("textbox", { name: "Ask Mago" }).fill("From now on, answer in French");
+  await page.getByRole("button", { name: "Magon", exact: true }).click();
+  const assistant = page.getByRole("region", { name: "Magon" });
+  await assistant.getByRole("textbox", { name: "Ask Magon" }).fill("From now on, answer in French");
   await assistant.getByRole("button", { name: "Send" }).click();
   const proposal = assistant.getByRole("group", { name: "Proposed: Answer in French." });
   await expect(proposal).toContainText("Keep as an instruction?");
-  expect(instructions).toBe(""); // nothing is saved by Mago itself
+  expect(instructions).toBe(""); // nothing is saved by Magon itself
   await proposal.getByRole("button", { name: "Save" }).click();
   await expect(proposal).toContainText("Saved");
   await expect.poll(() => instructions).toBe("- Answer in French.");
@@ -1085,15 +1085,15 @@ test("Magonia is sent what is open and says which cards it read", async ({ page 
     buffer: Buffer.from(JSON.stringify(SQUARE)),
   });
   await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Data" }).click();
-  await page.getByRole("button", { name: "Mago", exact: true }).click();
-  const assistant = page.getByRole("region", { name: "Mago" });
-  await assistant.getByRole("textbox", { name: "Ask Mago" }).fill("When does it peak?");
+  await page.getByRole("button", { name: "Magon", exact: true }).click();
+  const assistant = page.getByRole("region", { name: "Magon" });
+  await assistant.getByRole("textbox", { name: "Ask Magon" }).fill("When does it peak?");
   await assistant.getByRole("button", { name: "Send" }).click();
 
   await expect(assistant.locator(".num.verified").first()).toHaveAttribute("title", "From NDVI chart");
-  await expect(assistant.locator("mark.num.flagged")).toHaveText("0.95 (not found in what Mago was given)");
-  await expect(assistant.getByText("2 of 3 numbers checked against what Mago was given")).toBeVisible();
-  await expect(assistant.getByText("1 number was not confirmed: 0.95 (not found in what Mago was given).")).toBeVisible();
+  await expect(assistant.locator("mark.num.flagged")).toHaveText("0.95 (not found in what Magon was given)");
+  await expect(assistant.getByText("2 of 3 numbers checked against what Magon was given")).toBeVisible();
+  await expect(assistant.getByText("1 number was not confirmed: 0.95 (not found in what Magon was given).")).toBeVisible();
   const results = await new AxeBuilder({ page }).include(".assistant").analyze();
   const serious = results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? ""));
   expect(serious.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
@@ -1134,15 +1134,15 @@ const PROPOSING = [
   { type: "check", text: "I proposed two analyses; add them to see them.", cited: [], removed: [], unverified: [] },
 ];
 
-test("Mago proposes analyses, and nothing is added until the researcher clicks", async ({ page }) => {
+test("Magon proposes analyses, and nothing is added until the researcher clicks", async ({ page }) => {
   await page.getByTestId("upload").setInputFiles({
     name: "fields.geojson",
     mimeType: "application/geo+json",
     buffer: Buffer.from(JSON.stringify(SQUARE)),
   });
-  await page.getByRole("button", { name: "Mago", exact: true }).click();
-  const assistant = page.getByRole("region", { name: "Mago" });
-  await assistant.getByRole("textbox", { name: "Ask Mago" }).fill("Propose a trend of LST from 2010 to 2020 and a forecast");
+  await page.getByRole("button", { name: "Magon", exact: true }).click();
+  const assistant = page.getByRole("region", { name: "Magon" });
+  await assistant.getByRole("textbox", { name: "Ask Magon" }).fill("Propose a trend of LST from 2010 to 2020 and a forecast");
   await assistant.getByRole("button", { name: "Send" }).click();
   const trend = assistant.getByRole("group", { name: /Proposed: Long-term trend/ });
   await expect(trend).toContainText("Whether the area has warmed.");
@@ -1161,9 +1161,9 @@ test("Mago proposes analyses, and nothing is added until the researcher clicks",
 });
 
 test("an answer shows its checked sources and what the check removed", async ({ page }) => {
-  await page.getByRole("button", { name: "Mago", exact: true }).click();
-  const assistant = page.getByRole("region", { name: "Mago" });
-  await assistant.getByRole("textbox", { name: "Ask Mago" }).fill("What does drought do to olive NDVI?");
+  await page.getByRole("button", { name: "Magon", exact: true }).click();
+  const assistant = page.getByRole("region", { name: "Magon" });
+  await assistant.getByRole("textbox", { name: "Ask Magon" }).fill("What does drought do to olive NDVI?");
   await assistant.getByRole("button", { name: "Send" }).click();
 
   await expect(assistant.getByText("Drought lowers olive NDVI")).toBeVisible();
@@ -1175,7 +1175,7 @@ test("an answer shows its checked sources and what the check removed", async ({ 
   // the passage Magonia read, at its page, and how much of each paper it could read
   await expect(assistant.getByText("1 paper read in full")).toBeVisible();
   await expect(assistant.getByText("Read in full", { exact: false }).first()).toBeVisible();
-  await assistant.getByText("Passages Mago read (p. 6)").click();
+  await assistant.getByText("Passages Magon read (p. 6)").click();
   await expect(assistant.locator(".paper .passage").first()).toContainText(
     "Rainfed groves lost NDVI within one season of drought.",
   );
@@ -1201,7 +1201,7 @@ for (const theme of ["light", "dark"]) {
       mimeType: "application/geo+json",
       buffer: Buffer.from(JSON.stringify(SQUARE)),
     });
-    await page.getByRole("button", { name: "Mago", exact: true }).click();
+    await page.getByRole("button", { name: "Magon", exact: true }).click();
     for (const name of ["Data", "Analyses", "Map"]) {
       await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name }).click();
       if (name === "Data") await expect(page.locator(".recharts-line")).toBeVisible();
@@ -1213,7 +1213,7 @@ for (const theme of ["light", "dark"]) {
       const serious = results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? ""));
       expect(serious.map((v) => `${name}: ${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
     }
-    await page.getByRole("region", { name: "Mago" }).getByRole("button", { name: "Make Mago bigger" }).click();
+    await page.getByRole("region", { name: "Magon" }).getByRole("button", { name: "Make Magon bigger" }).click();
     const results = await new AxeBuilder({ page }).exclude(".maplibregl-canvas").analyze();
     const serious = results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? ""));
     expect(serious.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
@@ -1221,15 +1221,15 @@ for (const theme of ["light", "dark"]) {
 }
 
 test("a pinned answer keeps its citations and paper links on the board", async ({ page }) => {
-  const assistant = page.getByRole("region", { name: "Mago" });
-  await page.getByRole("button", { name: "Mago", exact: true }).click();
-  await assistant.getByRole("textbox", { name: "Ask Mago" }).fill("What does drought do to olive NDVI?");
+  const assistant = page.getByRole("region", { name: "Magon" });
+  await page.getByRole("button", { name: "Magon", exact: true }).click();
+  await assistant.getByRole("textbox", { name: "Ask Magon" }).fill("What does drought do to olive NDVI?");
   await assistant.getByRole("button", { name: "Send" }).click();
   await expect(assistant.getByText("Drought lowers olive NDVI")).toBeVisible();
   await assistant.getByRole("button", { name: "Pin to the board" }).click();
 
   await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Board" }).click();
-  const pinned = page.getByRole("region", { name: "Mago: What does drought do to olive NDVI?" });
+  const pinned = page.getByRole("region", { name: "Magon: What does drought do to olive NDVI?" });
   await expect(pinned.locator(".cite", { hasText: "1" }).first()).toHaveAttribute("title", /Sghaier et al., 2022/);
   await expect(pinned.getByRole("link", { name: "Drought stress in arid olive groves" })).toHaveAttribute(
     "href",
@@ -1241,12 +1241,12 @@ test("a pinned answer keeps its citations and paper links on the board", async (
 });
 
 test("the board has sections, highlights and pinned passages, and Magonia is told about them", async ({ page }) => {
-  const assistant = page.getByRole("region", { name: "Mago" });
-  await page.getByRole("button", { name: "Mago", exact: true }).click();
-  await assistant.getByRole("textbox", { name: "Ask Mago" }).fill("What does drought do to olive NDVI?");
+  const assistant = page.getByRole("region", { name: "Magon" });
+  await page.getByRole("button", { name: "Magon", exact: true }).click();
+  await assistant.getByRole("textbox", { name: "Ask Magon" }).fill("What does drought do to olive NDVI?");
   await assistant.getByRole("button", { name: "Send" }).click();
   await expect(assistant.getByText("Drought lowers olive NDVI")).toBeVisible();
-  await assistant.getByText("Passages Mago read (p. 6)").click();
+  await assistant.getByText("Passages Magon read (p. 6)").click();
   await assistant.getByRole("button", { name: "Pin the passage from Sghaier et al., 2022, page 6, to the board" }).click();
   await assistant.getByRole("button", { name: "Pin to the board" }).click();
 
@@ -1278,7 +1278,7 @@ test("the board has sections, highlights and pinned passages, and Magonia is tol
   await expect(passage.locator(".highlights mark")).toHaveText("Rainfed groves lost NDVI");
   expect(await page.evaluate(() => CSS.highlights.get("board-highlight")?.size)).toBe(1);
 
-  await assistant.getByRole("textbox", { name: "Ask Mago" }).fill("What did I highlight?");
+  await assistant.getByRole("textbox", { name: "Ask Magon" }).fill("What did I highlight?");
   await assistant.getByRole("button", { name: "Send" }).click();
   await expect
     .poll(() => (asked.at(-1)?.view as { board?: { title: string; text: string }[] } | undefined)?.board)
@@ -1308,14 +1308,14 @@ test("the library takes the researcher's PDFs and their instructions for Magonia
   await expect(page.getByRole("button", { name: "field survey", exact: true })).toBeVisible();
   await expect(page.getByText("field_survey.pdf · 12 pages")).toBeVisible();
 
-  const box = page.getByRole("textbox", { name: "Instructions for Mago" });
+  const box = page.getByRole("textbox", { name: "Instructions for Magon" });
   await box.fill("Answer in French.");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByRole("button", { name: "Saved" })).toBeDisabled();
   expect(instructions).toBe("Answer in French.");
 
   await page.reload();
-  await expect(page.getByRole("textbox", { name: "Instructions for Mago" })).toHaveValue("Answer in French.");
+  await expect(page.getByRole("textbox", { name: "Instructions for Magon" })).toHaveValue("Answer in French.");
   // read inside Magonia, then removed and brought back
   await page.getByRole("button", { name: "field survey", exact: true }).click();
   const reader = page.getByRole("dialog", { name: "Reading field survey" });

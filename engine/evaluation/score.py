@@ -340,7 +340,7 @@ def relevance(cache: Cache, question: str, paper: dict, stream) -> str:
     return cache.get(f"relevance|{question}|{paper['title']}", look)
 
 
-# A judge's question needs a word, not Mago's rules: a short system message, a few tokens and
+# A judge's question needs a word, not Magon's rules: a short system message, a few tokens and
 # no randomness make each verdict about forty times cheaper than an assistant turn
 JUDGE_SYSTEM = "You are a careful, strict judge. Answer with one word only."
 WORKERS = 4  # answers scored at once; Ollama serves parallel requests when it has the memory

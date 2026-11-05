@@ -170,7 +170,7 @@ export default function App() {
   const docked = panel.open && page !== "assistant";
   const setDocked = (open: boolean) => setPanel((p) => ({ ...p, open }));
 
-  // "Ask Mago about this" on a card: Mago opens beside the page with the card attached
+  // "Ask Magon about this" on a card: Magon opens beside the page with the card attached
   function askAbout(title: string) {
     setAttached({ title, key: Date.now() });
     if (page !== "assistant") setDocked(true);
@@ -522,7 +522,7 @@ export default function App() {
     const answer = turn.content;
     const next = pin(board, {
       kind: "answer",
-      title: `Mago: ${question.length > 60 ? `${question.slice(0, 57)}…` : question}`,
+      title: `Magon: ${question.length > 60 ? `${question.slice(0, 57)}…` : question}`,
       question,
       lines: answer.split("\n").filter((l) => l.trim()),
       answer: { text: answer, details: turn.details },
@@ -546,7 +546,7 @@ export default function App() {
     try {
       const before = (await getInstructions(id)).text;
       await setInstructions(id, withInstruction(before, instruction));
-      offer(`Saved as an instruction for Mago: ${instruction}`, async () => {
+      offer(`Saved as an instruction for Magon: ${instruction}`, async () => {
         await setInstructions(id, before);
       });
     } catch (error) {
@@ -696,7 +696,7 @@ export default function App() {
         : null;
 
   const label = PAGES.find((p) => p.key === page)!.label;
-  const mago = {
+  const magon = {
     open: docked || page === "assistant",
     onToggle: () => (page === "assistant" ? magoniaSmaller() : setDocked(!docked)),
   };
@@ -721,7 +721,7 @@ export default function App() {
         earthEngine={earthEngine}
         onEarthEngine={() => setSetupOpen(true)}
       />
-      <Rail workspaceId={workspaceId} mago={mago} />
+      <Rail workspaceId={workspaceId} magon={magon} />
 
       {page === "data" && (
         <Sidebar>
@@ -838,13 +838,13 @@ export default function App() {
 
       {/* One assistant for every page, so a conversation carries on when the page changes:
           a full page of its own, or a panel beside the others */}
-      <aside className="dock" aria-label="Mago's panel">
+      <aside className="dock" aria-label="Magon's panel">
         {page !== "assistant" && (
           <div
             className="dock-handle"
             role="separator"
             aria-orientation="vertical"
-            aria-label="Resize Mago's panel"
+            aria-label="Resize Magon's panel"
             aria-valuenow={panel.width}
             aria-valuemin={PANEL_WIDTH.min}
             tabIndex={0}
@@ -874,7 +874,7 @@ export default function App() {
             page === "assistant" ? (
               <button
                 className="icon-button"
-                aria-label="Make Mago smaller"
+                aria-label="Make Magon smaller"
                 title="Back to the side panel"
                 onClick={magoniaSmaller}
               >
@@ -884,16 +884,16 @@ export default function App() {
               <>
                 <button
                   className="icon-button"
-                  aria-label="Make Mago bigger"
-                  title="Open Mago full size"
+                  aria-label="Make Magon bigger"
+                  title="Open Magon full size"
                   onClick={() => workspaceId !== null && navigate(pagePath(workspaceId, "assistant"))}
                 >
                   <ExpandIcon size={14} />
                 </button>
                 <button
                   className="icon-button"
-                  aria-label="Close Mago"
-                  title="Close Mago"
+                  aria-label="Close Magon"
+                  title="Close Magon"
                   onClick={() => setDocked(false)}
                 >
                   <CloseIcon size={14} />

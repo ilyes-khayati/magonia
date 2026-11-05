@@ -1977,7 +1977,7 @@ button:disabled {
   color: var(--danger);
 }
 
-/* Mago's conversations in this workspace */
+/* Magon's conversations in this workspace */
 .conversations-menu {
   position: relative;
   margin: -4px 0 4px;
@@ -2118,22 +2118,22 @@ button:disabled {
   width: 100%;
 }
 
-/* Mago at the foot of the rail: open beside the page, so marked apart from the current page */
+/* Magon at the foot of the rail: open beside the page, so marked apart from the current page */
 .rail-gap {
   flex: 1;
 }
 
-.rail-link.mago {
+.rail-link.magon {
   cursor: pointer;
 }
 
-.rail-link.mago[aria-pressed="true"] {
+.rail-link.magon[aria-pressed="true"] {
   color: var(--accent);
   box-shadow: inset 0 0 0 1px var(--line);
   background: var(--card);
 }
 
-/* The card a question is about, above Mago's composer */
+/* The card a question is about, above Magon's composer */
 .attached {
   display: flex;
   align-items: center;

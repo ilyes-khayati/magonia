@@ -1,7 +1,7 @@
 """Standing instructions asked for in the conversation: "from now on, answer in French".
 
-The researcher's instructions for Mago are kept per workspace and edited on the Library page.
-Asked for in the chat, an instruction is proposed, never saved by Mago: the researcher sees it in
+The researcher's instructions for Magon are kept per workspace and edited on the Library page.
+Asked for in the chat, an instruction is proposed, never saved by Magon: the researcher sees it in
 their own words and saves it with a click (AI-07). It is found by code, not by the model, so that
 what is proposed is what they wrote, and a model that misreads them cannot change its own rules.
 """
@@ -51,10 +51,10 @@ MAX_LENGTH = 300
 
 
 def standing_instruction(message: str) -> str | None:
-    """The instruction a message asks Mago to keep, in the researcher's words, or None."""
+    """The instruction a message asks Magon to keep, in the researcher's words, or None."""
     text = " ".join(message.split())
     if not text or text.endswith("?"):
-        return None  # a question about how Mago works is not an instruction
+        return None  # a question about how Magon works is not an instruction
     candidates = [text] + [m.group(1) for m in INSIDE.finditer(text)]
     for candidate in candidates:
         for lead, replacement in LEADS:

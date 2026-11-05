@@ -15,6 +15,6 @@ validates what it reads: unknown analysis kinds are dropped, old forecast cards 
 
 ## Consequences
 A new kind of analysis needs no migration. The server cannot query inside the document,
-and nobody needs it to: Mago learns about analyses from the view the client sends. A
+and nobody needs it to: Magon learns about analyses from the view the client sends. A
 document written whole means the last writer wins, which is safe for one researcher but
 not for two editing one workspace; then: rows with a version column, or a CRDT document.

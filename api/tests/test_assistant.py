@@ -239,7 +239,7 @@ def test_empty_questions_and_unknown_workspaces_are_refused(client, model):
 
 
 def test_assistant_reports_its_name_and_model(client, model):
-    assert client.get("/assistant").json() == {"name": "Mago", "model": "scripted"}
+    assert client.get("/assistant").json() == {"name": "Magon", "model": "scripted"}
 
 
 def test_database_from_version_1_2_is_upgraded(tmp_path):

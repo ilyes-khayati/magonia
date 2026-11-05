@@ -1,4 +1,4 @@
-# 0013. Mago proposes, the researcher acts
+# 0013. Magon proposes, the researcher acts
 
 Status: accepted
 
@@ -8,7 +8,7 @@ takes decisions that belong to the researcher, and a small model's mistakes woul
 their work unseen.
 
 ## Decision
-Mago can only propose: an analysis or a standing instruction appears as a card with "Add it"
+Magon can only propose: an analysis or a standing instruction appears as a card with "Add it"
 or "Save", and nothing changes until the researcher clicks. Code validates a proposal
 against the workspace (does the area exist, is the variable known) and sends an invalid one
 back to the model. The proposal tool is offered only when the message asks for something to
