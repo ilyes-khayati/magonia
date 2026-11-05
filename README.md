@@ -15,7 +15,7 @@ analyses, forecasts and the literature in one place. Every number shows where it
 
 </div>
 
-![Magon answering a question about an olive orchard near Jendouba, next to its NDVI and SPEI charts](docs/images/magon-data.jpg)
+![Magon answering a question about an olive orchard and a forest near Jendouba, next to their NDVI and land surface temperature charts](docs/images/magon-data.jpg)
 
 Named after Magon of Carthage, whose 28-book treatise on agriculture Rome had translated
 after the city fell. **Magon** is also the research assistant inside it.
@@ -28,7 +28,7 @@ what it means.
 <table>
 <tr>
 <td width="50%"><img src="docs/images/map.jpg" alt="An olive orchard outlined on the satellite map"></td>
-<td width="50%"><img src="docs/images/data.jpg" alt="NDVI and SPEI-12 for an olive orchard and a forest, 2004–2024"></td>
+<td width="50%"><img src="docs/images/data.jpg" alt="NDVI and land surface temperature for an olive orchard and a forest, 2000–2024"></td>
 </tr>
 <tr>
 <td><b>Map</b>: draw polygons or rectangles, or upload GeoJSON, KML or shapefiles. Each area is checked and measured.</td>
@@ -43,7 +43,7 @@ what it means.
 <td><b>Model</b>: forecasts with Ridge, Random Forest and XGBoost, scored against baselines and a noise floor.</td>
 </tr>
 <tr>
-<td><img src="docs/images/board.jpg" alt="The board with a pinned NDVI chart and a note"></td>
+<td><img src="docs/images/board.jpg" alt="The board with a pinned forecast experiment and NDVI seasonal cycle"></td>
 <td><img src="docs/images/magon-literature.jpg" alt="Magon answering from the literature, with citations"></td>
 </tr>
 <tr>
