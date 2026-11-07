@@ -77,3 +77,18 @@ describe("one area's sentences", () => {
     expect(oneArea(["Orchard: rising.", "Forest: falling."])).toEqual(["Orchard: rising.", "Forest: falling."]);
   });
 });
+
+describe("distributions", () => {
+  it("gives medians, quartiles and seasons as the boxplots draw them", async () => {
+    const { median, quantile, seasonOf, observations } = await import("./stats");
+    expect(median([3, 1, 2])).toBe(2);
+    expect(median([1, 2, 3, 4])).toBe(2.5);
+    expect(quantile([1, 2, 3, 4, 5], 0.25)).toBe(2);
+    expect([11, 0, 1, 2, 5, 8].map(seasonOf)).toEqual(["Winter", "Winter", "Winter", "Spring", "Summer", "Autumn"]);
+    const rows = observations([
+      { date: "2020-12-01", value: 0.4, sd: null, n_pixels: 1, masked: false, filled: false, n_obs: 1, n_valid: 1 },
+      { date: "2021-01-01", value: null, sd: null, n_pixels: 0, masked: true, filled: false, n_obs: 1, n_valid: 0 },
+    ]);
+    expect(rows).toEqual([{ value: 0.4, month: 11, season: "Winter", year: 2020 }]);
+  });
+});

@@ -6,6 +6,7 @@ from engine.facts import (
     View,
     lag_correlation,
     mann_kendall,
+    scale_fact,
     sen_slope,
     series_facts,
 )
@@ -201,3 +202,41 @@ def test_a_lag_analysis_gives_magonia_the_explorers_sentences():
     facts = [f for f in view.facts() if f.card == "Lags 1: NDVI"]
     assert facts[0].text.startswith("Orchard: NDVI anomalies")
     assert facts[1].text.startswith("Orchard: LST ")
+
+
+def test_the_scale_and_lag_followed_most_closely_are_found():
+    random.seed(1)
+    months = [f"{2001 + i // 12}-{i % 12 + 1:02d}-01" for i in range(240)]
+    drought = [math.sin(i / 5) + random.gauss(0, 0.3) for i in range(240)]
+
+    def as_series(title, values):
+        points = [
+            {"date": d, "value": v, "masked": False, "filled": False}
+            for d, v in zip(months, values)
+        ]
+        return Series("Orchard", "spei", title, "", points)
+
+    smoothed = [sum(drought[max(0, i - 2) : i + 1]) / 3 for i in range(240)]
+    scales = [as_series("SPEI-1", drought), as_series("SPEI-3", smoothed)]
+    # greenness follows the three-month index two months later
+    ndvi = as_series("NDVI", [0.0, 0.0] + smoothed[:-2])
+    fact = scale_fact("", ndvi, scales, deseasonalise=False)
+    assert "follow SPEI-3 from 2 months earlier" in fact.text
+    assert fact.values[1] == 2
+
+
+def test_magon_is_told_which_drought_scale_is_followed():
+    rng = random.Random(3)
+    spei = [math.sin(i / 4) + rng.gauss(0, 0.2) for i in range(60)]
+    view = View(
+        [],
+        [
+            ndvi("Orchard", [0.5 + 0.1 * v for v in [0.0] + spei[:-1]]),
+            Series("Orchard", "spei", "SPEI-1", "", points(spei)),
+            Series("Orchard", "spei", "SPEI-3", "", points([v * 0.5 for v in spei])),
+        ],
+        [],
+        [{"id": 1, "kind": "scales", "response": "ndvi", "deseasonalise": False}],
+    )
+    fact = next(f for f in view.facts() if f.card.startswith("Drought scale 1"))
+    assert "1 month earlier" in fact.text

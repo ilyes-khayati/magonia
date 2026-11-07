@@ -25,7 +25,33 @@ export function describe(points: SeriesPoint[]): Stats | null {
   };
 }
 
-export type MonthStats = { month: number; mean: number; low: number; high: number; years: number };
+export type MonthStats = { month: number; mean: number; median: number; low: number; high: number; years: number };
+
+export function median(xs: number[]): number {
+  const sorted = [...xs].sort((a, b) => a - b);
+  const mid = sorted.length >> 1;
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+// The value below which a share q of the values fall, interpolated between neighbours
+export function quantile(xs: number[], q: number): number {
+  const sorted = [...xs].sort((a, b) => a - b);
+  const at = (sorted.length - 1) * q;
+  const low = Math.floor(at);
+  return sorted[low] + (sorted[Math.min(low + 1, sorted.length - 1)] - sorted[low]) * (at - low);
+}
+
+// Meteorological seasons, as the season boxplots group months
+export const SEASONS = ["Winter", "Spring", "Summer", "Autumn"] as const;
+export const seasonOf = (month: number) => SEASONS[Math.floor(((month + 1) % 12) / 3)]; // Dec–Feb is winter
+
+// One row per real observation, labelled by calendar month and season, for distributions
+export function observations(points: SeriesPoint[]) {
+  return observed(points).map((p) => {
+    const month = Number(p.date.slice(5, 7)) - 1;
+    return { value: p.value, month, season: seasonOf(month), year: Number(p.date.slice(0, 4)) };
+  });
+}
 
 // Values by calendar month across years: the average year, with the lowest and highest year
 export function seasonalCycle(points: SeriesPoint[]): MonthStats[] {
@@ -33,7 +59,7 @@ export function seasonalCycle(points: SeriesPoint[]): MonthStats[] {
   for (const point of observed(points)) byMonth[Number(point.date.slice(5, 7)) - 1].push(point.value);
   return byMonth.flatMap((values, month) =>
     values.length
-      ? [{ month, mean: mean(values), low: Math.min(...values), high: Math.max(...values), years: values.length }]
+      ? [{ month, mean: mean(values), median: median(values), low: Math.min(...values), high: Math.max(...values), years: values.length }]
       : [],
   );
 }

@@ -690,17 +690,18 @@ export default function App() {
       ...forecast,
       ...pinned,
     ];
-    return all.filter((n, i) => all.findIndex((m) => m.variable === n.variable && m.native === n.native) === i);
+    return all.filter((n, i) => all.findIndex((m) => m.variable === n.variable && m.native === n.native && m.scale === n.scale) === i);
   }, [settings.variables, analyses, experiments, board]);
   const requests = useMemo(
     () =>
       // nothing is asked of Earth Engine until it is connected
       workspaceId === null || !earthEngine?.connected
         ? []
-        : needed.flatMap(({ variable, native }) =>
+        : needed.flatMap(({ variable, native, scale }) =>
             shown.map((area) => {
               const options = seriesOptions(settings, workspaceId, area.id, variable);
-              const wanted = native ? { ...options, resolution: "native" as const } : options;
+              const scaled = scale ? { ...options, scale } : options;
+              const wanted = native ? { ...scaled, resolution: "native" as const } : scaled;
               return { key: seriesKey(wanted, area.geometry), options: wanted };
             }),
           ),

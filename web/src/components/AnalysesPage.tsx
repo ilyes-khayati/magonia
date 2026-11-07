@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
-import { KINDS, duplicateAnalysis, type Analysis, type Kind } from "../analyses";
+import { KINDS, SPEI_SCALES, duplicateAnalysis, type Analysis, type Kind } from "../analyses";
 import type { Source } from "../board";
 import { moved } from "../cards";
 import { downloadNotebook, type Area, type SeriesOptions, type Variable, type VariableKey } from "../api";
@@ -41,6 +41,7 @@ const FACT_LABEL: Record<Kind, string> = {
   trend: "Trend",
   phenology: "Season dates",
   lags: "Lags",
+  scales: "Drought scale",
 };
 
 const CLOUDS = { pixel: "cloudy pixels removed", date: "cloudy dates removed", none: "no cloud filter" };
@@ -127,6 +128,12 @@ export default function AnalysesPage(props: Props) {
       case "lags": {
         const id = analysis.area ?? ready(analysis.response)[0];
         if (id !== undefined) series = [analysis.response, ...analysis.drivers].map((k) => options(id, k));
+        choices = { deseasonalise: analysis.deseasonalise };
+        break;
+      }
+      case "scales": {
+        const id = analysis.area ?? ready(analysis.response)[0];
+        if (id !== undefined) series = [options(id, analysis.response), ...SPEI_SCALES.map((scale) => ({ ...options(id, "spei"), scale }))];
         choices = { deseasonalise: analysis.deseasonalise };
         break;
       }

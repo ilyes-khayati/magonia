@@ -235,6 +235,20 @@ for area in dict.fromkeys(s.area for s in SERIES.values()):
 """
             ),
         ]
+    if kind == "scales":
+        scales = [key(s) for s in series[1:]]
+        return [
+            markdown("## Drought scale and lag"),
+            code(
+                f"""
+target = SERIES[{key(first)!r}]
+scales = [SERIES[name] for name in {scales!r}]
+for title, lag in facts.scale_scan(target, scales, deseasonalise={options.get("deseasonalise", True)!r}):
+    print(f"{{title}}, {{lag.lag}} months earlier: r = {{lag.r:.2f}} (n = {{lag.n}})")
+print(facts.scale_fact("", target, scales, {options.get("deseasonalise", True)!r}).text)
+"""
+            ),
+        ]
     raise ValueError(f"no notebook for {kind!r}")
 
 

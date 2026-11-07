@@ -14,7 +14,7 @@ export type Settings = {
   masking: Masking;
   fill: boolean;
   maxGap: number;
-  mode: "series" | "seasonal";
+  mode: "series" | "seasonal" | "distribution";
   cards: Record<string, CardLayout>; // by card: "chart:ndvi", "analysis:3"
   chartOrder: VariableKey[];
   display: Display; // how the Data page shows the series; analyses keep them as extracted

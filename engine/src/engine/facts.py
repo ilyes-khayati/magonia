@@ -357,6 +357,44 @@ def correlation_fact(card: str, response: Series, driver: Series, deseasonalise:
     return Fact(card, text, values)
 
 
+def scale_scan(
+    response: Series, scales: list[Series], max_lag: int = 6, deseasonalise: bool = True
+) -> list[tuple[str, Lag]]:
+    """The response against the same drought index at several accumulation scales and lags:
+    each scale's title with every lag that has enough months in common."""
+    return [
+        (s.title, lag)
+        for s in scales
+        for lag in lag_correlation(response.points, s.points, max_lag, deseasonalise)
+    ]
+
+
+def scale_fact(card: str, response: Series, scales: list[Series], deseasonalise: bool) -> Fact:
+    """Which accumulation scale, and which lag, the response follows most closely."""
+    found = scale_scan(response, scales, deseasonalise=deseasonalise)
+    who = response.area
+    if not found:
+        return Fact(
+            card, f"{who}: no scale has {MIN_PAIRS} months in common with {response.title}."
+        )
+    title, best = max(found, key=lambda pair: abs(pair[1].r))
+    what = "anomalies" if deseasonalise else "values (seasonal cycle kept)"
+    when = (
+        "the same month"
+        if best.lag == 0
+        else f"{best.lag} month{'s' if best.lag > 1 else ''} earlier"
+    )
+    tested = len({t for t, _ in found})
+    stats = f"r = {best.r:.2f}, {best.n} months, chance band ±{best.band:.2f}"
+    verdict = "" if abs(best.r) >= best.band else " This does not stand out from chance."
+    return Fact(
+        card,
+        f"{who}: of {tested} scales, {response.title} {what} follow {title} from {when} most "
+        f"closely ({stats}).{verdict}",
+        [round(best.r, 4), best.lag, best.n],
+    )
+
+
 def decomposition_facts(card: str, s: Series) -> list[Fact]:
     """What the decomposition card shows: how the trend moved and how much is seasonal."""
     who = f"{s.area}, {s.title}"
@@ -531,6 +569,15 @@ class View:
                         facts.extend(
                             lag_facts(card, response, drivers, analysis.get("deseasonalise", True))
                         )
+                continue
+            if analysis.get("kind") == "scales":
+                for area in areas:
+                    response = self.find(area, analysis["response"])
+                    scales = [s for s in self.series if s.area == area and s.key == "spei"]
+                    if response and scales:
+                        card = f"{titled(analysis, f'Drought scale {n}')}: {response.title}"
+                        kept = analysis.get("deseasonalise", True)
+                        facts.append(scale_fact(card, response, scales, kept))
                 continue
             if analysis.get("kind") != "correlation":
                 continue
