@@ -39,3 +39,16 @@ def test_the_glossary_comes_from_the_catalogue():
     assert "NDMI (MODIS Terra MOD09A1" in said and "Rainfall (ERA5-Land" in said
     assert "Random Forest:" in glossary("how deep should a random forest be?")
     assert glossary("hello") == ""
+
+
+def test_how_well_a_product_works_is_a_literature_question():
+    assert route("What are the limits of MODIS NDVI at 250 m for small fields?") == "research"
+    assert route("How accurate is SPEI for olive drought?") == "research"
+
+
+def test_short_follow_ups_are_recognised():
+    from engine.route import follows
+
+    assert follows("And in Tunisia?")
+    assert follows("What about forests?")
+    assert not follows("What do studies say about drought and olive NDVI in Tunisia since 2010?")

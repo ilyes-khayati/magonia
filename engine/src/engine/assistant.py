@@ -24,7 +24,7 @@ from engine.numbers import check_numbers
 from engine.proposals import PROPOSE_TOOL, ProposalError, proposal
 from engine.proposals import describe as describe_proposal
 from engine.rank import ollama_embedder
-from engine.route import SOURCES, glossary, route
+from engine.route import SOURCES, follows, glossary, route
 from engine.standing import standing_instruction
 from engine.support import Judge, check_support, faithfulness, judge_with
 
@@ -123,6 +123,8 @@ number comes from, for example "(NDVI chart)".
 - The facts do not contain the values of single months or years. When asked for them, call \
 read_series (one area and variable, a year or every year) and quote what it returns. Never \
 write a value you were not given.
+- A question about a year (which year was lowest, driest, greenest) is answered with the \
+annual means: quote the "annual means" fact, never a single month.
 - Interpret only what the facts state. A positive r means the two rise together. A trend \
 that is not statistically significant is not evidence of a trend. A correlation beyond its \
 chance band is unlikely to be chance.
@@ -363,6 +365,13 @@ def answer(
 
     areas = list(dict.fromkeys(s.area for s in view.series)) if view is not None else []
     kind = route(text, areas, view is not None)
+    # a short follow-up ("And in Tunisia?") asks the earlier question again about something else
+    earlier_question = next(
+        (str(m["content"]) for m in reversed(conversation[:-1]) if m.get("role") == "user"), ""
+    )
+    follow_up = bool(earlier_question) and follows(text) and kind in ("general", "method")
+    if follow_up and route(earlier_question, areas, view is not None) == "research":
+        kind = "research"
     if view is not None and view.focus and kind != "research":
         kind = "data"  # asked from a card: about what the card shows
     # the researcher's own files: listed for every question, read when one is about them
@@ -394,6 +403,12 @@ def answer(
     elif kind == "method" and (known := glossary(text)):
         sources.append(("Magonia's catalogue", known))
         messages[-1] = {**messages[-1], "content": f"{known}\n\n---\nThe researcher asks: {text}"}
+    if follow_up and kind == "research":
+        messages[-1] = {
+            **messages[-1],
+            "content": f'{text}\n\n(This follows the earlier question: "{earlier_question}". '
+            "Search again for both together, the earlier topic with what is asked now.)",
+        }
     papers: list[Paper] = []
     pages: dict[int, set[int]] = {}  # the pages of each paper whose passages the model read
     evidence: dict[int, list[tuple[str, str]]] = {}  # what the model was given from each paper

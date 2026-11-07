@@ -189,7 +189,8 @@ def series_facts(s: Series) -> list[Fact]:
         facts.append(
             say(
                 f"mean {fmt(mean, s.key)}{unit} (standard deviation {fmt(sd, s.key)}); lowest "
-                f"{fmt(low[1], s.key)} in {low[0][:7]}, highest {fmt(high[1], s.key)} in {high[0][:7]}.",
+                f"single month {fmt(low[1], s.key)} in {low[0][:7]}, highest single month "
+                f"{fmt(high[1], s.key)} in {high[0][:7]}.",
                 mean,
                 sd,
                 low[1],
