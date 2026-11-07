@@ -51,7 +51,10 @@ def test_unexpected_failure_is_readable(client, monkeypatch):
     monkeypatch.setattr(jobs, "fetch", broken)
     job = client.post("/jobs", json=REQUEST).json()
     assert job["status"] == "failed"
-    assert "quota exceeded" in job["error"]
+    assert (
+        job["error"]
+        == "Earth Engine is busy and could not extract this series. Try again in a minute."
+    )
 
 
 @pytest.mark.parametrize(

@@ -270,14 +270,17 @@ class Ollama:
             response = urlopen(request, timeout=300)
         except URLError as exc:
             raise ProviderError(
-                f"Could not reach the language model at {self.url}. Is Ollama running?"
+                "Magon is not available right now: its language model is not answering. "
+                "Try again in a minute."
             ) from exc
         # Ollama sends one JSON object per line, each with the next piece of the answer
         with response:
             for line in response:
                 piece = json.loads(line)
                 if "error" in piece:
-                    raise ProviderError(piece["error"])
+                    raise ProviderError(
+                        "Magon stopped before finishing its answer. Ask again in a moment."
+                    )
                 message = piece.get("message", {})
                 for call in message.get("tool_calls") or []:
                     yield ToolCall(

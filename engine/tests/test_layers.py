@@ -46,3 +46,12 @@ def test_a_month_of_ndvi_is_drawn_and_a_pixel_read():
         },
     )
     assert 1 <= len(cells["features"]) <= 9
+
+
+def test_earth_engine_failures_are_said_plainly():
+    from engine.earth_engine import plainly
+
+    busy = plainly(RuntimeError("Too many concurrent aggregations."), "draw NDVI")
+    assert busy == "Earth Engine is busy and could not draw NDVI. Try again in a minute."
+    assert "smaller area" in plainly(RuntimeError("Computation timed out."))
+    assert "Traceback" not in plainly(RuntimeError("Traceback (most recent call last)"))

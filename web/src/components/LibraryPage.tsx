@@ -175,9 +175,13 @@ export default function LibraryPage({ workspaceId, onUndoable }: Props) {
           />
           <div className="row" style={{ justifyContent: "space-between" }}>
             <span className="meta">{(instructions ?? "").length} / 2000</span>
-            <button className="primary" disabled={saved} onClick={save}>
-              {saved ? "Saved" : "Save"}
-            </button>
+            {saved ? (
+              <span className="state">Saved</span>
+            ) : (
+              <button className="primary" onClick={save}>
+                Save
+              </button>
+            )}
           </div>
         </section>
       </div>

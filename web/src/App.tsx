@@ -293,7 +293,7 @@ export default function App() {
       if (!found.length) found = [await createWorkspace("My workspace")];
       setWorkspaces(found);
     })().catch(() =>
-      setMessage({ text: "Could not reach the Magonia API. Is it running?", error: true }),
+      setMessage({ text: "Magonia cannot reach its server. Reload the page in a moment.", error: true }),
     );
   }, []);
 

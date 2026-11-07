@@ -17,7 +17,7 @@ class Unreachable:
     name = "unreachable"
 
     def stream(self, messages, tools=None):
-        raise ProviderError("Could not reach the language model. Is Ollama running?")
+        raise ProviderError("Magon is not available right now.")
         yield
 
 
@@ -228,7 +228,7 @@ def test_unreachable_model_is_a_503_and_nothing_is_saved(client):
 
     reply = client.post(f"/conversations/{c}/chat", json={"content": "What is NDVI?"})
     assert reply.status_code == 503
-    assert "Is Ollama running" in reply.json()["detail"]
+    assert "not available right now" in reply.json()["detail"]
     assert client.get(f"/conversations/{c}/messages").json() == []
 
 
