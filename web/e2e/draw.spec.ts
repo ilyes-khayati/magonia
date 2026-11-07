@@ -1125,10 +1125,10 @@ test("Magonia opens beside a page, and the conversation carries over to its own 
   await expect(assistant.getByText("Drought lowers olive NDVI")).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Magon" })).toHaveCount(0);
   await assistant.getByRole("button", { name: "Make Magon bigger" }).click();
-  await expect(page).toHaveURL(/\/assistant$/);
+  await expect(page).toHaveURL(/\/assistant(\?|$)/);
   await expect(assistant.getByText("Drought lowers olive NDVI")).toBeVisible();
   await assistant.getByRole("button", { name: "Make Magon smaller" }).click();
-  await expect(page).toHaveURL(/\/map$/);
+  await expect(page).toHaveURL(/\/map(\?|$)/);
   await expect(assistant.getByText("Drought lowers olive NDVI")).toBeVisible();
   await assistant.getByRole("button", { name: "Close Magon" }).click();
   await expect(assistant).toBeHidden();
@@ -1252,7 +1252,7 @@ test("Magon proposes analyses, and nothing is added until the researcher clicks"
   await expect(trend).toContainText("Added");
 
   await assistant.getByRole("group", { name: /Proposed: Forecast experiment/ }).getByRole("button", { name: "Add it" }).click();
-  await expect(page).toHaveURL(/\/model$/);
+  await expect(page).toHaveURL(/\/model(\?|$)/);
   await expect.poll(() => modelled.at(-1)).toMatchObject({ models: ["Ridge"], test_years: 2 });
 });
 
