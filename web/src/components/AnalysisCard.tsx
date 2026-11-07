@@ -6,6 +6,7 @@ import CorrelationCard from "./CorrelationCard";
 import DecompositionCard from "./DecompositionCard";
 import LagsCard from "./LagsCard";
 import PhenologyCard from "./PhenologyCard";
+import CoherenceCard from "./CoherenceCard";
 import ScalesCard from "./ScalesCard";
 import TrendCard from "./TrendCard";
 
@@ -34,6 +35,19 @@ export default function AnalysisCard({ analysis, onChange, onRemove, catalogue, 
           entries={entries}
           native={(v) => entries(v, true)}
           options={(id, v) => options(id, v, true)}
+          seasonal={settings.resolution === "seasonal"}
+        />
+      );
+    case "coherence":
+      return (
+        <CoherenceCard
+          analysis={analysis}
+          onChange={(change) => onChange(change)}
+          onRemove={() => onRemove()}
+          variables={catalogue}
+          title={title}
+          entries={entries}
+          options={options}
           seasonal={settings.resolution === "seasonal"}
         />
       );

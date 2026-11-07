@@ -570,6 +570,25 @@ class View:
                             lag_facts(card, response, drivers, analysis.get("deseasonalise", True))
                         )
                 continue
+            if analysis.get("kind") == "coherence":
+                from engine.coherence import CoherenceError, coherence
+
+                for area in areas:
+                    a = self.find(area, analysis["response"])
+                    b = self.find(area, analysis["driver"])
+                    if a and b:
+                        card = f"{titled(analysis, f'Coherence {n}')}: {a.title} and {b.title}"
+                        x, y = monthly_series(a), monthly_series(b)
+                        if analysis.get("deseasonalise", False):
+                            x = x - x.groupby(x.index.month).transform("mean")
+                            y = y - y.groupby(y.index.month).transform("mean")
+                        try:
+                            found = coherence(x, y, a.title, b.title, area, runs=100)
+                        except CoherenceError as exc:
+                            facts.append(Fact(card, str(exc)))
+                            continue
+                        facts += [Fact(card, line) for line in found.summary]
+                continue
             if analysis.get("kind") == "scales":
                 for area in areas:
                     response = self.find(area, analysis["response"])

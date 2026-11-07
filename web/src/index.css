@@ -3220,3 +3220,16 @@ input[type="checkbox"]:focus-visible {
 .variable-row > button {
   flex: none;
 }
+
+.coherence-key {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+
+.coherence-key .ramp {
+  width: 120px;
+  height: 8px;
+  border: 1px solid var(--line);
+}

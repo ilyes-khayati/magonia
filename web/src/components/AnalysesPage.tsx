@@ -42,6 +42,7 @@ const FACT_LABEL: Record<Kind, string> = {
   phenology: "Season dates",
   lags: "Lags",
   scales: "Drought scale",
+  coherence: "Coherence",
 };
 
 const CLOUDS = { pixel: "cloudy pixels removed", date: "cloudy dates removed", none: "no cloud filter" };
@@ -128,6 +129,12 @@ export default function AnalysesPage(props: Props) {
       case "lags": {
         const id = analysis.area ?? ready(analysis.response)[0];
         if (id !== undefined) series = [analysis.response, ...analysis.drivers].map((k) => options(id, k));
+        choices = { deseasonalise: analysis.deseasonalise };
+        break;
+      }
+      case "coherence": {
+        const id = analysis.area ?? ready(analysis.response).filter((a) => ready(analysis.driver).includes(a))[0];
+        if (id !== undefined) series = [options(id, analysis.response), options(id, analysis.driver)];
         choices = { deseasonalise: analysis.deseasonalise };
         break;
       }
