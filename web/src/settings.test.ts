@@ -31,8 +31,9 @@ describe("errorText", () => {
     expect(errorText(body, 422)).toBe("start: Input should be a valid date");
   });
 
-  it("passes a plain message through, and falls back to the status", () => {
+  it("passes a plain message through, and otherwise says what the status means", () => {
     expect(errorText({ detail: "Area not found" }, 404)).toBe("Area not found");
-    expect(errorText({}, 500)).toBe("status 500");
+    expect(errorText({}, 500)).toBe("Something went wrong on Magonia's side (error 500). Try again.");
+    expect(errorText({}, 403)).toBe("The request was refused (error 403).");
   });
 });

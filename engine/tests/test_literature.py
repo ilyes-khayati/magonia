@@ -66,15 +66,16 @@ def test_an_api_key_is_sent_when_set(openalex, monkeypatch):
     assert "api_key=k123" in openalex[0]
 
 
-def test_a_used_up_budget_says_so_and_how_to_fix_it(monkeypatch):
+def test_a_used_up_budget_says_so_and_logs_how_to_fix_it(monkeypatch, caplog):
     def limited(request, timeout, context=None):
         raise HTTPError(request.full_url, 429, "Too Many Requests", {}, None)
 
     monkeypatch.delenv("OPENALEX_API_KEY", raising=False)
     monkeypatch.setattr(literature, "load_dotenv", lambda: None)
     monkeypatch.setattr(literature, "urlopen", limited)
-    with pytest.raises(LiteratureError, match="budget is used up.*OPENALEX_API_KEY"):
+    with pytest.raises(LiteratureError, match="daily limit"):
         search_papers("olive")
+    assert "OPENALEX_API_KEY" in caplog.text
 
 
 def test_unreachable_openalex_is_a_clear_error(monkeypatch):
@@ -82,5 +83,5 @@ def test_unreachable_openalex_is_a_clear_error(monkeypatch):
         raise URLError("no network")
 
     monkeypatch.setattr(literature, "urlopen", offline)
-    with pytest.raises(LiteratureError, match="Could not reach OpenAlex"):
+    with pytest.raises(LiteratureError, match="cannot be reached right now"):
         search_papers("olive")

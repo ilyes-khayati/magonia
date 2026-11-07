@@ -119,10 +119,14 @@ export default function ModelPage(props: Props) {
             const recipe = resolve(e.recipe);
             return (
               <div key={e.id} className="experiment-item" aria-current={pair.length < 2 && e.id === open?.id}>
-                <button className="experiment-open" onClick={() => (setOpenId(e.id), setComparing([]))}>
+                <button className="experiment-open" title={recipeLine(e.recipe, name)} onClick={() => (setOpenId(e.id), setComparing([]))}>
                   <strong>{e.name}</strong>
                   <span className="meta">
-                    {areas.find((a) => a.id === recipe?.area)?.name ?? "no area"} · {recipeLine(e.recipe, name)}
+                    {name(e.recipe.response)} · {areas.find((a) => a.id === recipe?.area)?.name ?? "no area"}
+                  </span>
+                  <span className="meta">
+                    {e.recipe.models.length} model{e.recipe.models.length === 1 ? "" : "s"} · {e.recipe.drivers.length} driver
+                    {e.recipe.drivers.length === 1 ? "" : "s"} · {e.recipe.test_years} years held out
                   </span>
                   {!e.ran && <span className="meta not-run">Not run yet</span>}
                 </button>
@@ -270,13 +274,13 @@ function ExperimentView(props: ViewProps) {
       </details>
 
       <div className="run-bar">
-        <button
-          className="primary"
-          disabled={!runnable || (!changed && !!ran)}
-          onClick={() => onChange({ ran: structuredClone(recipe), explain: false, stability: false })}
-        >
-          {!ran ? "Run experiment" : changed ? "Run with these changes" : "Up to date"}
-        </button>
+        {ran && !changed ? (
+          <span className="state">Up to date</span>
+        ) : (
+          <button className="primary" disabled={!runnable} onClick={() => onChange({ ran: structuredClone(recipe), explain: false, stability: false })}>
+            {!ran ? "Run experiment" : "Run with these changes"}
+          </button>
+        )}
         <span className="meta" role="status">
           {!runnable
             ? "Choose at least one model to run."
@@ -299,6 +303,7 @@ function ExperimentView(props: ViewProps) {
             stable={e.stability}
             onStable={() => onChange({ stability: true })}
             digits={large(ran.response) ? 2 : 4}
+            label={variables.find((v) => v.key === ran.response) ? title(variables.find((v) => v.key === ran.response)!) : ran.response}
           />
         ) : (
           <p className="placeholder">Waiting for the series of this area to load.</p>

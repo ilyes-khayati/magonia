@@ -27,7 +27,7 @@ def test_reads_project_from_environment(fake_ee, monkeypatch):
 
 
 def test_missing_project_raises(fake_ee):
-    with pytest.raises(EarthEngineError, match="EE_PROJECT"):
+    with pytest.raises(EarthEngineError, match="No Earth Engine project is connected"):
         connect()
 
 
@@ -36,7 +36,7 @@ def test_earth_engine_failure_is_explained(monkeypatch):
         raise ee.EEException("Please authorize access")
 
     monkeypatch.setattr(ee, "Initialize", fail)
-    with pytest.raises(EarthEngineError, match="earthengine authenticate"):
+    with pytest.raises(EarthEngineError, match="signed in to Earth Engine"):
         connect("some-project")
 
 

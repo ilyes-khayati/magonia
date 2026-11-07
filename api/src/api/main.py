@@ -1,5 +1,6 @@
 import itertools
 import json
+import logging
 import sqlite3
 import time
 from collections.abc import Iterator
@@ -13,7 +14,7 @@ from engine import assistant, facts, guardrails, layers, notebook
 from engine.areas import AreaError, make_area
 from engine.catalogue import CATALOGUE, get_variable
 from engine.decompose import DecompositionError, decompose
-from engine.earth_engine import EarthEngineError, check, connect
+from engine.earth_engine import EarthEngineError, check, connect, plainly
 from engine.explain import Explanation, Pair, describe, explain, stability
 from engine.fulltext import FullTextError
 from engine.lags import explore
@@ -33,6 +34,8 @@ from api.jobs import Runner, cache_key, execute
 from api.store import Store, default_path
 
 app = FastAPI(title="Magonia API", version="0.0.1")
+# what went wrong in detail goes to the log; the researcher is told what it means for them
+log = logging.getLogger("magonia")
 
 # Larger areas make Earth Engine requests slow or fail; the limit is stated, not hidden (DATA-07)
 MAX_AREA_KM2 = 10_000
@@ -363,8 +366,11 @@ def layer_tiles(
     earth_engine(store)
     try:
         found = layers.tiles(key, month, scale)
-    except Exception as exc:  # Earth Engine's reasons reach the user
-        raise HTTPException(502, f"Earth Engine could not draw {key} for {month}: {exc}") from exc
+    except Exception as exc:
+        log.exception("tiles for %s %s", key, month)
+        raise HTTPException(
+            502, plainly(exc, f"draw {get_variable(key).name} for {month}")
+        ) from exc
     TILES[name] = (time.time(), found)
     return found
 
@@ -398,7 +404,8 @@ def inspect_point(body: PointRequest, store: StoreDep) -> dict:
             body.variable, body.lon, body.lat, request["start"], request["end"], body.scale
         )
     except Exception as exc:
-        raise HTTPException(502, f"Earth Engine could not read this point: {exc}") from exc
+        log.exception("inspect %s", request)
+        raise HTTPException(502, plainly(exc, "read this pixel")) from exc
     found = {
         **request,
         "name": variable.name,
@@ -427,7 +434,8 @@ def area_pixels(area_id: int, variable: str, store: StoreDep) -> dict:
     try:
         grid = layers.pixel_grid(variable, area["geometry"])
     except Exception as exc:
-        raise HTTPException(502, f"Earth Engine could not outline the pixels: {exc}") from exc
+        log.exception("pixels of area %s", area_id)
+        raise HTTPException(502, plainly(exc, "outline the pixels")) from exc
     found = {
         "type": "FeatureCollection",
         "features": [
@@ -770,8 +778,11 @@ def fit_forecast(store: Store, key: str, response: facts.Series, drivers: list[f
         store.save_result(key, {**found.to_dict(), "area": response.area})
     except ForecastError as exc:
         FAILED[key] = str(exc)
-    except Exception as exc:  # noqa: BLE001 - any failure must reach the user, not vanish
-        FAILED[key] = f"The models could not be fitted: {exc}"
+    except Exception:  # any failure must reach the user, not vanish
+        log.exception("fitting %s", key)
+        FAILED[key] = (
+            "The models could not be fitted. Try fewer predictors or lags, or a longer period."
+        )
     finally:
         FITTING.discard(key)
 
@@ -816,8 +827,9 @@ def explain_forecast(store, key, models_result, response, drivers, body) -> None
         params = {m["name"]: m["params"] for m in models_result["models"]}
         found = explain(X[train], y[train], params)
         store.save_result(key, found.to_dict())
-    except Exception as exc:  # noqa: BLE001 - any failure must reach the user, not vanish
-        FAILED[key] = f"The models could not be explained: {exc}"
+    except Exception:  # any failure must reach the user, not vanish
+        log.exception("explaining %s", key)
+        FAILED[key] = "The models could not be explained. Fit them again, then try once more."
     finally:
         FITTING.discard(key)
 
@@ -875,8 +887,11 @@ def check_stability(store, key, models_result, response, drivers, body) -> None:
         params = {m["name"]: m["params"] for m in models_result["models"]}
         held = stability(response.area, X, y, params, test_start)
         store.save_result(key, {**held.to_dict(), "area": response.area})
-    except Exception as exc:  # noqa: BLE001 - any failure must reach the user, not vanish
-        FAILED[key] = f"Stability could not be checked: {exc}"
+    except Exception:  # any failure must reach the user, not vanish
+        log.exception("stability %s", key)
+        FAILED[key] = (
+            "Stability could not be checked: the record may be too short for earlier windows."
+        )
     finally:
         FITTING.discard(key)
 
@@ -1278,7 +1293,8 @@ def chat(
                         read.update(event["read"])
                 yield json.dumps(event) + "\n"
         except assistant.ProviderError as exc:
-            yield json.dumps({"type": "error", "message": f"The model stopped: {exc}"}) + "\n"
+            log.warning("chat stopped: %s", exc)
+            yield json.dumps({"type": "error", "message": str(exc)}) + "\n"
         finally:  # keep what was said, even if the reader left early
             details = {"searches": searches, "papers": papers, "cards": cards, "reads": reads}
             if proposals:

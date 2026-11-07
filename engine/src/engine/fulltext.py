@@ -56,9 +56,9 @@ def download(url: str, timeout: float = 15) -> bytes:
     except HTTPError as exc:
         if exc.code in (401, 403):
             raise FullTextError("The publisher does not allow downloads.") from exc
-        raise FullTextError(f"Could not download the PDF: {exc}") from exc
+        raise FullTextError("The PDF could not be downloaded.") from exc
     except (URLError, TimeoutError, ValueError, OSError) as exc:
-        raise FullTextError(f"Could not download the PDF: {exc}") from exc
+        raise FullTextError("The PDF could not be downloaded.") from exc
     if not data.startswith(b"%PDF"):
         raise FullTextError("The link gave a web page, not a PDF.")
     if len(data) > MAX_BYTES:
@@ -72,7 +72,7 @@ def pages(pdf: bytes) -> list[str]:
         reader = PdfReader(io.BytesIO(pdf))
         texts = [page.extract_text() or "" for page in reader.pages[:MAX_PAGES]]
     except (PdfReadError, ValueError, KeyError, TypeError) as exc:
-        raise FullTextError(f"Could not read the PDF: {exc}") from exc
+        raise FullTextError("The PDF could not be read.") from exc
     return [re.sub(r"(\w)-\n(\w)", r"\1\2", t) for t in texts]
 
 

@@ -9,7 +9,7 @@ import type { Entry } from "./ChartCard";
 import Cautions from "./Cautions";
 import { CloseIcon } from "./Icons";
 import { PlotFrame } from "../plot/Chart";
-import { num } from "../format";
+import { num, oneArea } from "../format";
 
 type Props = {
   analysis: Lags;
@@ -204,7 +204,7 @@ export default function LagsCard(props: Props) {
             </>
           )}
           <ul className="summary">
-            {found.summary.map((line) => (
+            {oneArea(found.summary).map((line) => (
               <li key={line}>{line}</li>
             ))}
           </ul>

@@ -38,45 +38,90 @@ function Num({ n }: { n: CheckedNumber }) {
 
 // The answer text, with each citation shown as a numbered badge that points to its paper card
 // and each checked number marked
+type Part = ReturnType<typeof styled>[number];
+type Line = { kind: "text" | "bullet" | "number" | "blank"; marker?: string; depth: number; parts: Part[] };
+
+// The answer split into lines, each a paragraph line or a list item with its marker taken off,
+// so that lists hang from their markers instead of wrapping under them
+function answerLines(parts: Part[]): Line[] {
+  const lines: Line[] = [{ kind: "text", depth: 0, parts: [] }];
+  for (const part of parts) {
+    if (!("text" in part)) {
+      lines.at(-1)!.parts.push(part);
+      continue;
+    }
+    part.text.split("\n").forEach((piece, i) => {
+      if (i > 0) lines.push({ kind: "text", depth: 0, parts: [] });
+      if (piece) lines.at(-1)!.parts.push({ ...part, text: piece });
+    });
+  }
+  return lines.map((line) => {
+    const first = line.parts[0];
+    if (!first) return { ...line, kind: "blank" };
+    if (!("text" in first)) return line;
+    const item = /^(\s*)(•|\d+[.)])\s+/.exec(first.text);
+    if (!item) return line;
+    const rest = { ...first, text: first.text.slice(item[0].length) };
+    return {
+      kind: item[2] === "•" ? "bullet" : "number",
+      marker: item[2] === "•" ? "•" : item[2].replace(")", "."),
+      depth: item[1].length >= 2 ? 1 : 0,
+      parts: [rest, ...line.parts.slice(1)],
+    };
+  });
+}
+
 export function AnswerText(props: { text: string; papers: PaperCard[]; numbers?: CheckedNumber[]; anchor: string }) {
   const { text, papers, numbers, anchor } = props;
   const read = useReader();
+  const show = (part: Part, i: number) => {
+    const shown =
+      "text" in part ? (
+        part.text
+      ) : "number" in part ? (
+        <Num n={part.number} />
+      ) : (
+        <span className="cites">
+          {part.cites.map((n) => {
+            const paper = papers.find((p) => p.n === n);
+            const page = "page" in part ? part.page : undefined;
+            return (
+              <a
+                key={n}
+                className={page && paper && read && whereToRead(paper, page) ? "cite readable" : "cite"}
+                href={`#${anchor}-${n}`}
+                title={paper ? `${paper.short}. ${paper.title}${page ? `, p. ${page} (click to open it there)` : ""}` : undefined}
+                onClick={(e) => {
+                  // a cited page opens the paper at that page; a plain citation goes to the source below
+                  if (!page || !paper || !read || !whereToRead(paper, page)) return;
+                  e.preventDefault();
+                  read(paper, page);
+                }}
+              >
+                {n}
+                {page && <span className="cite-page">p. {page}</span>}
+              </a>
+            );
+          })}
+        </span>
+      );
+    return part.bold ? <strong key={i}>{shown}</strong> : <span key={i}>{shown}</span>;
+  };
   return (
-    <>
-      {styled(answerParts(text, numbers)).map((part, i) => {
-        const shown =
-          "text" in part ? (
-            part.text
-          ) : "number" in part ? (
-            <Num n={part.number} />
-          ) : (
-            <span className="cites">
-              {part.cites.map((n) => {
-                const paper = papers.find((p) => p.n === n);
-                const page = "page" in part ? part.page : undefined;
-                return (
-                  <a
-                    key={n}
-                    className={page && paper && read && whereToRead(paper, page) ? "cite readable" : "cite"}
-                    href={`#${anchor}-${n}`}
-                    title={paper ? `${paper.short}. ${paper.title}${page ? `, p. ${page} (click to open it there)` : ""}` : undefined}
-                    onClick={(e) => {
-                      // a cited page opens the paper at that page; a plain citation goes to the source below
-                      if (!page || !paper || !read || !whereToRead(paper, page)) return;
-                      e.preventDefault();
-                      read(paper, page);
-                    }}
-                  >
-                    {n}
-                    {page && <span className="cite-page">p. {page}</span>}
-                  </a>
-                );
-              })}
-            </span>
-          );
-        return part.bold ? <strong key={i}>{shown}</strong> : <span key={i}>{shown}</span>;
-      })}
-    </>
+    <div className="answer-text">
+      {answerLines(styled(answerParts(text, numbers))).map((line, i) =>
+        line.kind === "blank" ? (
+          <div key={i} className="answer-gap" />
+        ) : line.kind === "text" ? (
+          <p key={i}>{line.parts.map(show)}</p>
+        ) : (
+          <div key={i} className={`answer-item depth-${line.depth}`}>
+            <span className="answer-marker">{line.marker}</span>
+            <span>{line.parts.map(show)}</span>
+          </div>
+        ),
+      )}
+    </div>
   );
 }
 

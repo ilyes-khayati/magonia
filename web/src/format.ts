@@ -27,3 +27,15 @@ export function distance(metres: number): string {
 export function surface(m2: number): string {
   return m2 >= 1e6 ? `${(m2 / 1e6).toFixed(m2 >= 1e8 ? 0 : 2)} km²` : `${(m2 / 1e4).toFixed(2)} ha`;
 }
+
+// Sentences that all begin with the same area's name lose it: the card already says which
+// area it is about. Sentences about several areas keep their names.
+export function oneArea(lines: string[]): string[] {
+  const names = lines.map((l) => /^([^:]{1,80}): /.exec(l)?.[1]);
+  const first = names[0];
+  if (!first || lines.length < 1 || names.some((n) => n !== first)) return lines;
+  return lines.map((l) => {
+    const rest = l.slice(first.length + 2);
+    return rest.charAt(0).toUpperCase() + rest.slice(1);
+  });
+}

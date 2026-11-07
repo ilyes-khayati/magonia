@@ -53,7 +53,8 @@ def test_earth_engine_failures_are_said(client, monkeypatch):
 
     monkeypatch.setattr(main.layers, "tiles", refuse)
     reply = client.get("/layers/lst/tiles", params={"month": "2021-07"})
-    assert reply.status_code == 502 and "quota exceeded" in reply.json()["detail"]
+    assert reply.status_code == 502
+    assert reply.json()["detail"].startswith("Earth Engine is busy and could not draw Land surface")
 
 
 def test_a_point_is_read_once_and_kept(client, monkeypatch):

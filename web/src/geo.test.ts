@@ -69,3 +69,11 @@ describe("months", () => {
     expect(ticks(0, 0.9).map((t) => t.value.toFixed(1))).toEqual(["0.0", "0.2", "0.4", "0.6", "0.8"]);
   });
 });
+
+describe("one area's sentences", () => {
+  it("drop the area's name when every sentence has it", async () => {
+    const { oneArea } = await import("./format");
+    expect(oneArea(["Orchard: trend rising.", "Orchard: peak in March."])).toEqual(["Trend rising.", "Peak in March."]);
+    expect(oneArea(["Orchard: rising.", "Forest: falling."])).toEqual(["Orchard: rising.", "Forest: falling."]);
+  });
+});

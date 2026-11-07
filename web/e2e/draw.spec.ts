@@ -623,7 +623,7 @@ test("a trend card tests the annual means and warns about short records", async 
   const card = page.getByRole("region", { name: "Trend chart" });
   await expect(card.getByRole("row", { name: /Orchard/ })).toContainText("+0.210");
   await expect(card.getByRole("row", { name: /Orchard/ })).toContainText("significant");
-  await expect(card.getByRole("list", { name: "Cautions" })).toContainText("only 4 complete years");
+  await expect(card.getByRole("list", { name: "Cautions" })).toContainText("Only 4 complete years");
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export Long-term trend as a notebook" }).click();
   expect((await download).suggestedFilename()).toBe("long-term-trend.ipynb");
@@ -1407,7 +1407,7 @@ test("the library takes the researcher's PDFs and their instructions for Magonia
   const box = page.getByRole("textbox", { name: "Instructions for Magon" });
   await box.fill("Answer in French.");
   await page.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Saved" })).toBeDisabled();
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible();
   expect(instructions).toBe("Answer in French.");
 
   await page.reload();
