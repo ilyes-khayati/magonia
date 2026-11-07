@@ -1,6 +1,5 @@
 import CardTitle from "./CardTitle";
 import { useMemo } from "react";
-import { CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { Decomposition } from "../analyses";
 import { decomposeSeries, type SeriesOptions, type Variable, type VariableKey } from "../api";
 import { useAnalysis } from "../useAnalysis";
@@ -8,6 +7,9 @@ import type { Entry } from "./ChartCard";
 import Cautions from "./Cautions";
 import { CloseIcon } from "./Icons";
 import { large } from "../variables";
+import { TimeChart, type TimeSeries } from "../plot/Chart";
+import { dateOf } from "../plot/time";
+import { yLabel } from "../plot/series";
 
 type Props = {
   analysis: Decomposition;
@@ -19,10 +21,6 @@ type Props = {
   options: (areaId: number) => SeriesOptions; // the request behind each entry
 };
 
-type Row = Record<string, string | number | null>;
-
-const TICK = { fill: "var(--muted)", fontSize: 10, fontFamily: "var(--mono)" };
-const TOOLTIP = { background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8 };
 
 export default function DecompositionCard({ analysis, onChange, onRemove, variables, title, entries, options }: Props) {
   const variable = variables.find((v) => v.key === analysis.variable);
@@ -39,20 +37,19 @@ export default function DecompositionCard({ analysis, onChange, onRemove, variab
   const parts = entries.map((e) => ({ ...e, result: results.get(JSON.stringify(options(e.area.id))) }));
   const done = parts.flatMap((p) => (p.result?.status === "done" ? [{ ...p, data: p.result.data }] : []));
 
-  // one row per month, with the value, trend and seasonal part of each area
-  const table = new Map<string, Row>();
-  for (const { area, data } of done) {
-    for (const p of data.points) {
-      const row = table.get(p.date) ?? { date: p.date };
-      row[`v${area.id}`] = p.value;
-      row[`t${area.id}`] = p.trend;
-      row[`s${area.id}`] = p.seasonal;
-      table.set(p.date, row);
-    }
-  }
-  const data = [...table.values()].sort((a, b) => (String(a.date) < String(b.date) ? -1 : 1));
+  // each area's value faint under its trend, and its seasonal part below
+  const whole: TimeSeries[] = done.flatMap(({ area, colour, data }) => [
+    { id: `v${area.id}`, name: `${area.name} · value`, colour, width: 1, opacity: 0.35, points: data.points.map((p) => ({ date: dateOf(p.date), value: p.value })) },
+    { id: `t${area.id}`, name: `${area.name} · trend`, colour, width: 2.2, points: data.points.map((p) => ({ date: dateOf(p.date), value: p.trend })) },
+  ]);
+  const season: TimeSeries[] = done.map(({ area, colour, data }) => ({
+    id: `s${area.id}`,
+    name: `${area.name} · seasonal`,
+    colour,
+    width: 1.3,
+    points: data.points.map((p) => ({ date: dateOf(p.date), value: p.seasonal })),
+  }));
   const method = done[0]?.data;
-  const areaName = (key: string) => entries.find((e) => e.area.id === Number(key.slice(1)))?.area.name ?? key;
 
   return (
     <section className="card" aria-label="Decomposition chart">
@@ -94,67 +91,10 @@ export default function DecompositionCard({ analysis, onChange, onRemove, variab
       ) : (
         <>
           <span className="meta">{name} and its trend</span>
-          <ResponsiveContainer width="100%" height={170}>
-            <LineChart data={data} margin={{ top: 6, right: 6, bottom: 0, left: 0 }}>
-              <CartesianGrid stroke="var(--grid)" vertical={false} />
-              <XAxis dataKey="date" tick={TICK} tickFormatter={(d: string) => d.slice(0, 4)} minTickGap={36} />
-              <YAxis tick={TICK} width={38} domain={["auto", "auto"]} tickFormatter={(v) => Number(v).toFixed(digits)} />
-              <Tooltip
-                contentStyle={TOOLTIP}
-                labelFormatter={(d) => String(d).slice(0, 7)}
-                formatter={(value, key) => [
-                  Number(value).toFixed(digits + 1),
-                  `${areaName(String(key))} ${String(key)[0] === "t" ? "trend" : name}`,
-                ]}
-              />
-              {done.map(({ area, colour }) => (
-                <Line
-                  key={`v${area.id}`}
-                  dataKey={`v${area.id}`}
-                  stroke={colour}
-                  strokeOpacity={0.35}
-                  strokeWidth={1}
-                  dot={false}
-                  isAnimationActive={false}
-                />
-              ))}
-              {done.map(({ area, colour }) => (
-                <Line
-                  key={`t${area.id}`}
-                  dataKey={`t${area.id}`}
-                  stroke={colour}
-                  strokeWidth={2.4}
-                  dot={false}
-                  isAnimationActive={false}
-                />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
+          <TimeChart title={`${name} and its trend`} series={whole} height={190} y={{ label: variable ? yLabel(variable) : name, digits }} />
 
           <span className="meta">Seasonal part (the series minus its trend)</span>
-          <ResponsiveContainer width="100%" height={120}>
-            <LineChart data={data} margin={{ top: 6, right: 6, bottom: 0, left: 0 }}>
-              <CartesianGrid stroke="var(--grid)" vertical={false} />
-              <XAxis dataKey="date" tick={TICK} tickFormatter={(d: string) => d.slice(0, 4)} minTickGap={36} />
-              <YAxis tick={TICK} width={38} tickFormatter={(v) => Number(v).toFixed(digits)} />
-              <ReferenceLine y={0} stroke="var(--zero)" />
-              <Tooltip
-                contentStyle={TOOLTIP}
-                labelFormatter={(d) => String(d).slice(0, 7)}
-                formatter={(value, key) => [Number(value).toFixed(digits + 1), `${areaName(String(key))} seasonal`]}
-              />
-              {done.map(({ area, colour }) => (
-                <Line
-                  key={`s${area.id}`}
-                  dataKey={`s${area.id}`}
-                  stroke={colour}
-                  strokeWidth={1.4}
-                  dot={false}
-                  isAnimationActive={false}
-                />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
+          <TimeChart title={`${name} seasonal part`} series={season} height={130} y={{ label: "Seasonal part", digits, zero: true }} />
         </>
       )}
 

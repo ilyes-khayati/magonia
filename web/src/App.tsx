@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useMatch, useNavigate } from "react-router";
+import { useLocation, useMatch, useNavigate } from "react-router";
 import {
   createArea,
   createWorkspace,
@@ -19,6 +19,7 @@ import {
   type Area,
   type EarthEngineStatus,
   type Proposal,
+  type Tiles,
   type Variable,
   type VariableKey,
   type Workspace,
@@ -42,7 +43,13 @@ import DataPage from "./components/DataPage";
 import DataPanel from "./components/DataPanel";
 import EarthEngineSetup from "./components/EarthEngineSetup";
 import { CloseIcon, ExpandIcon, ShrinkIcon } from "./components/Icons";
-import MapView, { type Target, type Tool } from "./components/MapView";
+import MapView, { type Layer, type Target, type Tool, type View } from "./components/MapView";
+import LayerPanel from "./components/LayerPanel";
+import { shiftMonth } from "./months";
+import Inspector from "./components/Inspector";
+import CommandPalette, { type Command } from "./components/CommandPalette";
+import { typing } from "./keys";
+import { TimeProvider } from "./plot/TimeProvider";
 import LibraryPage from "./components/LibraryPage";
 import ModelPage from "./components/ModelPage";
 import Rail from "./components/Rail";
@@ -137,7 +144,27 @@ export default function App() {
   const [experimentsShown, setExperimentsShown] = useState<number[]>([]);
   const [board, setBoard] = useState<BoardItem[]>([]);
   const [tool, setTool] = useState<Tool>(null);
-  const [target, setTarget] = useState<Target | null>(null);
+  const [target, setTarget] = useState<Target | null>(() => {
+    const at = new URLSearchParams(window.location.search).get("at")?.split(",").map(Number);
+    return at?.length === 3 && at.every(Number.isFinite) ? { key: -1, center: [at[1], at[0]], zoom: at[2] } : null;
+  });
+  // What the map shows, kept in the address so that a link opens the same view
+  const initial = useRef(new URLSearchParams(window.location.search));
+  const [month, setMonth] = useState<string | null>(initial.current.get("month"));
+  const [layer, setLayer] = useState<Layer | null>(() => {
+    const variable = initial.current.get("layer") as VariableKey | null;
+    const scale = Number(initial.current.get("scale")) || undefined;
+    return variable ? { variable, scale, opacity: 0.8 } : null;
+  });
+  const [compare, setCompare] = useState<string | null>(initial.current.get("compare"));
+  const [grid, setGrid] = useState<VariableKey | null>(initial.current.get("pixels") as VariableKey | null);
+  const [mapView, setMapView] = useState<View | null>(null);
+  const [layersOpen, setLayersOpen] = useState(initial.current.has("layer"));
+  const [tiles, setTiles] = useState<{ tiles: Tiles | null; error: string | null; loading: boolean }>({ tiles: null, error: null, loading: false });
+  const [inspected, setInspected] = useState<[number, number] | null>(null);
+  const [inspectVariable, setInspectVariable] = useState<VariableKey | null>(null);
+  const [palette, setPalette] = useState(false);
+  const [dataWidth, setDataWidth] = useState(280);
   const [message, setMessage] = useState<Message>(null);
   const [catalogue, setCatalogue] = useState<Variable[]>([]);
   const [settings, setSettings] = useState<Settings>(DEFAULTS);
@@ -157,15 +184,30 @@ export default function App() {
   }, []);
   const closeReader = useCallback(() => setReading(null), []);
   const saving = useRef<number | undefined>(undefined);
+  const linked = useRef(initial.current.has("at"));
 
   // The address names the workspace and the page: /workspaces/<id>/<page>
   const navigate = useNavigate();
+  const location = useLocation();
   const match = useMatch("/workspaces/:workspace/:page");
   const page = isPage(match?.params.page) ? match.params.page : "map";
   const routed = Number(match?.params.workspace) || null;
 
   useEffect(() => applyTheme(theme), [theme]);
   useEffect(() => panelRemember(panel), [panel]);
+  useEffect(() => {
+    const next = new URLSearchParams();
+    if (month) next.set("month", month);
+    if (layer) next.set("layer", layer.variable);
+    if (layer?.scale) next.set("scale", String(layer.scale));
+    if (compare) next.set("compare", compare);
+    if (grid) next.set("pixels", grid);
+    if (mapView) next.set("at", `${mapView.center[1].toFixed(5)},${mapView.center[0].toFixed(5)},${mapView.zoom.toFixed(2)}`);
+    // written straight into the address: a router navigation here would race the page links
+    const search = next.toString();
+    if (search !== window.location.search.slice(1)) window.history.replaceState(window.history.state, "", `${window.location.pathname}${search ? `?${search}` : ""}`);
+  }, [month, layer, compare, grid, mapView, location.pathname]);
+  const onTiles = useCallback((found: Tiles | null, error?: string) => setTiles({ tiles: found, error: error ?? null, loading: false }), []);
 
   const docked = panel.open && page !== "assistant";
   const setDocked = (open: boolean) => setPanel((p) => ({ ...p, open }));
@@ -233,7 +275,9 @@ export default function App() {
     setBoard(readBoard(workspace.settings.board));
     remember(id);
     const box = bounds(workspace.areas.map((a) => a.geometry));
-    if (box) setTarget({ key: Date.now(), bounds: box });
+    // a link that names a view opens on that view, once
+    if (box && !linked.current) setTarget({ key: Date.now(), bounds: box });
+    linked.current = false;
   }
 
   useEffect(() => {
@@ -697,11 +741,91 @@ export default function App() {
     }));
 
   const hint =
-    tool === "polygon"
-      ? "Click to place points. Click the first point to close the area."
+    tool === "measure"
+      ? "Click to measure, double-click to end. Esc to stop."
+      : tool === "inspect"
+        ? "Click a pixel to read its values over time."
+        : tool === "polygon"
+      ? "Click to place points, snapping to existing corners. Click the first point to close. ⌘Z undoes a point."
       : tool === "rectangle"
         ? "Click one corner, then the opposite corner."
         : null;
+
+  const fit = () => {
+    const box = bounds(shown.map((a) => a.geometry));
+    if (box) setTarget({ key: Date.now(), bounds: box });
+  };
+  const chosenMonth = month ?? settings.end;
+  const openLayers = (open: boolean) => {
+    setLayersOpen(open);
+    if (open && !layer) setLayer({ variable: "ndvi", opacity: 0.8 });
+    if (open && !month) setMonth(settings.end);
+  };
+  const toPage = (p: Page) => workspaceId !== null && navigate(pagePath(workspaceId, p));
+  const pickTool = (t: Tool) => {
+    if (page !== "map") toPage("map");
+    setTool((now) => (now === t ? null : t));
+  };
+  const commands: Command[] = [
+    ...PAGES.map((p, i) => ({ id: `page-${p.key}`, group: "Go to", label: p.label, hint: `${i + 1}`, run: () => toPage(p.key) })),
+    { id: "polygon", group: "Map", label: "Draw a polygon", hint: "D", run: () => pickTool("polygon") },
+    { id: "rectangle", group: "Map", label: "Draw a rectangle", hint: "R", run: () => pickTool("rectangle") },
+    { id: "measure", group: "Map", label: "Measure a distance", hint: "M", run: () => pickTool("measure") },
+    { id: "inspect", group: "Map", label: "Inspect a pixel", hint: "I", run: () => pickTool("inspect") },
+    { id: "layers", group: "Map", label: layersOpen ? "Hide layers" : "Show layers", hint: "L", run: () => openLayers(!layersOpen) },
+    { id: "grid", group: "Map", label: grid ? "Hide the pixel grid" : "Outline the pixels over each area", hint: "G", run: () => setGrid(grid ? null : (layer?.variable ?? "ndvi")) },
+    { id: "fit", group: "Map", label: "Zoom to the areas", hint: "Z", run: () => (page === "map" ? fit() : (toPage("map"), fit())) },
+    { id: "focus", group: "Map", label: focus ? "Show the panels" : "Focus the map", hint: "F", run: () => setFocus(!focus) },
+    ...(layer ? [
+      { id: "prev", group: "Month", label: "Previous month", hint: "[", run: () => setMonth(shiftMonth(chosenMonth, -1)) },
+      { id: "next", group: "Month", label: "Next month", hint: "]", run: () => setMonth(shiftMonth(chosenMonth, 1)) },
+    ] : []),
+    ...catalogue.map((v) => ({ id: `layer-${v.key}`, group: "Show on map", label: v.name, run: () => { setLayersOpen(true); setLayer({ variable: v.key, opacity: layer?.opacity ?? 0.8, scale: v.key === "spei" ? 3 : undefined }); if (!month) setMonth(settings.end); toPage("map"); } })),
+    { id: "magon", group: "Magon", label: docked ? "Close Magon" : "Open Magon", hint: "⌘J", run: () => magon.onToggle() },
+    { id: "theme", group: "View", label: theme === "light" ? "Dark theme" : "Light theme", run: () => setTheme(theme === "light" ? "dark" : "light") },
+    { id: "link", group: "View", label: "Copy a link to this view", run: () => void navigator.clipboard?.writeText(window.location.href) },
+  ];
+
+  // Keys for everything a hand does often; ⌘K lists them all
+  const keys = useRef<(e: KeyboardEvent) => void>(() => {});
+  keys.current = (e: KeyboardEvent) => {
+    const mod = e.metaKey || e.ctrlKey;
+    if (mod && e.key.toLowerCase() === "k") {
+      e.preventDefault();
+      setPalette((p) => !p);
+      return;
+    }
+    if (mod || e.altKey || typing(e) || palette) return;
+    if (e.key === "Escape") {
+      setTool(null);
+      setInspected(null);
+      return;
+    }
+    const n = Number(e.key);
+    if (n >= 1 && n <= PAGES.length) return toPage(PAGES[n - 1].key);
+    const shortcut: Record<string, () => void> = {
+      d: () => pickTool("polygon"),
+      r: () => pickTool("rectangle"),
+      m: () => pickTool("measure"),
+      i: () => pickTool("inspect"),
+      l: () => openLayers(!layersOpen),
+      g: () => setGrid(grid ? null : (layer?.variable ?? "ndvi")),
+      z: fit,
+      f: () => page === "map" && setFocus(!focus),
+      "[": () => layer && setMonth(shiftMonth(chosenMonth, -1)),
+      "]": () => layer && setMonth(shiftMonth(chosenMonth, 1)),
+    };
+    const run = shortcut[e.key.toLowerCase()];
+    if (run) {
+      e.preventDefault();
+      run();
+    }
+  };
+  useEffect(() => {
+    const listen = (e: KeyboardEvent) => keys.current(e);
+    window.addEventListener("keydown", listen);
+    return () => window.removeEventListener("keydown", listen);
+  }, []);
 
   const label = PAGES.find((p) => p.key === page)!.label;
   const magon = {
@@ -711,9 +835,10 @@ export default function App() {
 
   return (
     <ReaderContext.Provider value={read}>
+    <TimeProvider month={month} onMonth={setMonth}>
     <div
       className={`workbench page-${page}${focus && page === "map" ? " focus" : ""}${docked ? " docked" : ""}`}
-      style={{ "--panel-width": `${panel.width}px` } as React.CSSProperties}
+      style={{ "--panel-width": `${panel.width}px`, "--data-open": `${dataWidth}px` } as React.CSSProperties}
     >
       <TopBar
         theme={theme}
@@ -734,6 +859,31 @@ export default function App() {
       {page === "data" && (
         <Sidebar>
           <DataPanel catalogue={catalogue} areas={areas} settings={settings} onChange={change} progress={progress} />
+          <div
+            className="side-handle"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize the variables panel"
+            aria-valuenow={dataWidth}
+            tabIndex={0}
+            onPointerDown={(e) => {
+              e.preventDefault();
+              const handle = e.currentTarget;
+              handle.setPointerCapture(e.pointerId);
+              const left = handle.parentElement!.getBoundingClientRect().left;
+              const move = (m: PointerEvent) => setDataWidth(Math.round(Math.min(480, Math.max(220, m.clientX - left))));
+              const stop = () => {
+                handle.removeEventListener("pointermove", move);
+                handle.removeEventListener("pointerup", stop);
+              };
+              handle.addEventListener("pointermove", move);
+              handle.addEventListener("pointerup", stop);
+            }}
+            onKeyDown={(e) => {
+              const step = e.key === "ArrowRight" ? 20 : e.key === "ArrowLeft" ? -20 : 0;
+              if (step) setDataWidth((w) => Math.min(480, Math.max(220, w + step)));
+            }}
+          />
         </Sidebar>
       )}
 
@@ -744,10 +894,65 @@ export default function App() {
             tool={tool}
             target={target}
             onDrawn={drawn}
+            onInspect={(at) => {
+              setInspected(at);
+              setInspectVariable((v) => v ?? layer?.variable ?? "ndvi");
+            }}
+            inspected={inspected}
             focus={focus}
             onFocus={() => setFocus(!focus)}
             visible={page === "map"}
+            layer={layer}
+            month={layer ? chosenMonth : null}
+            compare={compare}
+            grid={grid}
+            onTiles={onTiles}
+            onView={setMapView}
+            onFit={fit}
           />
+          {layersOpen && (
+            <LayerPanel
+              catalogue={catalogue}
+              layer={layer}
+              onLayer={(next) => {
+                setLayer(next);
+                setTiles({ tiles: null, error: null, loading: !!next });
+              }}
+              month={chosenMonth}
+              onMonth={(m) => {
+                setMonth(m);
+                setTiles((t) => ({ ...t, loading: true }));
+              }}
+              compare={compare}
+              onCompare={setCompare}
+              grid={grid}
+              onGrid={setGrid}
+              tiles={tiles.tiles}
+              error={tiles.error}
+              loading={tiles.loading || (!!layer && !tiles.tiles && !tiles.error)}
+              onClose={() => setLayersOpen(false)}
+            />
+          )}
+          {inspected && (
+            <Inspector
+              key={`${inspected.join(",")}|${inspectVariable ?? layer?.variable ?? "ndvi"}`}
+              at={inspected}
+              catalogue={catalogue}
+              variable={inspectVariable ?? layer?.variable ?? "ndvi"}
+              start={settings.start}
+              end={settings.end}
+              scale={settings.scale}
+              onVariable={setInspectVariable}
+              onMakeArea={async (geometry, name) => {
+                try {
+                  setAreas(await addArea(geometry, name));
+                } catch (error) {
+                  fail(error);
+                }
+              }}
+              onClose={() => setInspected(null)}
+            />
+          )}
           <Toolbar
             tool={tool}
             onTool={setTool}
@@ -759,6 +964,18 @@ export default function App() {
             onToggle={toggle}
             onRename={rename}
             onDelete={remove}
+            layers={layersOpen}
+            onLayers={() => openLayers(!layersOpen)}
+            onShape={async (geometry) => {
+              try {
+                const next = await addArea(geometry);
+                setAreas(next);
+                const box = bounds([geometry]);
+                if (box) setTarget({ key: Date.now(), bounds: box });
+              } catch (error) {
+                fail(error);
+              }
+            }}
           />
         </div>
 
@@ -923,7 +1140,9 @@ export default function App() {
         />
       )}
       {reading && <Reader paper={reading} onClose={closeReader} />}
+      {palette && <CommandPalette commands={commands} onClose={() => setPalette(false)} />}
     </div>
+    </TimeProvider>
     </ReaderContext.Provider>
   );
 }

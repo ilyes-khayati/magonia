@@ -10,9 +10,9 @@ function Svg({ size = 18, children }: IconProps & { children: React.ReactNode })
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth={1.8}
-      strokeLinecap="round"
-      strokeLinejoin="round"
+      strokeWidth={1.5}
+      strokeLinecap="square"
+      strokeLinejoin="miter"
       aria-hidden="true"
     >
       {children}
@@ -205,5 +205,53 @@ export const MagonIcon = (p: IconProps) => (
     <path d="M19.5 21c0-4 .2-7 1-10" />
     <path d="M19.8 15.5c-1.6-.4-2.4-1.6-2.3-3 1.5.2 2.4 1.3 2.3 3z" />
     <path d="M20.3 12.5c.3-1.5 1.4-2.3 2.6-2.2-.2 1.4-1.2 2.3-2.6 2.2z" />
+  </Svg>
+);
+
+export const InspectIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 3v5M12 16v5M3 12h5M16 12h5" />
+    <rect x="10" y="10" width="4" height="4" />
+  </Svg>
+);
+
+export const RulerIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M3 17L17 3l4 4L7 21z" />
+    <path d="M7 13l2 2M10 10l2 2M13 7l2 2" />
+  </Svg>
+);
+
+export const GridIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 4h16v16H4zM4 9.33h16M4 14.67h16M9.33 4v16M14.67 4v16" />
+  </Svg>
+);
+
+export const SwipeIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 4h16v16H4zM12 2v20" />
+    <path d="M8 10l-2 2 2 2M16 10l2 2-2 2" />
+  </Svg>
+);
+
+export const CoordinatesIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4" />
+    <path d="M12 9v6M9 12h6" />
+  </Svg>
+);
+
+export const UndoIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M9 14L4 9l5-5" />
+    <path d="M4 9h10a6 6 0 010 12h-3" />
+  </Svg>
+);
+
+export const RedoIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M15 14l5-5-5-5" />
+    <path d="M20 9H10a6 6 0 000 12h3" />
   </Svg>
 );

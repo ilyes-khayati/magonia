@@ -1,19 +1,6 @@
 import CardTitle from "./CardTitle";
 import { useMemo } from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Line,
-  LineChart,
-  ReferenceArea,
-  ReferenceLine,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import * as Plot from "@observablehq/plot";
 import type { Lags } from "../analyses";
 import { exploreLags, type LagsBody, type SeriesOptions, type Variable, type VariableKey } from "../api";
 import { areaColour, type Theme } from "../theme";
@@ -21,6 +8,8 @@ import { useAnalysis } from "../useAnalysis";
 import type { Entry } from "./ChartCard";
 import Cautions from "./Cautions";
 import { CloseIcon } from "./Icons";
+import { PlotFrame } from "../plot/Chart";
+import { num } from "../format";
 
 type Props = {
   analysis: Lags;
@@ -33,11 +22,6 @@ type Props = {
   seasonal: boolean; // seasonal means cannot be lagged by month
 };
 
-const TICK = { fill: "var(--muted)", fontSize: 10, fontFamily: "var(--mono)" };
-// room for the top label and for ticks such as "-1.5", which were cut at the edges
-const MARGIN = { top: 10, right: 12, bottom: 0, left: 4 };
-const AXIS_WIDTH = 36;
-const TOOLTIP = { background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8 };
 
 export default function LagsCard(props: Props) {
   const { analysis, onChange, onRemove, variables, title, entries, options, seasonal } = props;
@@ -68,7 +52,7 @@ export default function LagsCard(props: Props) {
   const result = useAnalysis(requests, exploreLags).get(signature);
   const found = result?.status === "done" ? result.data : null;
 
-  const memory = found?.acf.map((r, i) => ({ lag: i + 1, r, out: Math.abs(r) > found.acf_band })) ?? [];
+  const memory = useMemo(() => found?.acf.map((r, i) => ({ lag: i + 1, r, out: Math.abs(r) > found.acf_band })) ?? [], [found]);
   // each driver's r divided by its own bound, so that beyond ±1 stands out for all of them
   const links = Array.from({ length: 12 }, (_, i) => {
     const row: Record<string, number> = { lag: i + 1 };
@@ -79,7 +63,39 @@ export default function LagsCard(props: Props) {
   const ratios = links.flatMap((row) => Object.entries(row).filter(([k]) => k !== "lag").map(([, v]) => v));
   const low = Math.min(-1, Math.floor(Math.min(...ratios.filter(Number.isFinite))));
   const high = Math.max(1, Math.ceil(Math.max(...ratios.filter(Number.isFinite))));
-  const ratioTicks = Array.from({ length: high - low + 1 }, (_, i) => low + i);
+  const band = found?.acf_band ?? 0;
+  const memoryChart = useMemo<Plot.PlotOptions>(
+    () => ({
+      marginBottom: 40,
+      x: { label: "Months earlier", labelAnchor: "center", labelArrow: "none", labelOffset: 34, tickSize: 0, padding: 0.25 },
+      y: { domain: [-1, 1], ticks: [-1, -0.5, 0, 0.5, 1], grid: true, label: "r", labelArrow: "none", tickFormat: (v: number) => num(v, 1), tickSize: 0 },
+      marks: [
+        Plot.rect([{}], { y1: -band, y2: band, fill: "currentColor", fillOpacity: 0.07 }),
+        Plot.barY(memory, { x: "lag", y: "r", fill: (m: { out: boolean }) => (m.out ? "var(--accent)" : "var(--zero)"), className: "lag-bar" }),
+        Plot.ruleY([0], { stroke: "currentColor", strokeOpacity: 0.45 }),
+        Plot.tip(memory, Plot.pointerX({ x: "lag", y: "r", title: (m: { lag: number; r: number }) => `${m.lag} month${m.lag > 1 ? "s" : ""} earlier\nr = ${num(m.r, 2)}` })),
+      ],
+    }),
+    [memory, band],
+  );
+  const linksChart = useMemo<Plot.PlotOptions>(() => {
+    const driverRows = (found?.drivers ?? []).flatMap((d, j) =>
+      d.r.slice(0, 12).map((r, i) => ({ lag: i + 1, ratio: r / d.bound, r, driver: d.driver, colour: areaColour(theme, j + 2) })),
+    );
+    const ratioTicks = Array.from({ length: high - low + 1 }, (_, i) => low + i);
+    return {
+      marginBottom: 40,
+      x: { domain: [0.5, 12.5], ticks: 12, label: "Months earlier", labelAnchor: "center", labelArrow: "none", labelOffset: 34, tickSize: 4 },
+      y: { domain: [low, high], ticks: ratioTicks, grid: true, label: "r ÷ bound", labelArrow: "none", tickFormat: (v: number) => num(v, 0), tickSize: 0 },
+      marks: [
+        Plot.rect([{}], { y1: -1, y2: 1, fill: "currentColor", fillOpacity: 0.07 }),
+        Plot.ruleY([0], { stroke: "currentColor", strokeOpacity: 0.45 }),
+        Plot.lineY(driverRows, { x: "lag", y: "ratio", z: "driver", stroke: "colour", strokeWidth: 1.6 }),
+        Plot.dot(driverRows, { x: "lag", y: "ratio", fill: "colour", r: 2.4 }),
+        Plot.tip(driverRows, Plot.pointer({ x: "lag", y: "ratio", title: (d: { lag: number; r: number; ratio: number; driver: string }) => `${d.driver}, ${d.lag} month${d.lag > 1 ? "s" : ""} earlier\nr = ${num(d.r, 2)} (×${num(d.ratio, 1)} the bound)` })),
+      ],
+    };
+  }, [found, low, high, theme]);
 
   return (
     <section className="card" aria-label="Lags chart">
@@ -168,25 +184,7 @@ export default function LagsCard(props: Props) {
           <span className="meta">
             Memory: {name(analysis.response)} against itself, 1 to 24 months earlier (dark bars stand out from chance)
           </span>
-          <ResponsiveContainer width="100%" height={130}>
-            <BarChart data={memory} margin={MARGIN}>
-              <CartesianGrid stroke="var(--grid)" vertical={false} />
-              <ReferenceArea y1={-found.acf_band} y2={found.acf_band} fill="var(--muted)" fillOpacity={0.12} stroke="none" />
-              <ReferenceLine y={0} stroke="var(--zero)" />
-              <XAxis dataKey="lag" tick={TICK} interval={1} />
-              <YAxis domain={[-1, 1]} ticks={[-1, 0, 1]} tick={TICK} width={AXIS_WIDTH} />
-              <Tooltip
-                contentStyle={TOOLTIP}
-                labelFormatter={(lag) => `${lag} month(s) earlier`}
-                formatter={(value) => [Number(value).toFixed(2), "r"]}
-              />
-              <Bar dataKey="r" isAnimationActive={false}>
-                {memory.map((m) => (
-                  <Cell key={m.lag} fill={m.out ? "var(--accent)" : "var(--zero)"} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          <PlotFrame title="Memory" options={memoryChart} height={150} />
 
           {found.drivers.length > 0 && (
             <>
@@ -194,38 +192,7 @@ export default function LagsCard(props: Props) {
                 Drivers: correlation divided by its bound, which allows for autocorrelation and for picking the best of
                 12 lags; beyond ±1 stands out
               </span>
-              <ResponsiveContainer width="100%" height={150}>
-                <LineChart data={links} margin={MARGIN}>
-                  <CartesianGrid stroke="var(--grid)" vertical={false} />
-                  <ReferenceArea y1={-1} y2={1} fill="var(--muted)" fillOpacity={0.12} stroke="none" />
-                  <ReferenceLine y={0} stroke="var(--zero)" />
-                  <XAxis dataKey="lag" tick={TICK} padding={{ left: 8, right: 8 }} />
-                  <YAxis
-                    tick={TICK}
-                    width={AXIS_WIDTH}
-                    domain={[low, high]}
-                    ticks={ratioTicks}
-                  />
-                  <Tooltip
-                    contentStyle={TOOLTIP}
-                    labelFormatter={(lag) => `${lag} month(s) earlier`}
-                    formatter={(value, key) => {
-                      const d = found.drivers[Number(String(key).slice(1))];
-                      return [`${(Number(value) * d.bound).toFixed(2)} (×${Number(value).toFixed(1)} the bound)`, d.driver];
-                    }}
-                  />
-                  {found.drivers.map((d, j) => (
-                    <Line
-                      key={d.driver}
-                      dataKey={`d${j}`}
-                      stroke={areaColour(theme, j + 2)}
-                      strokeWidth={1.8}
-                      dot={{ r: 2.5 }}
-                      isAnimationActive={false}
-                    />
-                  ))}
-                </LineChart>
-              </ResponsiveContainer>
+              <PlotFrame title="Drivers" options={linksChart} height={170} />
               <div className="legend">
                 {found.drivers.map((d, j) => (
                   <span key={d.driver} className="row" style={{ gap: 6 }}>

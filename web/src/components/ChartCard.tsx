@@ -1,22 +1,14 @@
-import { useState } from "react";
-import {
-  Area as Band,
-  Brush,
-  CartesianGrid,
-  ComposedChart,
-  Line,
-  ReferenceLine,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import * as Plot from "@observablehq/plot";
+import { useMemo, useState } from "react";
 import type { Area, Variable } from "../api";
 import { describe, MONTHS, seasonalCycle } from "../stats";
 import type { SeriesState } from "../useSeries";
 import { InfoIcon } from "./Icons";
 import { large } from "../variables";
 import LearnPanel from "./LearnPanel";
+import { PlotFrame, TimeChart } from "../plot/Chart";
+import { source, timeSeries, yLabel } from "../plot/series";
+import { num } from "../format";
 
 export type Entry = { area: Area; colour: string; state: SeriesState | undefined };
 
@@ -34,41 +26,16 @@ type Props = {
 // Up to this many areas, each can be shown on its own with one click
 const PICKABLE = 5;
 
-type Row = Record<string, string | number | boolean | [number, number] | null>;
-
-const AXES: Record<string, { domain: [number | string, number | string]; digits: number; ticks?: number[] }> = {
-  ndvi: { domain: [0, 1], digits: 2 },
-  savi: { domain: [0, 1], digits: 2 },
-  evi: { domain: [0, 1], digits: 2 },
-  fpar: { domain: [0, 1], digits: 2 },
-  lst: { domain: ["dataMin - 2", "dataMax + 2"], digits: 0 },
+const AXES: Record<string, { domain?: [number, number]; digits: number; ticks?: number[] }> = {
+  ndvi: { domain: [0, 1], digits: 1 },
+  savi: { domain: [0, 1], digits: 1 },
+  evi: { domain: [0, 1], digits: 1 },
+  fpar: { domain: [0, 1], digits: 1 },
+  lst: { digits: 0 },
   spei: { domain: [-3, 3], digits: 0, ticks: [-3, -2, -1, 0, 1, 2, 3] },
 };
 
-// One row per date (or calendar month), one column per area
-function rows(entries: Entry[], mode: Props["mode"]): Row[] {
-  const table = new Map<string, Row>();
-  for (const { area, state } of entries) {
-    if (state?.status !== "done") continue;
-    if (mode === "seasonal") {
-      for (const m of seasonalCycle(state.data.points)) {
-        const row = table.get(String(m.month)) ?? { order: m.month, label: MONTHS[m.month] };
-        row[`v${area.id}`] = m.mean;
-        row[`b${area.id}`] = [m.low, m.high];
-        table.set(String(m.month), row);
-      }
-      continue;
-    }
-    for (const p of state.data.points) {
-      const row = table.get(p.date) ?? { order: p.date, label: p.date };
-      row[`v${area.id}`] = p.value;
-      row[`f${area.id}`] = p.filled;
-      row[`b${area.id}`] = p.value !== null && p.sd !== null ? [p.value - p.sd, p.value + p.sd] : null;
-      table.set(p.date, row);
-    }
-  }
-  return [...table.values()].sort((a, b) => (a.order! < b.order! ? -1 : 1));
-}
+const DIVERGING = new Set(["spei", "ndmi", "nbr"]);
 
 function download(title: string, entries: Entry[]) {
   const lines = ["area,date,value,sd,n_pixels,masked,filled"];
@@ -92,9 +59,8 @@ export default function ChartCard({ variable, title, entries, mode, shown: chang
   const off = new Set(onHidden ? (hidden ?? []) : ownHidden);
   const setOff = (ids: Set<number>) => (onHidden ?? setOwnHidden)([...ids]);
   const only = (id: number) => setOff(new Set(entries.map((e) => e.area.id).filter((x) => x !== id)));
-  const auto: (typeof AXES)[string] = { domain: ["auto", "auto"], digits: large(variable.key) ? 0 : 2 };
+  const auto: (typeof AXES)[string] = { digits: large(variable.key) ? 0 : 2 };
   const axis = anomaly ? auto : (AXES[variable.key] ?? auto);
-  const data = rows(entries, mode);
   const shown = entries.filter((e) => !off.has(e.area.id) && e.state?.status === "done");
   const warnings = [...new Set(entries.flatMap((e) => (e.state?.status === "done" ? e.state.data.warnings : [])))];
   const subtitle =
@@ -129,7 +95,7 @@ export default function ChartCard({ variable, title, entries, mode, shown: chang
             CSV
           </button>
           <button
-            className="icon-button round"
+            className="icon-button"
             aria-label="Where this comes from"
             title="Where this comes from"
             aria-expanded={provenance}
@@ -159,66 +125,17 @@ export default function ChartCard({ variable, title, entries, mode, shown: chang
         </div>
       )}
 
-      <ResponsiveContainer width="100%" height={mode === "series" && data.length > 24 ? 210 : 180}>
-        <ComposedChart data={data} margin={{ top: 6, right: 6, bottom: 0, left: 0 }}>
-          <CartesianGrid stroke="var(--grid)" vertical={false} />
-          <XAxis
-            dataKey="label"
-            tick={{ fill: "var(--muted)", fontSize: 10, fontFamily: "var(--mono)" }}
-            tickFormatter={(label: string) => (mode === "series" ? label.slice(0, 7) : label)}
-            minTickGap={36}
-          />
-          <YAxis
-            domain={axis.domain}
-            ticks={axis.ticks}
-            tickFormatter={(value) => Number(value).toFixed(axis.digits)}
-            tick={{ fill: "var(--muted)", fontSize: 10, fontFamily: "var(--mono)" }}
-            width={34}
-          />
-          {["spei", "ndmi", "nbr"].includes(variable.key) && <ReferenceLine y={0} stroke="var(--zero)" />}
-          <Tooltip
-            contentStyle={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8 }}
-            formatter={(value, name) => {
-              const id = Number(String(name).slice(1));
-              const area = entries.find((e) => e.area.id === id)?.area.name ?? name;
-              return Array.isArray(value)
-                ? [`${Number(value[0]).toFixed(axis.digits + 1)} – ${Number(value[1]).toFixed(axis.digits + 1)}`, `${area} range`]
-                : [Number(value).toFixed(axis.digits + 1), area];
-            }}
-          />
-          {shown.map(({ area, colour }) => (
-            <Band
-              key={`b${area.id}`}
-              dataKey={`b${area.id}`}
-              stroke="none"
-              fill={colour}
-              fillOpacity={0.14}
-              isAnimationActive={false}
-              connectNulls={false}
-            />
-          ))}
-          {shown.map(({ area, colour }) => (
-            <Line
-              key={`v${area.id}`}
-              dataKey={`v${area.id}`}
-              stroke={colour}
-              strokeWidth={1.8}
-              isAnimationActive={false}
-              // filled values are drawn as hollow points so they never pass for observations
-              dot={(props: { cx?: number; cy?: number; payload?: Row; index?: number }) =>
-                props.payload?.[`f${area.id}`] ? (
-                  <circle key={props.index} cx={props.cx} cy={props.cy} r={3} fill="var(--card)" stroke={colour} strokeWidth={1.5} />
-                ) : (
-                  <g key={props.index} />
-                )
-              }
-            />
-          ))}
-          {mode === "series" && data.length > 24 && (
-            <Brush dataKey="label" height={18} stroke="var(--muted)" fill="var(--card)" tickFormatter={() => ""} />
-          )}
-        </ComposedChart>
-      </ResponsiveContainer>
+      {mode === "series" ? (
+        <TimeChart
+          title={title}
+          series={timeSeries(shown)}
+          height={220}
+          y={{ label: yLabel(variable), digits: axis.digits, domain: axis.domain, ticks: axis.ticks, zero: DIVERGING.has(variable.key) || anomaly }}
+          source={source(variable)}
+        />
+      ) : (
+        <SeasonalChart title={title} shown={shown} label={yLabel(variable)} digits={axis.digits} domain={axis.domain} source={source(variable)} />
+      )}
 
       <div className="legend">
         {entries.map(({ area, colour, state }) => (
@@ -259,7 +176,7 @@ export default function ChartCard({ variable, title, entries, mode, shown: chang
           <tbody>
             {shown.map(({ area, state }) => {
               const s = state?.status === "done" ? describe(state.data.points) : null;
-              const f = (x: number) => x.toFixed(axis.digits + 1);
+              const f = (x: number) => num(x, axis.digits + 1);
               return (
                 <tr key={area.id}>
                   <th scope="row">{area.name}</th>
@@ -285,6 +202,26 @@ export default function ChartCard({ variable, title, entries, mode, shown: chang
       )}
     </section>
   );
+}
+
+// The average year: months on the axis, shaded from the lowest to the highest year
+function SeasonalChart({ title, shown, label, digits, domain, source }: { title: string; shown: Entry[]; label: string; digits: number; domain?: [number, number]; source: string }) {
+  const options = useMemo<Plot.PlotOptions>(() => {
+    const rows = shown.flatMap(({ area, colour, state }) =>
+      state?.status === "done" ? seasonalCycle(state.data.points).map((m) => ({ ...m, id: area.id, colour })) : [],
+    );
+    return {
+      x: { domain: [0, 11], ticks: 12, tickFormat: (m: number) => MONTHS[m] ?? "", label: null, tickSize: 4 },
+      y: { label, labelArrow: "none", domain, grid: true, nice: !domain, tickFormat: (v: number) => num(v, digits), tickSize: 0 },
+      marks: [
+        Plot.areaY(rows, { x: "month", y1: "low", y2: "high", z: "id", fill: "colour", fillOpacity: 0.13 }),
+        Plot.lineY(rows, { x: "month", y: "mean", z: "id", stroke: "colour", strokeWidth: 1.5 }),
+        Plot.dot(rows, { x: "month", y: "mean", fill: "colour", r: 2 }),
+        Plot.tip(rows, Plot.pointerX({ x: "month", y: "mean", title: (r: { month: number; mean: number }) => `${MONTHS[r.month]}  ${num(r.mean, digits + 1)}` })),
+      ],
+    };
+  }, [shown, label, digits, domain]);
+  return <PlotFrame title={title} options={options} height={200} source={source} />;
 }
 
 type Step = { step: string; [key: string]: unknown };

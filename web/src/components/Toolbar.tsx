@@ -1,7 +1,8 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import type { Area } from "../api";
 import AreaChip from "./AreaChip";
-import { PlusIcon, PolygonIcon, RectangleIcon, UploadIcon } from "./Icons";
+import { CoordinatesIcon, InspectIcon, LayersIcon, PlusIcon, PolygonIcon, RectangleIcon, RulerIcon, UploadIcon } from "./Icons";
+import { parseCoordinates } from "../geo";
 import type { Tool } from "./MapView";
 import PlaceSearch from "./PlaceSearch";
 
@@ -16,42 +17,53 @@ type Props = {
   onToggle: (area: Area) => void;
   onRename: (area: Area, name: string) => void;
   onDelete: (area: Area) => void;
+  layers: boolean;
+  onLayers: () => void;
+  onShape: (geometry: GeoJSON.Polygon) => void;
 };
+
+// A tool button: an icon, its name and its key in the tooltip
+function ToolButton({ label, keyName, pressed, onClick, children }: { label: string; keyName?: string; pressed?: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button className="tool" aria-label={label} title={keyName ? `${label} (${keyName})` : label} aria-pressed={pressed} onClick={onClick}>
+      {children}
+    </button>
+  );
+}
 
 export default function Toolbar(props: Props) {
   const { tool, onTool, areas, colours, hidden } = props;
   const upload = useRef<HTMLInputElement>(null);
   const pick = (next: Tool) => onTool(tool === next ? null : next);
+  const [typed, setTyped] = useState(false);
+  const [text, setText] = useState("");
+  const read = parseCoordinates(text);
 
   return (
     <div className="toolbar-wrap">
       <div className="floating toolbar" role="toolbar" aria-label="Areas">
-        <button
-          className="tool"
-          aria-label="Draw a polygon"
-          title="Draw a polygon: click to add points, click the first point to finish"
-          aria-pressed={tool === "polygon"}
-          onClick={() => pick("polygon")}
-        >
+        <ToolButton label="Draw a polygon" keyName="D" pressed={tool === "polygon"} onClick={() => pick("polygon")}>
           <PolygonIcon />
-        </button>
-        <button
-          className="tool"
-          aria-label="Draw a rectangle"
-          title="Draw a rectangle: click two opposite corners"
-          aria-pressed={tool === "rectangle"}
-          onClick={() => pick("rectangle")}
-        >
+        </ToolButton>
+        <ToolButton label="Draw a rectangle" keyName="R" pressed={tool === "rectangle"} onClick={() => pick("rectangle")}>
           <RectangleIcon />
-        </button>
-        <button
-          className="tool"
-          aria-label="Upload GeoJSON, KML or zipped shapefile"
-          title="Upload GeoJSON, KML or zipped shapefile"
-          onClick={() => upload.current?.click()}
-        >
+        </ToolButton>
+        <ToolButton label="Measure a distance" keyName="M" pressed={tool === "measure"} onClick={() => pick("measure")}>
+          <RulerIcon />
+        </ToolButton>
+        <ToolButton label="Inspect a pixel" keyName="I" pressed={tool === "inspect"} onClick={() => pick("inspect")}>
+          <InspectIcon />
+        </ToolButton>
+        <span className="divider" />
+        <ToolButton label="Layers" keyName="L" pressed={props.layers} onClick={props.onLayers}>
+          <LayersIcon />
+        </ToolButton>
+        <ToolButton label="Enter coordinates" keyName="C" pressed={typed} onClick={() => setTyped(!typed)}>
+          <CoordinatesIcon />
+        </ToolButton>
+        <ToolButton label="Upload GeoJSON, KML or zipped shapefile" onClick={() => upload.current?.click()}>
           <UploadIcon />
-        </button>
+        </ToolButton>
         <input
           ref={upload}
           type="file"
@@ -77,16 +89,42 @@ export default function Toolbar(props: Props) {
             onDelete={() => props.onDelete(area)}
           />
         ))}
-        <button
-          className="tool"
-          aria-label="Add an area"
-          title="Add an area"
-          style={{ borderRadius: 18, border: "1px dashed var(--muted)" }}
-          onClick={() => onTool("polygon")}
-        >
+        <ToolButton label="Add an area" keyName="D" onClick={() => onTool("polygon")}>
           <PlusIcon size={16} />
-        </button>
+        </ToolButton>
       </div>
+      {typed && (
+        <form
+          className="floating panel coordinates"
+          aria-label="Enter coordinates"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!read) return;
+            if ("point" in read) props.onGo(read.point);
+            else props.onShape(read.polygon);
+            setText("");
+            setTyped(false);
+          }}
+        >
+          <label className="field">
+            <span>Coordinates</span>
+            <textarea
+              className="mono"
+              rows={3}
+              autoFocus
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder={"36.5080, 8.5610  (a point: lat, lon)\n8.55, 36.50, 8.57, 36.52  (a box: W, S, E, N)\nor lon lat pairs, one corner per line"}
+            />
+          </label>
+          <div className="row spread">
+            <span className="meta">{!text ? "" : !read ? "Not coordinates yet" : "point" in read ? "Go to this point" : `Area with ${read.polygon.coordinates[0].length - 1} corners`}</span>
+            <button className="button" type="submit" disabled={!read}>
+              {read && "polygon" in read ? "Add area" : "Go"}
+            </button>
+          </div>
+        </form>
+      )}
     </div>
   );
 }

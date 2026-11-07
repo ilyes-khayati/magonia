@@ -22,6 +22,7 @@ Numbered in order; superseded records are kept and marked as such.
 | [0015](0015-files-and-citations-decided-by-code.md) | Which files and earlier citations a question is about is decided by code |
 | [0016](0016-evaluation-ladder.md) | Evaluate against a ladder of systems with a shared evidence pool |
 | [0017](0017-files-per-workspace.md) | Each workspace has its own files; the paper cache is shared |
+| [0018](0018-charts-and-map-layers.md) | Charts drawn by Observable Plot, and the map reads Earth Engine images |
 
 The reasoning behind each, with the alternatives and when they would win, is in the
 architecture document.
