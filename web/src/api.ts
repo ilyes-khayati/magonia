@@ -305,7 +305,7 @@ export const exploreLags = (body: LagsBody) => call<LagsResponse>("/lags", send(
 
 // Models forecasting a series one month ahead, tuned and tested by time
 export type FittedModel = {
-  name: "Ridge" | "RandomForest" | "XGBoost";
+  name: "Ridge" | "RandomForest" | "XGBoost" | "MLP" | "LSTM" | "GRU" | "TCN";
   params: Record<string, unknown>;
   test: { RMSE: number; R2: number; MAE: number };
   seeds: { runs: number; RMSE_mean: number; RMSE_sd: number; R2_mean: number; R2_sd: number };
@@ -331,8 +331,8 @@ export type ModelsBody = {
   own_lags: number[] | null;
   driver_lags: Partial<Record<VariableKey, number[]>> | null;
   test_years: number;
-  models?: ("Ridge" | "RandomForest" | "XGBoost")[]; // all three when left out
-  params?: Partial<Record<"Ridge" | "RandomForest" | "XGBoost", Record<string, number>>>; // else tuned
+  models?: ("Ridge" | "RandomForest" | "XGBoost" | "MLP" | "LSTM" | "GRU" | "TCN")[]; // the paper's three when left out
+  params?: Partial<Record<"Ridge" | "RandomForest" | "XGBoost" | "MLP" | "LSTM" | "GRU" | "TCN", Record<string, number>>>; // else tuned
   calendar?: boolean;
   rolling?: boolean;
 };
@@ -357,6 +357,8 @@ export type ExplanationResponse = {
   summary: string[];
   family_range?: Record<string, Record<string, [number, number]>>; // share from seed to seed
   dropped?: Record<string, Record<string, number>>; // error rise when a family is left out
+  native?: Record<string, { method: string; importance: Record<string, number>; tau: number }>; // each model's own explanation
+  timeline?: Record<string, ({ date: string } & Record<string, number | string>)[]>; // month by month, by family
 };
 
 type Running<T> = { status: "running" } | { status: "failed"; error: string } | ({ status: "done" } & T);
@@ -480,7 +482,7 @@ export type Proposal = {
   driver?: VariableKey;
   drivers?: VariableKey[];
   area?: string;
-  models?: ("Ridge" | "RandomForest" | "XGBoost")[];
+  models?: ("Ridge" | "RandomForest" | "XGBoost" | "MLP" | "LSTM" | "GRU" | "TCN")[];
   test_years?: number;
   period?: { start: string | null; end: string | null };
   text?: string; // an instruction, in the researcher's words

@@ -794,7 +794,7 @@ class ModelsRequest(BaseModel):
     own_lags: list[int] | None = Field(None, max_length=12)  # None: recommended by code
     driver_lags: dict[str, list[int]] | None = None  # by variable; a driver left out: recommended
     test_years: int = Field(3, ge=1, le=10)
-    models: list[Literal["Ridge", "RandomForest", "XGBoost"]] = Field(
+    models: list[Literal["Ridge", "RandomForest", "XGBoost", "MLP", "LSTM", "GRU", "TCN"]] = Field(
         ["Ridge", "RandomForest", "XGBoost"], min_length=1
     )
     params: dict[str, dict[str, float]] | None = None  # by model; a model left out is tuned
@@ -927,7 +927,12 @@ def explanation_summary(stored: dict, area: str) -> list[str]:
 
 
 def explanations_key(body: ModelsRequest, store: Store) -> str:
-    return fingerprint({"explain": models_key(body, store), "with": "ranges and drop-column"})
+    return fingerprint(
+        {
+            "explain": models_key(body, store),
+            "with": "ranges, drop-column, own explanations and months",
+        }
+    )
 
 
 @app.post("/explanations")

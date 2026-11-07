@@ -23,16 +23,28 @@ from sklearn.preprocessing import StandardScaler
 from xgboost import XGBRegressor
 
 from engine.catalogue import large
+from engine.deep import DeepRegressor
 from engine.lags import acf, deseasonalise, driver_evidence
 
 SEED = 0
-NAMES = ("Ridge", "RandomForest", "XGBoost")
+NAMES = ("Ridge", "RandomForest", "XGBoost")  # the paper's models, chosen by default
+DEEP = ("MLP", "LSTM", "GRU", "TCN")  # small neural networks, chosen by the researcher
+ALL = NAMES + DEEP
 
 # the paper's estimators and search spaces
 ESTIMATORS = {
     "XGBoost": XGBRegressor(random_state=SEED, n_jobs=1),
     "RandomForest": RandomForestRegressor(random_state=SEED, n_jobs=1),
     "Ridge": make_pipeline(StandardScaler(), Ridge()),
+    "MLP": DeepRegressor(kind="mlp", random_state=SEED),
+    "LSTM": DeepRegressor(kind="lstm", random_state=SEED),
+    "GRU": DeepRegressor(kind="gru", random_state=SEED),
+    "TCN": DeepRegressor(kind="cnn", random_state=SEED),
+}
+NEURAL = {
+    "hidden": [16, 32, 64],
+    "lr": loguniform(1e-3, 2e-2),
+    "weight_decay": loguniform(1e-6, 1e-2),
 }
 SPACES = {
     "XGBoost": {
@@ -50,6 +62,7 @@ SPACES = {
         "max_features": ["sqrt", 0.5, 1.0],
     },
     "Ridge": {"ridge__alpha": np.logspace(-4, 3, 50)},
+    **{name: NEURAL for name in DEEP},
 }
 
 # What a researcher may set by hand instead of tuning, by its plain name, with its range
@@ -69,8 +82,17 @@ SETTABLE = {
         "colsample_bytree": (0.1, 1.0),
         "min_child_weight": (0, 50),
     },
+    **{
+        name: {
+            "hidden": (4, 256),
+            "lr": (1e-4, 0.1),
+            "weight_decay": (0, 0.1),
+            "epochs": (50, 5000),
+        }
+        for name in DEEP
+    },
 }
-INTEGER = {"n_estimators", "max_depth", "min_samples_leaf", "min_child_weight"}
+INTEGER = {"n_estimators", "max_depth", "min_samples_leaf", "min_child_weight", "hidden", "epochs"}
 
 
 def manual_params(name: str, given: dict) -> dict:
@@ -127,7 +149,8 @@ def tune(name: str, X: pd.DataFrame, y: pd.Series, draws: int = 40) -> dict:
         search = RandomizedSearchCV(
             ESTIMATORS[name],
             SPACES[name],
-            n_iter=draws,
+            # a network costs more to fit than a tree, so fewer draws
+            n_iter=draws if name not in DEEP else min(draws, 6),
             cv=cv,
             scoring="neg_mean_squared_error",
             random_state=SEED,
@@ -177,7 +200,7 @@ def evaluate(
     from it; the baselines are scored on the same months."""
     train, test = X.index < test_start, X.index >= test_start
     fitted = []
-    for name in [n for n in NAMES if n in params]:
+    for name in [n for n in ALL if n in params]:
         model = estimator(name, params[name]).fit(X[train], y[train])
         p = model.predict(X[test])
         f = Fitted(name, params[name], scores(y[test], p), predictions=[float(v) for v in p])
@@ -185,7 +208,10 @@ def evaluate(
             scores(
                 y[test], estimator(name, params[name], s).fit(X[train], y[train]).predict(X[test])
             )
-            for s in (range(seeds) if name != "Ridge" else [SEED])
+            # Ridge fits the same every time; a network's seeds are fewer, as it costs more
+            for s in (
+                [SEED] if name == "Ridge" else range(min(seeds, 5) if name in DEEP else seeds)
+            )
         ]
         f.seeds = {
             "runs": len(runs),
@@ -207,7 +233,15 @@ def evaluate(
     return fitted, base
 
 
-LABELS = {"Ridge": "Ridge", "RandomForest": "Random Forest", "XGBoost": "XGBoost"}
+LABELS = {
+    "Ridge": "Ridge",
+    "RandomForest": "Random Forest",
+    "XGBoost": "XGBoost",
+    "MLP": "MLP",
+    "LSTM": "LSTM",
+    "GRU": "GRU",
+    "TCN": "TCN",
+}
 MIN_TRAIN_YEARS = 8
 
 
@@ -331,7 +365,7 @@ def forecast(
     """Forecast a monthly target one month ahead; lags not given are recommended by code, and
     each chosen model is tuned unless its settings are given."""
     title, key, _ = target
-    models = [n for n in NAMES if n in models]
+    models = [n for n in ALL if n in models]
     if not models:
         raise ForecastError("Choose at least one model.")
     X, y_, chosen, test_start = design(target, drivers, own_lags, driver_lags, test_years, calendar)
@@ -398,8 +432,17 @@ def forecast(
         floor = max(f.seeds["RMSE_sd"] for f in trees)
         gap = order[1].test["RMSE"] - order[0].test["RMSE"]
         within = "within" if gap <= 2 * floor else "beyond"
+        which = (
+            "the tree models"
+            if all(f.name not in DEEP for f in trees)
+            else "the networks"
+            if all(f.name in DEEP for f in trees)
+            else "the tree models and networks"
+        )
+        counts = sorted({f.seeds["runs"] for f in trees})
+        runs = " or ".join(str(c) for c in counts)
         summary.append(
-            f"{area}: refitting the tree models with {seeds} seeds moves their RMSE by up to "
+            f"{area}: refitting {which} with {runs} seeds moves their RMSE by up to "
             f"±{fmt(floor)}, so the gap between the best two ({fmt(gap)}) is {within} that noise."
         )
     beaten = [
