@@ -143,6 +143,18 @@ export type PixelGrid = GeoJSON.FeatureCollection & { pixel_m: number };
 export const areaPixels = (areaId: number, variable: VariableKey) =>
   call<PixelGrid>(`/areas/${areaId}/pixels?variable=${variable}`);
 
+export type CoherenceResponse = {
+  times: string[];
+  periods: number[];
+  coherence: number[][];
+  phase: number[][];
+  significant: boolean[][];
+  coi: number[];
+  summary: string[];
+};
+export type CoherenceBody = { response: SeriesOptions; driver: SeriesOptions; deseasonalise: boolean };
+export const coherenceOf = (body: CoherenceBody) => call<CoherenceResponse>("/coherence", send("POST", body));
+
 export type EarthEngineStatus = { connected: boolean; project: string | null; error: string | null };
 export const earthEngineStatus = () => call<EarthEngineStatus>("/earth-engine");
 export const setEarthEngineProject = (project: string) =>
@@ -572,7 +584,7 @@ export async function ask(
 // An analysis as a Jupyter notebook that reproduces it from the data it used (REP-01)
 export type NotebookBody = {
   title: string;
-  kind: "experiment" | "decomposition" | "trend" | "phenology" | "lags" | "correlation" | "scales";
+  kind: "experiment" | "decomposition" | "trend" | "phenology" | "lags" | "correlation" | "scales" | "coherence";
   options: Record<string, unknown>;
   series: SeriesOptions[];
 };

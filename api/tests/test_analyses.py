@@ -463,3 +463,43 @@ def test_magonia_reads_what_the_researcher_pinned_first(client, store):
     assert (
         "[Board: Note: check 2017]\n- The 2017 dip may be the drought." in model.seen[-1]["content"]
     )
+
+
+def test_coherence_finds_a_shared_cycle_and_is_kept(client, store, monkeypatch):
+    from api import main
+
+    calls = []
+    real = main.coherence
+
+    def counted(*args, **kwargs):
+        calls.append(1)
+        return real(*args, **kwargs, runs=30)
+
+    monkeypatch.setattr(main, "coherence", counted)
+    area_id = area(client)
+    green = [0.5 + 0.2 * math.sin(2 * math.pi * i / 12) for i in range(120)]
+    heat = [25 - 10 * math.sin(2 * math.pi * i / 12) for i in range(120)]
+    ndvi = cache_years(store, "ndvi", None, green)
+    lst = cache_years(store, "lst", None, heat)
+    body = {
+        "response": {**ndvi, "area_id": area_id, "masking": "pixel"},
+        "driver": {**lst, "area_id": area_id, "masking": "pixel"},
+    }
+    found = client.post("/coherence", json=body).json()
+    assert found["summary"][0].startswith(
+        "Orchard: at the annual period, NDVI and LST are coherent"
+    )
+    assert "opposite directions" in found["summary"][1]
+    client.post("/coherence", json=body)
+    assert len(calls) == 1  # the second answer came from the store
+
+
+def test_coherence_needs_three_years(client, store):
+    area_id = area(client)
+    ndvi = cache_years(store, "ndvi", None, [0.5 + 0.1 * math.sin(i) for i in range(24)])
+    body = {
+        "response": {**ndvi, "area_id": area_id, "masking": "pixel"},
+        "driver": {**ndvi, "area_id": area_id, "masking": "pixel"},
+    }
+    reply = client.post("/coherence", json=body)
+    assert reply.status_code == 422 and "at least 36" in reply.json()["detail"]

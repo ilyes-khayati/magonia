@@ -84,6 +84,21 @@ async function fakeApi(page: Page, connected = true) {
   await page.route("**/api/areas/*/pixels*", (route) =>
     route.fulfill({ json: { type: "FeatureCollection", features: [], pixel_m: 250 } }),
   );
+  await page.route("**/api/coherence", (route) => {
+    const times = Array.from({ length: 48 }, (_, i) => `${2020 + Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, "0")}`);
+    const periods = [2, 4, 8, 12, 16];
+    route.fulfill({
+      json: {
+        times,
+        periods,
+        coherence: periods.map((p) => times.map(() => (p === 12 ? 0.9 : 0.2))),
+        phase: periods.map(() => times.map(() => Math.PI)),
+        significant: periods.map((p) => times.map(() => p === 12)),
+        coi: times.map((_, j) => Math.min(j + 1, 48 - j) * 1.03),
+        summary: ["Orchard: at the annual period, NDVI and LST are coherent 100% of the time inside the cone (mean coherence 0.90)."],
+      },
+    });
+  });
   await page.route("**/api/decomposition", (route) => route.fulfill({ json: DECOMPOSITION }));
   await page.route("**/api/phenology", (route) => {
     phenologyAsked.push(route.request().postDataJSON());
@@ -1535,4 +1550,21 @@ test("a correlation can be split into its trend and seasonal parts", async ({ pa
   await card.getByRole("checkbox", { name: /trend and seasonal parts/ }).check();
   await expect(card.getByRole("cell", { name: "Trend", exact: true })).toBeVisible();
   await expect(card.getByRole("cell", { name: "Seasonal", exact: true })).toBeVisible();
+});
+
+test("wavelet coherence maps two variables over time and period", async ({ page }) => {
+  await page.getByTestId("upload").setInputFiles({
+    name: "fields.geojson",
+    mimeType: "application/geo+json",
+    buffer: Buffer.from(JSON.stringify(SQUARE)),
+  });
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Data" }).click();
+  await page.getByRole("checkbox", { name: /LST/ }).check();
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Analyses" }).click();
+  await page.getByRole("region", { name: "Suggested analyses" }).getByRole("button", { name: /move together/ }).click();
+  const card = page.getByRole("region", { name: "Coherence chart" });
+  await expect(card.locator('.plot-svg [data-mark="rect"]').first()).toBeVisible();
+  await expect(card.getByText(/At the annual period, NDVI and LST are coherent/)).toBeVisible();
+  const results = await new AxeBuilder({ page }).include("[aria-label='Coherence chart']").analyze();
+  expect(results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? "")).map((v) => v.id)).toEqual([]);
 });

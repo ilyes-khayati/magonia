@@ -13,6 +13,7 @@ import pandas as pd
 from engine import assistant, facts, guardrails, layers, notebook
 from engine.areas import AreaError, make_area
 from engine.catalogue import CATALOGUE, get_variable
+from engine.coherence import CoherenceError, coherence
 from engine.decompose import DecompositionError, decompose
 from engine.earth_engine import EarthEngineError, check, connect, plainly
 from engine.explain import Explanation, Pair, describe, explain, stability
@@ -627,7 +628,14 @@ def season_dates(body: SeriesRequest, store: StoreDep) -> dict:
 class NotebookRequest(BaseModel):
     title: str = Field("Magonia analysis", max_length=120)
     kind: Literal[
-        "experiment", "decomposition", "trend", "phenology", "lags", "correlation", "scales"
+        "experiment",
+        "decomposition",
+        "trend",
+        "phenology",
+        "lags",
+        "correlation",
+        "scales",
+        "coherence",
     ]
     options: dict = {}  # the analysis' own choices, as the interface saves them
     series: list[SeriesRequest] = Field(min_length=1)  # in the order the analysis uses them
@@ -687,6 +695,42 @@ def cached_series(body: SeriesRequest, store: Store) -> facts.Series:
         result["points"],
         warnings=result.get("warnings", []),
     )
+
+
+class CoherenceRequest(BaseModel):
+    response: SeriesRequest
+    driver: SeriesRequest
+    deseasonalise: bool = False
+
+
+@app.post("/coherence")
+def wavelet_coherence(body: CoherenceRequest, store: StoreDep) -> dict:
+    """Where in time and at which periods two series move together, and which leads."""
+    if body.response.resolution == "seasonal" or body.driver.resolution == "seasonal":
+        raise HTTPException(422, "coherence needs monthly values; use native or monthly")
+    response = cached_series(body.response, store)
+    driver = cached_series(body.driver, store)
+    key = fingerprint(
+        {
+            "coherence": [
+                cache_key(series_request(s, store)[1]) for s in (body.response, body.driver)
+            ],
+            "deseasonalise": body.deseasonalise,
+            "engine": engine.__version__,
+        }
+    )
+    if (held := store.result(key)) is not None:
+        return held
+    a, b = facts.monthly_series(response), facts.monthly_series(driver)
+    if body.deseasonalise:
+        a = a - a.groupby(a.index.month).transform("mean")
+        b = b - b.groupby(b.index.month).transform("mean")
+    try:
+        found = coherence(a, b, response.title, driver.title, response.area).to_dict()
+    except CoherenceError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    store.save_result(key, found)
+    return found
 
 
 @app.post("/lags")
