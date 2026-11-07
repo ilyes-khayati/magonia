@@ -52,3 +52,30 @@ def test_short_follow_ups_are_recognised():
     assert follows("And in Tunisia?")
     assert follows("What about forests?")
     assert not follows("What do studies say about drought and olive NDVI in Tunisia since 2010?")
+
+
+def test_a_follow_up_naming_a_place_replaces_the_earlier_one():
+    from engine.route import together
+
+    earlier = "What do studies say about drought and olive NDVI in Spain?"
+    assert "Spain" not in together("And in Tunisia?", earlier)
+    assert "Spain" in together("What about forests?", earlier)
+
+
+@pytest.mark.parametrize(
+    "question, french",
+    [
+        ("Que disent les études sur la sécheresse et le NDVI des oliviers en Tunisie ?", True),
+        ("Bonjour, qu'est-ce que tu peux faire ?", True),
+        ("What did Smith et al. find about NDVI in the Mediterranean?", False),
+        ("Is SAVI better than NDVI in sparse olive orchards?", False),
+    ],
+)
+def test_french_questions_are_recognised(question, french):
+    from engine.route import in_french
+
+    assert in_french(question) == french
+
+
+def test_french_literature_questions_are_routed_to_the_literature():
+    assert route("Que disent les études sur la sécheresse et le NDVI des oliviers ?") == "research"

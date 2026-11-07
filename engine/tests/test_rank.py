@@ -56,3 +56,14 @@ def test_citations_break_ties_and_missing_abstracts_go_last():
 def test_keep_limits_the_list():
     assert len(rank(QUESTION, [paper(f"Olive site{n}") for n in range(6)], keep=4)) == 4
     assert rank(QUESTION, [], keep=4) == []
+
+
+def test_papers_far_from_the_question_are_not_given_to_the_model():
+    papers = [paper("Muscle biopsies", "myxovirus"), paper("Water stress in groves", "dry")]
+
+    def embed(texts):  # the first paper is nearly unrelated to the question
+        return [[1.0, 0.0], [0.3, 1.0], [1.0, 0.1]]
+
+    assert [p.title for p in rank(QUESTION, papers, keep=2, embed=embed)] == [
+        "Water stress in groves"
+    ]

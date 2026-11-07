@@ -170,6 +170,9 @@ class Explanation:
     # month by month, how far each family moves the forecast when replaced by its mean:
     # model -> list of {"date", family -> change}
     timeline: dict[str, list[dict]] = field(default_factory=dict)
+    # how the forecast responds to the value of each of the most important inputs, by
+    # accumulated local effects: input -> model -> list of {"x", "effect"}
+    effects: dict[str, dict[str, list[dict]]] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return {
@@ -181,6 +184,7 @@ class Explanation:
             "dropped": self.dropped,
             "native": self.native,
             "timeline": self.timeline,
+            "effects": self.effects,
         }
 
 
@@ -245,6 +249,38 @@ def timeline(model, X: pd.DataFrame) -> list[dict]:
     ]
 
 
+def ale(model, X: pd.DataFrame, column: str, bins: int = 10) -> list[dict]:
+    """Accumulated local effects (Apley and Zhu, 2020): how the forecast changes as one input
+    rises, centred on the average forecast. Each step moves the input only across one
+    interval of its own values, for the months that have values there; a partial dependence
+    curve would instead set every month to every value, and the lags of one series move
+    together, so it would ask the model about months that never happen."""
+    x = X[column].to_numpy(dtype=float)
+    edges = np.unique(np.quantile(x, np.linspace(0, 1, bins + 1)))
+    if len(edges) < 3:
+        return []  # a calendar flag or a constant: nothing to trace
+    interval = np.clip(np.searchsorted(edges, x, side="right") - 1, 0, len(edges) - 2)
+    low, high = X.copy(), X.copy()
+    low[column] = edges[interval]
+    high[column] = edges[interval + 1]
+    change = model.predict(high) - model.predict(low)
+    counts = np.bincount(interval, minlength=len(edges) - 1)
+    step = np.bincount(interval, weights=change, minlength=len(edges) - 1) / np.maximum(counts, 1)
+    curve = np.concatenate([[0.0], np.cumsum(step)])
+    curve -= np.sum((curve[:-1] + curve[1:]) / 2 * counts) / counts.sum()
+    return [
+        {"x": round(float(e), 5), "effect": round(float(c), 5)}
+        for e, c in zip(edges, curve, strict=True)
+    ]
+
+
+def leading_inputs(importance: dict[str, dict[str, float]], most: int = 4) -> list[str]:
+    """The inputs the models lean on most, on average over the models, without the probe."""
+    mean = pd.DataFrame({m: shares(pd.Series(v)) for m, v in importance.items()}).mean(axis=1)
+    mean = mean.drop("noise_probe", errors="ignore").sort_values(ascending=False)
+    return list(mean.index[:most])
+
+
 def explain(X: pd.DataFrame, y: pd.Series, params: dict[str, dict], seeds: int = 5) -> Explanation:
     """Permutation importance, family shares and agreement of the three models, on the
     training years only. Ridge fits the same every time, but its shuffles vary by seed."""
@@ -258,8 +294,13 @@ def explain(X: pd.DataFrame, y: pd.Series, params: dict[str, dict], seeds: int =
         dropped[name] = drop_family(name, params[name], X, y)
     importance = {m: pd.concat(r, axis=1).mean(axis=1).to_dict() for m, r in runs.items()}
     own, months = {}, {}
+    leading = leading_inputs(importance)
+    effects: dict[str, dict[str, list[dict]]] = {c: {} for c in leading}
     for name in runs:
         model = estimator(name, params[name]).fit(X, y)
+        for column in leading:
+            if curve := ale(model, X, column):
+                effects[column][name] = curve
         method, values = native(name, model, X)
         shuffled = pd.Series(importance[name])
         own[name] = {
@@ -277,6 +318,7 @@ def explain(X: pd.DataFrame, y: pd.Series, params: dict[str, dict], seeds: int =
         dropped,
         own,
         months,
+        {c: e for c, e in effects.items() if e},
     )
 
 
@@ -366,6 +408,28 @@ def describe(area: str, explained: Explanation) -> list[str]:
         details.append(
             f"{area}: month by month, {LABELS[name]}'s forecast is moved most by {top}, most of "
             f"all in {when} ({months.loc[when, top]:+.3f})."
+        )
+    for column, curves in explained.effects.items():
+        rises = {
+            LABELS[m]: c[-1]["effect"] - c[0]["effect"]
+            for m, c in curves.items()
+            if m in LABELS and len(c) > 1
+        }
+        if not rises:
+            continue
+        up = [m for m, v in rises.items() if v > 0]
+        down = [m for m, v in rises.items() if v < 0]
+        across = ", ".join(f"{m} {v:+.3f}" for m, v in rises.items())
+        agree = (
+            "every model raises the forecast as it rises"
+            if not down
+            else "every model lowers the forecast as it rises"
+            if not up
+            else f"the models disagree on its direction (up: {', '.join(up)}; down: {', '.join(down)})"
+        )
+        details.append(
+            f"{area}: from the lowest to the highest {column.replace('_', ' ')}, {agree}; "
+            f"forecast change {across} (accumulated local effects)."
         )
     return lines + details
 

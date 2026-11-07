@@ -964,7 +964,7 @@ def explanations_key(body: ModelsRequest, store: Store) -> str:
     return fingerprint(
         {
             "explain": models_key(body, store),
-            "with": "ranges, drop-column, own explanations and months",
+            "with": "ranges, drop-column, own explanations, months and effects",
         }
     )
 

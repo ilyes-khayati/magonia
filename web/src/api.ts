@@ -91,19 +91,26 @@ export function errorText(body: { detail?: unknown }, status: number): string {
   if (Array.isArray(detail) && detail.length > 0) {
     return detail
       .map((d: { loc?: unknown[]; msg?: string }) => {
-        const field = (d.loc ?? []).filter((part) => part !== "body" && part !== "query").join(".");
+        const field = (d.loc ?? [])
+          .filter((part) => part !== "body" && part !== "query")
+          .join(".");
         return field ? `${field}: ${d.msg}` : String(d.msg);
       })
       .join("; ");
   }
-  return status >= 500 ? `Something went wrong on Magonia's side (error ${status}). Try again.` : `The request was refused (error ${status}).`;
+  return status >= 500
+    ? `Something went wrong on Magonia's side (error ${status}). Try again.`
+    : `The request was refused (error ${status}).`;
 }
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`/api${path}`, {
     ...init,
     // a file upload (FormData) sets its own content type
-    headers: typeof init?.body === "string" ? { "Content-Type": "application/json" } : undefined,
+    headers:
+      typeof init?.body === "string"
+        ? { "Content-Type": "application/json" }
+        : undefined,
   });
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
@@ -123,9 +130,16 @@ export const fetchCatalogue = () => call<Variable[]>("/catalogue");
 
 export type Legend = { low: number; high: number; palette: string[] };
 export type Tiles = Legend & { url: string; month: string };
-export const layerTiles = (variable: VariableKey, month: string, scale?: number) =>
-  call<Tiles>(`/layers/${variable}/tiles?month=${month}${scale ? `&scale=${scale}` : ""}`);
-export const layerLegend = (variable: VariableKey) => call<Legend>(`/layers/${variable}/legend`);
+export const layerTiles = (
+  variable: VariableKey,
+  month: string,
+  scale?: number,
+) =>
+  call<Tiles>(
+    `/layers/${variable}/tiles?month=${month}${scale ? `&scale=${scale}` : ""}`,
+  );
+export const layerLegend = (variable: VariableKey) =>
+  call<Legend>(`/layers/${variable}/legend`);
 
 export type PointSeries = {
   variable: VariableKey;
@@ -136,8 +150,14 @@ export type PointSeries = {
   pixel_m: number;
   points: { date: string; value: number | null }[];
 };
-export const inspectPoint = (body: { variable: VariableKey; lon: number; lat: number; start: string; end: string; scale?: number }) =>
-  call<PointSeries>("/inspect", send("POST", body));
+export const inspectPoint = (body: {
+  variable: VariableKey;
+  lon: number;
+  lat: number;
+  start: string;
+  end: string;
+  scale?: number;
+}) => call<PointSeries>("/inspect", send("POST", body));
 
 export type PixelGrid = GeoJSON.FeatureCollection & { pixel_m: number };
 export const areaPixels = (areaId: number, variable: VariableKey) =>
@@ -152,8 +172,13 @@ export type CoherenceResponse = {
   coi: number[];
   summary: string[];
 };
-export type CoherenceBody = { response: SeriesOptions; driver: SeriesOptions; deseasonalise: boolean };
-export const coherenceOf = (body: CoherenceBody) => call<CoherenceResponse>("/coherence", send("POST", body));
+export type CoherenceBody = {
+  response: SeriesOptions;
+  driver: SeriesOptions;
+  deseasonalise: boolean;
+};
+export const coherenceOf = (body: CoherenceBody) =>
+  call<CoherenceResponse>("/coherence", send("POST", body));
 
 export type LeakageRow = {
   model: string;
@@ -178,9 +203,17 @@ export type LeakageResponse = {
   summary: string[];
 };
 export type LeakageBody = { response: SeriesOptions; test_years: number };
-export const leakageOf = (body: LeakageBody) => call<LeakageResponse>("/leakage", send("POST", body));
+export const leakageOf = (body: LeakageBody) =>
+  call<LeakageResponse>("/leakage", send("POST", body));
 
-export type PurityPixel = { lon: number; lat: number; share: number; amplitude: number; error: number; inside: boolean };
+export type PurityPixel = {
+  lon: number;
+  lat: number;
+  share: number;
+  amplitude: number;
+  error: number;
+  inside: boolean;
+};
 export type PurityResponse = {
   pixels: PurityPixel[];
   perennial: number[];
@@ -190,10 +223,20 @@ export type PurityResponse = {
   pixel_m: number;
   summary: string[];
 };
-export const areaPurity = (body: { area: number; start: string; end: string }) =>
-  call<PurityResponse>(`/areas/${body.area}/purity?start=${body.start}&end=${body.end}`);
+export const areaPurity = (body: {
+  area: number;
+  start: string;
+  end: string;
+}) =>
+  call<PurityResponse>(
+    `/areas/${body.area}/purity?start=${body.start}&end=${body.end}`,
+  );
 
-export type EarthEngineStatus = { connected: boolean; project: string | null; error: string | null };
+export type EarthEngineStatus = {
+  connected: boolean;
+  project: string | null;
+  error: string | null;
+};
 export const earthEngineStatus = () => call<EarthEngineStatus>("/earth-engine");
 export const setEarthEngineProject = (project: string) =>
   call<EarthEngineStatus>("/earth-engine", send("PUT", { project }));
@@ -201,25 +244,38 @@ export const setEarthEngineProject = (project: string) =>
 export const listWorkspaces = () => call<WorkspaceSummary[]>("/workspaces");
 export const createWorkspace = (name: string) =>
   call<WorkspaceSummary>("/workspaces", send("POST", { name }));
-export const openWorkspace = (id: number) => call<Workspace>(`/workspaces/${id}`);
+export const openWorkspace = (id: number) =>
+  call<Workspace>(`/workspaces/${id}`);
 export const updateWorkspace = (
   id: number,
   change: { name?: string; settings?: Record<string, unknown> },
 ) => call<Workspace>(`/workspaces/${id}`, send("PATCH", change));
 // Deleting moves a workspace to Recently deleted for 30 days; from there it can be restored or
 // deleted forever
-export const deleteWorkspace = (id: number) => call<void>(`/workspaces/${id}`, send("DELETE"));
-export const deletedWorkspaces = () => call<WorkspaceSummary[]>("/workspaces?deleted=true");
-export const restoreWorkspace = (id: number) => call<WorkspaceSummary>(`/workspaces/${id}/restore`, send("POST"));
+export const deleteWorkspace = (id: number) =>
+  call<void>(`/workspaces/${id}`, send("DELETE"));
+export const deletedWorkspaces = () =>
+  call<WorkspaceSummary[]>("/workspaces?deleted=true");
+export const restoreWorkspace = (id: number) =>
+  call<WorkspaceSummary>(`/workspaces/${id}/restore`, send("POST"));
 export const deleteWorkspaceForever = (id: number) =>
   call<void>(`/workspaces/${id}?forever=true`, send("DELETE"));
 
-export const createArea = (workspaceId: number, name: string, geometry: unknown) =>
-  call<Area>(`/workspaces/${workspaceId}/areas`, send("POST", { name, geometry }));
+export const createArea = (
+  workspaceId: number,
+  name: string,
+  geometry: unknown,
+) =>
+  call<Area>(
+    `/workspaces/${workspaceId}/areas`,
+    send("POST", { name, geometry }),
+  );
 export const renameArea = (id: number, name: string) =>
   call<Area>(`/areas/${id}`, send("PATCH", { name }));
-export const deleteArea = (id: number) => call<void>(`/areas/${id}`, send("DELETE"));
-export const restoreArea = (id: number) => call<Area>(`/areas/${id}/restore`, send("POST"));
+export const deleteArea = (id: number) =>
+  call<void>(`/areas/${id}`, send("DELETE"));
+export const restoreArea = (id: number) =>
+  call<Area>(`/areas/${id}/restore`, send("POST"));
 
 type Job = {
   id: number;
@@ -251,7 +307,12 @@ export type DecompositionResponse = {
   semi_period_days: number;
   interpolated: number;
   area_id: number;
-  points: { date: string; value: number | null; trend: number | null; seasonal: number | null }[];
+  points: {
+    date: string;
+    value: number | null;
+    trend: number | null;
+    seasonal: number | null;
+  }[];
   summary: string[]; // the sentences Magonia is given about it
   cautions?: string[]; // the guardrails' (AI-03)
 };
@@ -271,7 +332,8 @@ export type TrendResponse = {
   summary: string[];
   cautions: string[];
 };
-export const trendOf = (options: SeriesOptions) => call<TrendResponse>("/trend", send("POST", options));
+export const trendOf = (options: SeriesOptions) =>
+  call<TrendResponse>("/trend", send("POST", options));
 
 // Start, peak and end of each growing season (ANA-05)
 export type Season = {
@@ -290,7 +352,8 @@ export type PhenologyResponse = {
   summary: string[];
   cautions: string[];
 };
-export const phenologyOf = (options: SeriesOptions) => call<PhenologyResponse>("/phenology", send("POST", options));
+export const phenologyOf = (options: SeriesOptions) =>
+  call<PhenologyResponse>("/phenology", send("POST", options));
 
 // How a series remembers itself and which past months of its drivers stand out
 export type LagEvidence = {
@@ -312,16 +375,27 @@ export type LagsResponse = {
   cautions?: string[]; // the guardrails' (AI-03)
 };
 
-export type LagsBody = { response: SeriesOptions; drivers: SeriesOptions[]; deseasonalise: boolean };
+export type LagsBody = {
+  response: SeriesOptions;
+  drivers: SeriesOptions[];
+  deseasonalise: boolean;
+};
 
-export const exploreLags = (body: LagsBody) => call<LagsResponse>("/lags", send("POST", body));
+export const exploreLags = (body: LagsBody) =>
+  call<LagsResponse>("/lags", send("POST", body));
 
 // Models forecasting a series one month ahead, tuned and tested by time
 export type FittedModel = {
   name: "Ridge" | "RandomForest" | "XGBoost" | "MLP" | "LSTM" | "GRU" | "TCN";
   params: Record<string, unknown>;
   test: { RMSE: number; R2: number; MAE: number };
-  seeds: { runs: number; RMSE_mean: number; RMSE_sd: number; R2_mean: number; R2_sd: number };
+  seeds: {
+    runs: number;
+    RMSE_mean: number;
+    RMSE_sd: number;
+    R2_mean: number;
+    R2_sd: number;
+  };
   rolling: { window: string; RMSE: number; R2: number; MAE: number }[];
   predictions: number[];
 };
@@ -333,7 +407,10 @@ export type ModelsResponse = {
   dates: string[];
   observed: number[];
   models: FittedModel[];
-  baselines: Record<"persistence" | "climatology", { RMSE: number; R2: number; MAE: number }>;
+  baselines: Record<
+    "persistence" | "climatology",
+    { RMSE: number; R2: number; MAE: number }
+  >;
   summary: string[];
   cautions?: string[]; // the guardrails' (AI-03)
 };
@@ -344,8 +421,15 @@ export type ModelsBody = {
   own_lags: number[] | null;
   driver_lags: Partial<Record<VariableKey, number[]>> | null;
   test_years: number;
-  models?: ("Ridge" | "RandomForest" | "XGBoost" | "MLP" | "LSTM" | "GRU" | "TCN")[]; // the paper's three when left out
-  params?: Partial<Record<"Ridge" | "RandomForest" | "XGBoost" | "MLP" | "LSTM" | "GRU" | "TCN", Record<string, number>>>; // else tuned
+  models?: (
+    "Ridge" | "RandomForest" | "XGBoost" | "MLP" | "LSTM" | "GRU" | "TCN"
+  )[]; // the paper's three when left out
+  params?: Partial<
+    Record<
+      "Ridge" | "RandomForest" | "XGBoost" | "MLP" | "LSTM" | "GRU" | "TCN",
+      Record<string, number>
+    >
+  >; // else tuned
   calendar?: boolean;
   rolling?: boolean;
 };
@@ -370,11 +454,21 @@ export type ExplanationResponse = {
   summary: string[];
   family_range?: Record<string, Record<string, [number, number]>>; // share from seed to seed
   dropped?: Record<string, Record<string, number>>; // error rise when a family is left out
-  native?: Record<string, { method: string; importance: Record<string, number>; tau: number }>; // each model's own explanation
-  timeline?: Record<string, ({ date: string } & Record<string, number | string>)[]>; // month by month, by family
+  native?: Record<
+    string,
+    { method: string; importance: Record<string, number>; tau: number }
+  >; // each model's own explanation
+  timeline?: Record<
+    string,
+    ({ date: string } & Record<string, number | string>)[]
+  >; // month by month, by family
+  effects?: Record<string, Record<string, { x: number; effect: number }[]>>; // input → model → accumulated local effects
 };
 
-type Running<T> = { status: "running" } | { status: "failed"; error: string } | ({ status: "done" } & T);
+type Running<T> =
+  | { status: "running" }
+  | { status: "failed"; error: string }
+  | ({ status: "done" } & T);
 
 // Work that runs in the background on the API: the same request is repeated until it is done
 async function poll<T>(path: string, body: unknown, every = 3000): Promise<T> {
@@ -386,24 +480,33 @@ async function poll<T>(path: string, body: unknown, every = 3000): Promise<T> {
   }
 }
 
-export const fitModels = (body: ModelsBody) => poll<ModelsResponse>("/models", body);
-export const explainModels = (body: ModelsBody) => poll<ExplanationResponse>("/explanations", body);
+export const fitModels = (body: ModelsBody) =>
+  poll<ModelsResponse>("/models", body);
+export const explainModels = (body: ModelsBody) =>
+  poll<ExplanationResponse>("/explanations", body);
 
 // What each model leans on when its training years end earlier
 export type StabilityResponse = {
-  windows: { train_end: string; families: Record<string, Record<string, number>> }[];
+  windows: {
+    train_end: string;
+    families: Record<string, Record<string, number>>;
+  }[];
   leading: Record<string, string[]>;
   summary: string[];
 };
-export const checkStability = (body: ModelsBody) => poll<StabilityResponse>("/stability", body);
+export const checkStability = (body: ModelsBody) =>
+  poll<StabilityResponse>("/stability", body);
 
-export async function fetchSeries(options: SeriesOptions): Promise<SeriesResponse> {
+export async function fetchSeries(
+  options: SeriesOptions,
+): Promise<SeriesResponse> {
   let job = await call<Job>("/jobs", send("POST", options));
   while (job.status === "queued" || job.status === "running") {
     await wait(1000);
     job = await call<Job>(`/jobs/${job.id}`);
   }
-  if (job.status === "failed" || !job.result) throw new Error(job.error ?? "The job failed.");
+  if (job.status === "failed" || !job.result)
+    throw new Error(job.error ?? "The job failed.");
   return job.result;
 }
 
@@ -483,11 +586,21 @@ export type AnswerDetails = {
 };
 
 // What kind of question code took it for, and so what the answer was allowed to draw on
-export type Route = { kind: "data" | "research" | "method" | "chat" | "general"; source: string };
+export type Route = {
+  kind: "data" | "research" | "method" | "chat" | "general";
+  source: string;
+};
 
 // An analysis Magonia proposes; nothing runs until the researcher adds it (AI-07)
 export type Proposal = {
-  kind: "correlation" | "decomposition" | "trend" | "phenology" | "lags" | "experiment" | "instruction";
+  kind:
+    | "correlation"
+    | "decomposition"
+    | "trend"
+    | "phenology"
+    | "lags"
+    | "experiment"
+    | "instruction";
   label: string;
   title: string;
   why: string;
@@ -495,7 +608,9 @@ export type Proposal = {
   driver?: VariableKey;
   drivers?: VariableKey[];
   area?: string;
-  models?: ("Ridge" | "RandomForest" | "XGBoost" | "MLP" | "LSTM" | "GRU" | "TCN")[];
+  models?: (
+    "Ridge" | "RandomForest" | "XGBoost" | "MLP" | "LSTM" | "GRU" | "TCN"
+  )[];
   test_years?: number;
   period?: { start: string | null; end: string | null };
   text?: string; // an instruction, in the researcher's words
@@ -541,7 +656,11 @@ export type ChatEvent =
   | { type: "proposal"; proposal: Proposal }
   | ({ type: "route" } & Route)
   | { type: "reading"; count: number }
-  | { type: "passages"; passages: PassageCard[]; read: Record<string, ReadStatus> };
+  | {
+      type: "passages";
+      passages: PassageCard[];
+      read: Record<string, ReadStatus>;
+    };
 
 // The researcher's library: their own PDFs, which Magonia reads and cites like papers
 export type LibraryFile = {
@@ -554,22 +673,32 @@ export type LibraryFile = {
 };
 
 // Each workspace has its own files; a file is then reached by its id
-export const listFiles = (workspaceId: number) => call<LibraryFile[]>(`/workspaces/${workspaceId}/library`);
-export const removeFile = (id: string) => call<void>(`/library/${id}`, send("DELETE"));
-export const restoreFile = (id: string) => call<LibraryFile>(`/library/${id}/restore`, send("POST"));
+export const listFiles = (workspaceId: number) =>
+  call<LibraryFile[]>(`/workspaces/${workspaceId}/library`);
+export const removeFile = (id: string) =>
+  call<void>(`/library/${id}`, send("DELETE"));
+export const restoreFile = (id: string) =>
+  call<LibraryFile>(`/library/${id}/restore`, send("POST"));
 export function addFile(workspaceId: number, file: File) {
   const body = new FormData();
   body.append("file", file);
-  return call<LibraryFile & { passages: number }>(`/workspaces/${workspaceId}/library`, { method: "POST", body });
+  return call<LibraryFile & { passages: number }>(
+    `/workspaces/${workspaceId}/library`,
+    { method: "POST", body },
+  );
 }
 
 // How the researcher wants Magonia to answer in a workspace
 export const getInstructions = (workspaceId: number) =>
   call<{ text: string }>(`/workspaces/${workspaceId}/instructions`);
 export const setInstructions = (workspaceId: number, text: string) =>
-  call<{ text: string }>(`/workspaces/${workspaceId}/instructions`, send("PUT", { text }));
+  call<{ text: string }>(
+    `/workspaces/${workspaceId}/instructions`,
+    send("PUT", { text }),
+  );
 
-export const assistantInfo = () => call<{ name: string; model: string }>("/assistant");
+export const assistantInfo = () =>
+  call<{ name: string; model: string }>("/assistant");
 
 // Conversations with Magonia, several per workspace; a deleted one can be restored for 30 days
 export type Conversation = {
@@ -588,9 +717,12 @@ export const createConversation = (workspaceId: number) =>
   call<Conversation>(`/workspaces/${workspaceId}/conversations`, send("POST"));
 export const renameConversation = (id: number, title: string) =>
   call<Conversation>(`/conversations/${id}`, send("PATCH", { title }));
-export const deleteConversation = (id: number) => call<void>(`/conversations/${id}`, send("DELETE"));
-export const restoreConversation = (id: number) => call<Conversation>(`/conversations/${id}/restore`, send("POST"));
-export const listMessages = (conversationId: number) => call<ChatMessage[]>(`/conversations/${conversationId}/messages`);
+export const deleteConversation = (id: number) =>
+  call<void>(`/conversations/${id}`, send("DELETE"));
+export const restoreConversation = (id: number) =>
+  call<Conversation>(`/conversations/${id}/restore`, send("POST"));
+export const listMessages = (conversationId: number) =>
+  call<ChatMessage[]>(`/conversations/${conversationId}/messages`);
 
 // Sends a question and hands each event to onEvent as it arrives (one JSON object per line)
 export async function ask(
@@ -624,7 +756,16 @@ export async function ask(
 // An analysis as a Jupyter notebook that reproduces it from the data it used (REP-01)
 export type NotebookBody = {
   title: string;
-  kind: "experiment" | "decomposition" | "trend" | "phenology" | "lags" | "correlation" | "scales" | "coherence" | "leakage";
+  kind:
+    | "experiment"
+    | "decomposition"
+    | "trend"
+    | "phenology"
+    | "lags"
+    | "correlation"
+    | "scales"
+    | "coherence"
+    | "leakage";
   options: Record<string, unknown>;
   series: SeriesOptions[];
 };
@@ -632,7 +773,11 @@ export type NotebookBody = {
 export async function downloadNotebook(body: NotebookBody): Promise<void> {
   const notebook = await call<unknown>("/notebook", send("POST", body));
   const link = document.createElement("a");
-  link.href = URL.createObjectURL(new Blob([JSON.stringify(notebook, null, 1)], { type: "application/x-ipynb+json" }));
+  link.href = URL.createObjectURL(
+    new Blob([JSON.stringify(notebook, null, 1)], {
+      type: "application/x-ipynb+json",
+    }),
+  );
   link.download = `${body.title.replace(/\W+/g, "-").replace(/^-|-$/g, "").toLowerCase() || "magonia"}.ipynb`;
   link.click();
   URL.revokeObjectURL(link.href);
