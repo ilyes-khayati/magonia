@@ -2404,6 +2404,12 @@ td {
   fill-opacity: 0.82;
 }
 
+/* text drawn as data keeps the fill its mark gives it, such as white on a dark cell */
+.chart-box svg g[data-mark="text"] text {
+  fill: inherit;
+  fill-opacity: 1;
+}
+
 .chart-overlay {
   position: absolute;
   inset: 0;

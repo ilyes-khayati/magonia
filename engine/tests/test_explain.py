@@ -139,3 +139,35 @@ def test_dropping_a_family_shows_whether_a_model_needs_it():
     found = drop_family("Ridge", {"ridge__alpha": 1.0}, X, y)
     assert found["own history"] > 5  # the error rises many times over without it
     assert abs(found["LST"]) < 0.05  # and barely moves without noise
+
+
+def test_accumulated_local_effects_trace_how_the_forecast_responds():
+    import numpy as np
+
+    from engine.explain import ale
+
+    class Known:
+        def predict(self, X):
+            return 2 * X["a"].to_numpy() + X["b"].to_numpy() ** 2
+
+    rng = np.random.default_rng(0)
+    a = rng.uniform(0, 1, 300)
+    X = pd.DataFrame({"a": a, "b": a + rng.normal(0, 0.05, 300)})  # b moves with a, like lags
+    line = ale(Known(), X, "a")
+    xs = np.array([p["x"] for p in line])
+    effects = np.array([p["effect"] for p in line])
+    # a straight line of slope 2, untouched by b although b moves with a
+    assert np.allclose(np.diff(effects) / np.diff(xs), 2, atol=1e-3)  # values are rounded
+    curve = ale(Known(), X, "b")
+    assert np.all(np.diff([p["effect"] for p in curve]) > 0)  # b squared, rising over 0 to 1
+    assert ale(Known(), X.assign(a=1.0), "a") == []  # a constant has no curve
+
+
+def test_effects_are_described_with_their_direction(explained):
+    from engine.explain import describe
+
+    assert explained.effects
+    for curves in explained.effects.values():
+        assert set(curves) <= {"XGBoost", "RandomForest", "Ridge"}
+    lines = describe("Orchard", explained)
+    assert any("(accumulated local effects)" in line for line in lines)

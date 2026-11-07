@@ -36,7 +36,9 @@ RESEARCH = re.compile(
     r"references?|reviews?|what is known|state of the art|authors?|journals?|et al|"
     # how well a method or product works is a question the literature answers
     r"limits?|limitations?|drawbacks?|weakness(es)?|accuracy|reliab(le|ility)|known (issues|problems)|"
-    r"how (well|accurate|reliable))\b"
+    r"how (well|accurate|reliable)|"
+    # in French
+    r"[ée]tudes?|recherches?|litt[ée]rature|articles?|que (disent|dit)|travaux)\b"
     r"|\(\d{4}\)",
     re.IGNORECASE,
 )
@@ -68,8 +70,34 @@ FOLLOW_UP = re.compile(
 )
 
 
+FRENCH = re.compile(
+    r"\b(le|la|les|des|est|et|une|du|pour|dans|que|qui|sur|avec|sont|quels?|quelles?|"
+    r"comment|pourquoi|bonjour|merci|peux|tu|vous|je|mon|ma|mes)\b",
+    re.IGNORECASE,
+)
+
+
+def in_french(question: str) -> bool:
+    """Whether the question is written in French: enough of its words are French ones."""
+    words = re.findall(r"[a-zà-ÿ']+", question.lower())
+    return len(words) >= 2 and len(FRENCH.findall(question)) / len(words) >= 0.2
+
+
 def follows(question: str) -> bool:
     return bool(FOLLOW_UP.match(question)) and len(question.split()) <= 10
+
+
+NAMED = re.compile(r"\b[A-ZÀ-Ý][a-zà-ÿ]+\b")
+
+
+def together(follow_up: str, earlier: str) -> str:
+    """A follow-up and the question it follows, as one topic. When the follow-up names a place
+    or a thing ("And in Tunisia?"), it replaces the one the earlier question named."""
+    named = NAMED.findall(follow_up.strip()[1:] if follow_up.strip() else "")
+    if named:
+        first, *rest = earlier.split(" ", 1)
+        earlier = first + " " + NAMED.sub("", rest[0]) if rest else earlier
+    return f"{follow_up} {earlier}"
 
 
 def route(question: str, areas: list[str] = (), has_view: bool = False) -> Kind:

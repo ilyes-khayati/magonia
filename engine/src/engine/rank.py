@@ -27,6 +27,9 @@ Embed = Callable[[list[str]], list[list[float]]]
 
 # How much citations count against relevance; relevance always dominates
 CITATION_WEIGHT = 0.1
+# Papers less similar to the question than this are not given to the model: in the evaluation
+# no paper judged relevant scored below it, and a third of those judged irrelevant did
+FLOOR = 0.6
 
 COMMON = """a an and are as at be by can do does did for from has have how i in is it its of on or
     our my that the their them these this those to was were what when where which who why
@@ -93,4 +96,7 @@ def rank(question: str, papers: list[Paper], keep: int, embed: Embed | None = No
         if title not in seen:
             seen.add(title)
             unique.append(paper)
+    if similarity is not None:
+        # an off-topic paper is worse than none: the model then says nothing was found
+        unique = [p for p in unique if p.relevance >= FLOOR]
     return unique[:keep]
