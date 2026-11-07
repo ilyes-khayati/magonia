@@ -5,7 +5,15 @@ from typing import ClassVar
 
 import pytest
 
-from engine.assistant import RULES, Ollama, ProviderError, Scripted, ToolCall, from_environment
+from engine.assistant import (
+    RULES,
+    Ollama,
+    ProviderError,
+    Scripted,
+    ToolCall,
+    from_environment,
+    installed_models,
+)
 
 
 def test_scripted_streams_the_answer_word_by_word():
@@ -18,6 +26,16 @@ class FakeOllama(BaseHTTPRequestHandler):
     """Answers /api/chat the way Ollama does: one JSON object per line."""
 
     received: ClassVar[dict] = {}
+
+    def do_GET(self):  # /api/tags: the models installed
+        self.send_response(200)
+        self.end_headers()
+        models = [
+            {"name": "qwen2.5:7b"},
+            {"name": "nomic-embed-text:latest"},
+            {"name": "phi4-mini"},
+        ]
+        self.wfile.write(json.dumps({"models": models}).encode())
 
     def do_POST(self):
         FakeOllama.received = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
@@ -75,3 +93,18 @@ def test_ollama_passes_tool_calls_through(ollama_url):
     pieces = list(Ollama(ollama_url).stream([{"role": "user", "content": "Hi"}], tools=[{"x": 1}]))
     assert pieces[0] == ToolCall("search_papers", {"query": "olive"})
     assert FakeOllama.received["tools"] == [{"x": 1}]
+
+
+def test_settings_choose_the_server_model_and_temperature(monkeypatch, ollama_url):
+    monkeypatch.setenv("MAGONIA_MODEL_URL", "http://192.168.1.20:11434")
+    provider = from_environment({"model_url": ollama_url, "model": "phi4-mini", "temperature": 0.2})
+    assert (provider.url, provider.model) == (ollama_url, "phi4-mini")
+    "".join(provider.stream([{"role": "user", "content": "Hi"}]))
+    assert FakeOllama.received["options"]["temperature"] == 0.2
+    # without a temperature the model keeps its own
+    "".join(Ollama(ollama_url).stream([{"role": "user", "content": "Hi"}]))
+    assert "temperature" not in FakeOllama.received["options"]
+
+
+def test_the_models_listed_are_those_that_can_answer(ollama_url):
+    assert installed_models(ollama_url) == ["phi4-mini", "qwen2.5:7b"]

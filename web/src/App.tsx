@@ -55,13 +55,14 @@ import ModelPage from "./components/ModelPage";
 import Rail from "./components/Rail";
 import Sidebar from "./components/Sidebar";
 import Toolbar from "./components/Toolbar";
-import { SettingsMenu, WorkspaceMenu } from "./components/RailMenus";
+import { WorkspaceMenu } from "./components/RailMenus";
+import SettingsMenu from "./components/Settings";
 import UndoBar from "./components/UndoBar";
 import Reader from "./components/Reader";
 import { ReaderContext, whereToRead, type Readable } from "./reader";
 import { PAGES, isPage, pagePath, type Page } from "./pages";
 import { DEFAULTS, readSettings, seriesKey, seriesOptions, variableTitle, type Settings } from "./settings";
-import { applyTheme, areaColour, initialTheme, type Theme } from "./theme";
+import { applyTheme, areaColour, initialTheme, systemTheme, type Theme, type ThemeChoice } from "./theme";
 import { removeFrom, restoreAt, type Removed, type Undo } from "./undo";
 import { useSeries } from "./useSeries";
 
@@ -134,7 +135,9 @@ function bounds(geometries: GeoJSON.Geometry[]): [[number, number], [number, num
 }
 
 export default function App() {
-  const [theme, setTheme] = useState<Theme>(initialTheme);
+  const [themeChoice, setThemeChoice] = useState<ThemeChoice>(initialTheme);
+  const [system, setSystem] = useState<Theme>(systemTheme);
+  const theme: Theme = themeChoice === "system" ? system : themeChoice;
   const [workspaces, setWorkspaces] = useState<WorkspaceSummary[]>([]);
   const [workspaceId, setWorkspaceId] = useState<number | null>(null);
   const [areas, setAreas] = useState<Area[]>([]);
@@ -192,7 +195,17 @@ export default function App() {
   const page = isPage(match?.params.page) ? match.params.page : "map";
   const routed = Number(match?.params.workspace) || null;
 
-  useEffect(() => applyTheme(theme), [theme]);
+  // the chosen theme, or the system's, followed when the system changes
+  useEffect(() => {
+    applyTheme(themeChoice);
+  }, [themeChoice, system]);
+  useEffect(() => {
+    if (typeof matchMedia !== "function") return;
+    const media = matchMedia("(prefers-color-scheme: dark)");
+    const follow = () => setSystem(media.matches ? "dark" : "light");
+    media.addEventListener("change", follow);
+    return () => media.removeEventListener("change", follow);
+  }, []);
   useEffect(() => panelRemember(panel), [panel]);
   useEffect(() => {
     const next = new URLSearchParams();
@@ -781,7 +794,7 @@ export default function App() {
     ] : []),
     ...catalogue.map((v) => ({ id: `layer-${v.key}`, group: "Show on map", label: v.name, run: () => { setLayersOpen(true); setLayer({ variable: v.key, opacity: layer?.opacity ?? 0.8, scale: v.key === "spei" ? 3 : undefined }); if (!month) setMonth(settings.end); toPage("map"); } })),
     { id: "magon", group: "Magon", label: docked ? "Close Magon" : "Open Magon", hint: "⌘J", run: () => magon.onToggle() },
-    { id: "theme", group: "View", label: theme === "light" ? "Dark theme" : "Light theme", run: () => setTheme(theme === "light" ? "dark" : "light") },
+    { id: "theme", group: "View", label: theme === "light" ? "Dark theme" : "Light theme", run: () => setThemeChoice(theme === "light" ? "dark" : "light") },
     { id: "link", group: "View", label: "Copy a link to this view", run: () => void navigator.clipboard?.writeText(window.location.href) },
   ];
 
@@ -854,7 +867,7 @@ export default function App() {
           />
         }
         settings={
-          <SettingsMenu theme={theme} onTheme={setTheme} earthEngine={earthEngine} onEarthEngine={() => setSetupOpen(true)} />
+          <SettingsMenu theme={themeChoice} onTheme={setThemeChoice} earthEngine={earthEngine} onEarthEngine={() => setSetupOpen(true)} />
         }
       />
 

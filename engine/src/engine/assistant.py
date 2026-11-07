@@ -279,9 +279,15 @@ SYSTEM = {"role": "system", "content": RULES}
 class Ollama:
     """A model served by Ollama, on this computer or another one on the network."""
 
-    def __init__(self, url: str = "http://localhost:11434", model: str = "qwen2.5:7b"):
+    def __init__(
+        self,
+        url: str = "http://localhost:11434",
+        model: str = "qwen2.5:7b",
+        temperature: float | None = None,  # None keeps the model's own
+    ):
         self.url = url.rstrip("/")
         self.model = model
+        self.temperature = temperature
         self.name = f"{model} (Ollama)"
         # ranks papers by meaning; without the model on the server, ranking uses shared words
         self.embed = ollama_embedder(self.url, os.environ.get("MAGONIA_EMBED", "nomic-embed-text"))
@@ -297,7 +303,10 @@ class Ollama:
                 *messages,
             ],
             "stream": True,
-            "options": {"num_ctx": 8192},  # room for the abstracts of the papers found
+            "options": {
+                "num_ctx": 8192,  # room for the abstracts of the papers found
+                **({} if self.temperature is None else {"temperature": self.temperature}),
+            },
         }
         if tools:
             body["tools"] = tools
@@ -355,13 +364,30 @@ class Scripted:
             yield word if i == 0 else f" {word}"
 
 
-def from_environment() -> Provider:
-    """The provider named by MAGONIA_MODEL_URL and MAGONIA_MODEL, in the environment or .env."""
+def from_environment(settings: dict | None = None) -> Provider:
+    """The provider named by MAGONIA_MODEL_URL and MAGONIA_MODEL, in the environment or .env,
+    unless the researcher chose another server or model in Magonia's settings."""
     load_dotenv()
-    url = os.environ.get("MAGONIA_MODEL_URL", "http://localhost:11434")
+    settings = settings or {}
+    url = settings.get("model_url") or os.environ.get("MAGONIA_MODEL_URL", "http://localhost:11434")
     if url == "scripted":
         return Scripted()
-    return Ollama(url, os.environ.get("MAGONIA_MODEL", "qwen2.5:7b"))
+    model = settings.get("model") or os.environ.get("MAGONIA_MODEL", "qwen2.5:7b")
+    return Ollama(url, model, settings.get("temperature"))
+
+
+def installed_models(url: str) -> list[str]:
+    """The chat models on an Ollama server; embedding models cannot answer, so are left out."""
+    with urlopen(f"{url.rstrip('/')}/api/tags", timeout=5) as response:
+        names = [m["name"] for m in json.load(response).get("models", [])]
+    return sorted(n for n in names if "embed" not in n)
+
+
+# How long Magon's answers are, as the researcher chose in its settings
+CONCISE = "- Be concise and plain. Researchers are busy."
+DETAILED = (
+    "- Be plain and thorough: give the reasoning, the setting of each finding and its limits."
+)
 
 
 def for_the_model(papers: list[Paper], first: int) -> str:
@@ -385,6 +411,8 @@ def answer(
     library: Library | None = None,
     judge: Judge | None = None,
     instructions: str = "",
+    papers_per_search: int = 6,
+    detail: str = "concise",
 ) -> Iterator[dict]:
     """Answer the last message of the conversation, using tools when the model asks.
 
@@ -400,7 +428,7 @@ def answer(
         embed = getattr(provider, "embed", None)
 
         def search(query: str) -> list[Paper]:
-            return find_papers(query, topic, embed=embed)
+            return find_papers(query, topic, keep=papers_per_search, embed=embed)
 
     areas = list(dict.fromkeys(s.area for s in view.series)) if view is not None else []
     kind = route(text, areas, view is not None)
@@ -423,8 +451,9 @@ def answer(
     conversation = restated(conversation)
     yield {"type": "route", "kind": kind, "source": SOURCES[kind]}
     facts = view is not None and kind in ("data", "general")
+    rules = RULES_FOR[kind] if detail != "detailed" else RULES_FOR[kind].replace(CONCISE, DETAILED)
     messages = [
-        {"role": "system", "content": RULES_FOR[kind]},
+        {"role": "system", "content": rules},
         *conversation[-HISTORY - 1 :],
     ]
     # what the model is given, against which every number in its answer is checked
