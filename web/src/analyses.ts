@@ -41,6 +41,14 @@ export type Scales = Named & {
   area?: number;
 };
 
+export type Coherence = Named & {
+  kind: "coherence";
+  response: VariableKey;
+  driver: VariableKey;
+  deseasonalise: boolean;
+  area?: number;
+};
+
 // A forecast card from before the Model page; read once and turned into an experiment
 export type Models = {
   kind: "models";
@@ -51,7 +59,7 @@ export type Models = {
   test_years: number;
 };
 
-export type AnalysisBody = Correlation | Decomposition | Trend | Phenology | Lags | Scales;
+export type AnalysisBody = Correlation | Decomposition | Trend | Phenology | Lags | Scales | Coherence;
 
 export type Analysis = { id: number } & AnalysisBody;
 
@@ -126,6 +134,16 @@ export const KINDS: KindInfo[] = [
     description: "A variable against SPEI at 1 to 12 months of accumulation and 0 to 6 months of lag.",
     create: (chosen) => ({ kind: "scales", response: chosen.find((k) => k !== "spei") ?? "ndvi", deseasonalise: true }),
   },
+  {
+    kind: "coherence",
+    label: "Wavelet coherence",
+    question: "When, and at which periods, do two variables move together?",
+    description: "Coherence of two variables month by month and period by period, with which one leads.",
+    create: (chosen) => {
+      const response = chosen[0] ?? "ndvi";
+      return { kind: "coherence", response, driver: other(response, chosen), deseasonalise: false };
+    },
+  },
 ];
 
 // The series an analysis needs; a decomposition works at the product's own time step
@@ -146,6 +164,8 @@ export function needsOf(analysis: Analysis): Need[] {
       return [{ variable: "ndvi", native: true }];
     case "lags":
       return [analysis.response, ...analysis.drivers].map((variable) => ({ variable, native: false }));
+    case "coherence":
+      return [analysis.response, analysis.driver].map((variable) => ({ variable, native: false }));
     case "scales":
       return [
         { variable: analysis.response, native: false },

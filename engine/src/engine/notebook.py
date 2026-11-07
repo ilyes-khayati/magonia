@@ -235,6 +235,25 @@ for area in dict.fromkeys(s.area for s in SERIES.values()):
 """
             ),
         ]
+    if kind == "coherence":
+        second = series[1]
+        return [
+            markdown("## Wavelet coherence"),
+            code(
+                f"""
+from engine.coherence import coherence
+
+a = facts.monthly_series(SERIES[{key(first)!r}])
+b = facts.monthly_series(SERIES[{key(second)!r}])
+if {options.get("deseasonalise", False)!r}:
+    a = a - a.groupby(a.index.month).transform("mean")
+    b = b - b.groupby(b.index.month).transform("mean")
+found = coherence(a, b, {first["title"]!r}, {second["title"]!r}, {first["area"]!r})
+for line in found.summary:
+    print(line)
+"""
+            ),
+        ]
     if kind == "scales":
         scales = [key(s) for s in series[1:]]
         return [
