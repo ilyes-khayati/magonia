@@ -45,10 +45,28 @@ def numbers(group: str) -> list[int]:
     return found
 
 
+# A first sentence that only announces the answer: "Based on the literature, here is what is
+# known about…:". It carries nothing, and the support check counts it as a claim.
+FRAMING = re.compile(
+    r"^\s*(based on (the )?(literature|studies|research|papers|sources|the papers found)[^.\n]*|"
+    r"here (is|are) (what|some|a summary)[^.\n]*|"
+    r"(the )?(literature|research|studies) (suggests?|shows?|indicates?) the following[^.\n]*)"
+    r"[:.]\s*\n*",
+    re.IGNORECASE,
+)
+
+
+def without_framing(answer: str) -> str:
+    """The answer without an opening sentence that only announces it."""
+    match = FRAMING.match(answer)
+    return answer[match.end() :] if match and match.end() < 220 else answer
+
+
 def check(answer: str, papers: list, pages: dict[int, set[int]] | None = None) -> Check:
     """Keep only citations to papers 1..len(papers), and pages a passage came from (pages
     maps a paper's number to the pages given); report what was removed or unverified."""
     result = Check(text="")
+    answer = without_framing(answer)
 
     def keep_valid(match: re.Match) -> str:
         valid = []

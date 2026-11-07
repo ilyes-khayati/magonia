@@ -392,8 +392,10 @@ function LagMap({ data, models }: { data: ExplanationResponse; models: string[] 
     return m ? [{ input: m[1], lag: Number(m[2]), share: Math.max(0, v) / total }] : [];
   });
   if (!cells.length) return null;
+  const longest = Math.max(...cells.map((c) => c.input.length));
   const options: Plot.PlotOptions = {
-    marginLeft: 110,
+    // room for the longest input name, at about six pixels a letter
+    marginLeft: Math.min(220, 20 + 6.2 * longest),
     marginBottom: 40,
     x: { type: "band", label: "Months earlier", labelAnchor: "center", labelArrow: "none", labelOffset: 34 },
     y: { type: "band", label: null },
