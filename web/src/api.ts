@@ -119,6 +119,30 @@ const send = (method: string, body?: unknown): RequestInit => ({
 
 export const fetchCatalogue = () => call<Variable[]>("/catalogue");
 
+// Variables drawn on the map: one month as tiles, the pixel under a point, an area's pixels
+
+export type Legend = { low: number; high: number; palette: string[] };
+export type Tiles = Legend & { url: string; month: string };
+export const layerTiles = (variable: VariableKey, month: string, scale?: number) =>
+  call<Tiles>(`/layers/${variable}/tiles?month=${month}${scale ? `&scale=${scale}` : ""}`);
+export const layerLegend = (variable: VariableKey) => call<Legend>(`/layers/${variable}/legend`);
+
+export type PointSeries = {
+  variable: VariableKey;
+  lon: number;
+  lat: number;
+  name: string;
+  units: string;
+  pixel_m: number;
+  points: { date: string; value: number | null }[];
+};
+export const inspectPoint = (body: { variable: VariableKey; lon: number; lat: number; start: string; end: string; scale?: number }) =>
+  call<PointSeries>("/inspect", send("POST", body));
+
+export type PixelGrid = GeoJSON.FeatureCollection & { pixel_m: number };
+export const areaPixels = (areaId: number, variable: VariableKey) =>
+  call<PixelGrid>(`/areas/${areaId}/pixels?variable=${variable}`);
+
 export type EarthEngineStatus = { connected: boolean; project: string | null; error: string | null };
 export const earthEngineStatus = () => call<EarthEngineStatus>("/earth-engine");
 export const setEarthEngineProject = (project: string) =>

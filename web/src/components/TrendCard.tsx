@@ -1,6 +1,5 @@
 import CardTitle from "./CardTitle";
 import { useMemo } from "react";
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { Trend } from "../analyses";
 import { trendOf, type SeriesOptions, type Variable, type VariableKey } from "../api";
 import { useAnalysis } from "../useAnalysis";
@@ -8,6 +7,9 @@ import Cautions from "./Cautions";
 import type { Entry } from "./ChartCard";
 import { CloseIcon } from "./Icons";
 import { large } from "../variables";
+import { TimeChart, type TimeSeries } from "../plot/Chart";
+import { yLabel } from "../plot/series";
+import { num, signed } from "../format";
 
 type Props = {
   analysis: Trend;
@@ -18,9 +20,6 @@ type Props = {
   entries: Entry[]; // one per area
   options: (areaId: number) => SeriesOptions;
 };
-
-const TICK = { fill: "var(--muted)", fontSize: 10, fontFamily: "var(--mono)" };
-const TOOLTIP = { background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8 };
 
 // Annual means of each area with their Theil–Sen line, and the Mann–Kendall verdict
 export default function TrendCard({ analysis, onChange, onRemove, variables, title, entries, options }: Props) {
@@ -39,19 +38,19 @@ export default function TrendCard({ analysis, onChange, onRemove, variables, tit
     return r?.status === "done" ? [{ ...e, data: r.data }] : [];
   });
 
-  // one row per year: each area's mean and its fitted line
-  const rows = new Map<number, Record<string, number>>();
-  for (const { area, data } of done) {
-    const years = Object.keys(data.years).map(Number);
-    const first = Math.min(...years);
-    for (const y of years) {
-      const row = rows.get(y) ?? { year: y };
-      row[`m${area.id}`] = data.years[String(y)];
-      if (data.slope !== null && data.intercept !== null) row[`t${area.id}`] = data.intercept + (data.slope / 10) * (y - first);
-      rows.set(y, row);
-    }
-  }
-  const chart = [...rows.values()].sort((a, b) => a.year - b.year);
+  // each area's annual means, and its fitted line dashed over them
+  const year = (y: number) => new Date(Date.UTC(y, 6, 1));
+  const chart: TimeSeries[] = done.flatMap(({ area, colour, data }) => {
+    const years = Object.keys(data.years).map(Number).sort((a, b) => a - b);
+    const first = years[0];
+    const line = data.slope !== null && data.intercept !== null ? data : null;
+    return [
+      { id: `m${area.id}`, name: `${area.name} · annual mean`, colour, width: 1.2, dots: true, points: years.map((y) => ({ date: year(y), value: data.years[String(y)] })) },
+      ...(line
+        ? [{ id: `t${area.id}`, name: `${area.name} · Theil–Sen`, colour, width: 2, dashed: true, points: years.map((y) => ({ date: year(y), value: line.intercept! + (line.slope! / 10) * (y - first) })) }]
+        : []),
+    ];
+  });
 
   return (
     <section className="card" aria-label="Trend chart">
@@ -80,34 +79,7 @@ export default function TrendCard({ analysis, onChange, onRemove, variables, tit
         <p className="placeholder">Waiting for the series to load.</p>
       ) : (
         <>
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={chart} margin={{ top: 6, right: 6, bottom: 0, left: 0 }}>
-              <CartesianGrid stroke="var(--grid)" vertical={false} />
-              <XAxis dataKey="year" tick={TICK} />
-              <YAxis tick={TICK} width={40} domain={["auto", "auto"]} tickFormatter={(v) => Number(v).toFixed(digits - 1)} />
-              <Tooltip
-                contentStyle={TOOLTIP}
-                formatter={(value, key) => {
-                  const area = entries.find((e) => e.area.id === Number(String(key).slice(1)))?.area.name ?? "";
-                  return [Number(value).toFixed(digits), String(key).startsWith("t") ? `${area} trend` : `${area} ${name}`];
-                }}
-              />
-              {done.map(({ area, colour }) => (
-                <Line key={`m${area.id}`} dataKey={`m${area.id}`} stroke={colour} strokeWidth={1.4} dot={{ r: 2.5, fill: colour }} isAnimationActive={false} />
-              ))}
-              {done.map(({ area, colour }) => (
-                <Line
-                  key={`t${area.id}`}
-                  dataKey={`t${area.id}`}
-                  stroke={colour}
-                  strokeWidth={2.4}
-                  strokeDasharray="6 4"
-                  dot={false}
-                  isAnimationActive={false}
-                />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
+          <TimeChart title={`${name} trend`} series={chart} height={210} y={{ label: variable ? yLabel(variable) : name, digits: digits - 1 }} />
           <div className="table-scroll" tabIndex={0}>
             <table className="stats models">
               <caption className="visually-hidden">Trend of each area</caption>
@@ -126,8 +98,8 @@ export default function TrendCard({ analysis, onChange, onRemove, variables, tit
                     <th scope="row">
                       <span className="dot" style={{ background: colour }} /> {area.name}
                     </th>
-                    <td>{data.slope === null ? "–" : `${data.slope >= 0 ? "+" : ""}${data.slope.toFixed(digits)}`}</td>
-                    <td>{data.p === null ? "–" : data.p.toFixed(2)}</td>
+                    <td>{data.slope === null ? "–" : signed(data.slope, digits)}</td>
+                    <td>{num(data.p, 2)}</td>
                     <td>{Object.keys(data.years).length}</td>
                     <td>{data.p === null ? "–" : data.p < 0.05 ? "significant" : "could be chance"}</td>
                   </tr>

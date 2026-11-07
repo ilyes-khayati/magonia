@@ -83,6 +83,22 @@ const REASONS = {
   fill: "Recommended: fills short gaps by straight lines in time; longer gaps stay empty.",
 };
 
+// Time left, from how long the series done so far took; only once one is done
+const started = { at: 0, from: 0 };
+function eta(progress: Props["progress"]): string | null {
+  const finished = progress.done + progress.failed;
+  const now = performance.now();
+  if (finished === 0 || started.at === 0 || finished < started.from) {
+    started.at = now;
+    started.from = finished;
+    return null;
+  }
+  const each = (now - started.at) / Math.max(1, finished - started.from);
+  if (finished === started.from) return null;
+  const left = Math.round((each * (progress.total - finished)) / 1000);
+  return left > 1 ? ` · about ${left < 60 ? `${left} s` : `${Math.round(left / 60)} min`} left` : null;
+}
+
 export default function DataPanel({ catalogue, areas, settings, onChange, progress }: Props) {
   const [open, setOpen] = useState<VariableKey | null>(null);
   function toggle(key: VariableKey) {
@@ -115,19 +131,18 @@ export default function DataPanel({ catalogue, areas, settings, onChange, progre
               const on = settings.variables.includes(variable.key);
               return (
                 <div key={variable.key} className="variable" data-on={on}>
-                  <div className="row" style={{ alignItems: "flex-start", gap: 6, justifyContent: "space-between" }}>
-                    <label className="row" style={{ alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
+                  <div className="variable-row">
+                    <label className="variable-label" title={`${variable.product} · ${variable.resolution} · ${variable.cadence}`}>
                       <input type="checkbox" checked={on} onChange={() => toggle(variable.key)} />
-                      <span style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                        <span style={{ fontWeight: 500 }}>{variable.name}</span>
-                        <span className="meta">
-                          {variable.product} · {variable.resolution} · {variable.cadence}
-                        </span>
+                      <span className="variable-name">{variable.name}</span>
+                      <span className="visually-hidden">{variable.product}</span>
+                      <span className="variable-spec">
+                        {variable.resolution} · {variable.cadence.replace(" days", " d").replace("monthly", "1 mo")}
                       </span>
                     </label>
                     {variable.learn && (
                       <button
-                        className="icon-button round"
+                        className="icon-button bare"
                         aria-label={`About ${variable.name}`}
                         title={`About ${variable.name}`}
                         aria-expanded={open === variable.key}
@@ -317,12 +332,17 @@ export default function DataPanel({ catalogue, areas, settings, onChange, progre
         </span>
       </fieldset>
 
+      {progress.done + progress.failed < progress.total && (
+        <div className="progress" aria-hidden="true">
+          <div style={{ width: `${(100 * (progress.done + progress.failed)) / progress.total}%` }} />
+        </div>
+      )}
       <p className="status" role="status" aria-live="polite">
         <span className="dot" data-busy={progress.done + progress.failed < progress.total} />
         {progress.total === 0
           ? "Nothing to load yet"
           : progress.done + progress.failed < progress.total
-            ? `Loading ${progress.done + progress.failed + 1} of ${progress.total}…`
+            ? `Extracting ${progress.done + progress.failed + 1} of ${progress.total} series from Earth Engine${eta(progress) ?? ""}`
             : progress.failed
               ? `${progress.failed} of ${progress.total} failed`
               : "All results up to date"}

@@ -1,6 +1,7 @@
 import itertools
 import json
 import sqlite3
+import time
 from collections.abc import Iterator
 from datetime import date, timedelta
 from functools import cache
@@ -8,11 +9,11 @@ from typing import Annotated, Literal
 
 import engine
 import pandas as pd
-from engine import assistant, facts, guardrails, notebook
+from engine import assistant, facts, guardrails, layers, notebook
 from engine.areas import AreaError, make_area
 from engine.catalogue import CATALOGUE, get_variable
 from engine.decompose import DecompositionError, decompose
-from engine.earth_engine import EarthEngineError, check
+from engine.earth_engine import EarthEngineError, check, connect
 from engine.explain import Explanation, Pair, describe, explain, stability
 from engine.fulltext import FullTextError
 from engine.lags import explore
@@ -24,7 +25,7 @@ from engine.pipeline import Request, fingerprint
 from engine.prepare import Resolution
 from engine.series import Masking, band_name
 from engine.trend import trend
-from fastapi import Depends, FastAPI, HTTPException, Response, UploadFile
+from fastapi import Depends, FastAPI, HTTPException, Query, Response, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -316,6 +317,127 @@ def get_job(job_id: int, store: StoreDep) -> Job:
     if not job:
         raise HTTPException(404, "job not found")
     return job_view(store, job)
+
+
+# Layers: a variable drawn on the map for one month, the pixel under a point, and the
+# variable's own pixels over an area. Earth Engine draws the tiles; its URLs last some hours.
+
+TILES: dict[str, tuple[float, dict]] = {}
+TILE_LIFE = 3600  # seconds
+
+
+def earth_engine(store: Store) -> None:
+    try:
+        connect(store.setting("ee_project"))  # None falls back to EE_PROJECT in .env
+    except EarthEngineError as exc:
+        raise HTTPException(503, str(exc)) from exc
+
+
+def layer_variable(key: str, scale: int | None) -> None:
+    try:
+        band_name(get_variable(key), "pixel", scale)
+        layers.legend(key)
+    except (KeyError, ValueError) as exc:
+        raise HTTPException(422, str(exc).strip("\"'")) from exc
+
+
+@app.get("/layers/{key}/legend")
+def layer_legend(key: str) -> dict:
+    """The colour ramp a variable is drawn with, and the values at its ends."""
+    layer_variable(key, 3 if key == "spei" else None)
+    return layers.legend(key).to_dict()
+
+
+@app.get("/layers/{key}/tiles")
+def layer_tiles(
+    key: str,
+    store: StoreDep,
+    month: Annotated[str, Query(pattern=r"^\d{4}-\d{2}$")],
+    scale: int | None = None,
+) -> dict:
+    """A tile URL template for one month of a variable, with its legend."""
+    layer_variable(key, scale)
+    name = f"{key}|{month}|{scale}"
+    if (held := TILES.get(name)) and time.time() - held[0] < TILE_LIFE:
+        return held[1]
+    earth_engine(store)
+    try:
+        found = layers.tiles(key, month, scale)
+    except Exception as exc:  # Earth Engine's reasons reach the user
+        raise HTTPException(502, f"Earth Engine could not draw {key} for {month}: {exc}") from exc
+    TILES[name] = (time.time(), found)
+    return found
+
+
+class PointRequest(BaseModel):
+    variable: str
+    lon: float = Field(ge=-180, le=180)
+    lat: float = Field(ge=-90, le=90)
+    start: date
+    end: date
+    scale: int | None = None
+
+
+@app.post("/inspect")
+def inspect_point(body: PointRequest, store: StoreDep) -> dict:
+    """The value of the pixel under a point, image by image: one pixel, not an area mean."""
+    layer_variable(body.variable, body.scale)
+    if body.end <= body.start:
+        raise HTTPException(422, "end must be after start")
+    request = body.model_dump(mode="json") | {
+        "lon": round(body.lon, 5),
+        "lat": round(body.lat, 5),
+    }
+    key = fingerprint({"point": request})
+    if (held := store.result(key)) is not None:
+        return held
+    earth_engine(store)
+    variable = get_variable(body.variable)
+    try:
+        points = layers.point_series(
+            body.variable, body.lon, body.lat, request["start"], request["end"], body.scale
+        )
+    except Exception as exc:
+        raise HTTPException(502, f"Earth Engine could not read this point: {exc}") from exc
+    found = {
+        **request,
+        "name": variable.name,
+        "units": variable.units,
+        "pixel_m": variable.pixel_m,
+        "points": [
+            {"date": p["date"], "value": None if p["value"] is None else round(p["value"], 4)}
+            for p in points
+        ],
+    }
+    store.save_result(key, found)
+    return found
+
+
+@app.get("/areas/{area_id}/pixels")
+def area_pixels(area_id: int, variable: str, store: StoreDep) -> dict:
+    """The outlines of a variable's own pixels that touch an area: what its mean is made of."""
+    area = store.area(area_id)
+    if not area:
+        raise HTTPException(404, "area not found")
+    layer_variable(variable, 3 if variable == "spei" else None)
+    key = fingerprint({"pixels": variable, "geometry": area["geometry"]})
+    if (held := store.result(key)) is not None:
+        return held
+    earth_engine(store)
+    try:
+        grid = layers.pixel_grid(variable, area["geometry"])
+    except Exception as exc:
+        raise HTTPException(502, f"Earth Engine could not outline the pixels: {exc}") from exc
+    found = {
+        "type": "FeatureCollection",
+        "features": [
+            {"type": "Feature", "properties": {}, "geometry": f["geometry"]}
+            for f in grid["features"]
+        ],
+        "pixel_m": get_variable(variable).pixel_m,
+    }
+    store.save_result(key, found)
+    return found
 
 
 # Workspaces

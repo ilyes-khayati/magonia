@@ -44,8 +44,8 @@ what it means.
 <td width="50%"><img src="docs/images/data.jpg" alt="NDVI and land surface temperature for an olive orchard and a forest, 2000–2024"></td>
 </tr>
 <tr>
-<td><b>Map</b>: draw polygons or rectangles, or upload GeoJSON, KML or shapefiles. Each area is checked and measured.</td>
-<td><b>Data</b>: 14 satellite and climate variables through Google Earth Engine, cleaned and gap-filled, with every step shown.</td>
+<td><b>Map</b>: draw, type coordinates or upload GeoJSON, KML or shapefiles. Show any variable for any month, compare two months side by side, outline the pixels behind an area's mean, and read a single pixel over time.</td>
+<td><b>Data</b>: 14 satellite and climate variables through Google Earth Engine, cleaned and gap-filled, with every step shown. Charts share one date and zoom together, and export as figures at a journal's column width.</td>
 </tr>
 <tr>
 <td><img src="docs/images/analyses.jpg" alt="Memory and lag analyses of NDVI and land surface temperature"></td>
@@ -64,6 +64,12 @@ what it means.
 <td><b>Magon</b>: answers from your data, your PDFs and the open literature, with every citation checked.</td>
 </tr>
 </table>
+
+Every action has a key, and <kbd>⌘K</kbd> finds any of them by name: <kbd>1</kbd>–<kbd>7</kbd>
+pages, <kbd>D</kbd> draw, <kbd>R</kbd> rectangle, <kbd>M</kbd> measure, <kbd>I</kbd> inspect a pixel,
+<kbd>L</kbd> layers, <kbd>G</kbd> pixel grid, <kbd>[</kbd> <kbd>]</kbd> previous and next month,
+<kbd>Z</kbd> zoom to the areas, <kbd>F</kbd> focus the map. The address keeps the month, layer
+and view, so a link opens what you see.
 
 ## Magon, the assistant
 
