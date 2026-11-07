@@ -33,7 +33,10 @@ SOURCES: dict[str, str] = {
 
 RESEARCH = re.compile(
     r"\b(papers?|stud(y|ies)|literature|published|publications?|evidence|cite|citations?|"
-    r"references?|reviews?|what is known|state of the art|authors?|journals?|et al)\b"
+    r"references?|reviews?|what is known|state of the art|authors?|journals?|et al|"
+    # how well a method or product works is a question the literature answers
+    r"limits?|limitations?|drawbacks?|weakness(es)?|accuracy|reliab(le|ility)|known (issues|problems)|"
+    r"how (well|accurate|reliable))\b"
     r"|\(\d{4}\)",
     re.IGNORECASE,
 )
@@ -56,6 +59,17 @@ CHAT = re.compile(
     r"who are you|ok(ay)?|great|cool)\b",
     re.IGNORECASE,
 )
+
+
+# A short question that only makes sense after the one before: "And in Tunisia?", "What about
+# forests?", "Same for 2023?"
+FOLLOW_UP = re.compile(
+    r"^\s*(and|what about|how about|same|also|but|then|in|for|or)\b.{0,60}$", re.IGNORECASE
+)
+
+
+def follows(question: str) -> bool:
+    return bool(FOLLOW_UP.match(question)) and len(question.split()) <= 10
 
 
 def route(question: str, areas: list[str] = (), has_view: bool = False) -> Kind:
