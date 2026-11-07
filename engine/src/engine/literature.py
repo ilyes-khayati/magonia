@@ -141,20 +141,17 @@ STOPWORDS = frozenset(STOPWORD_TEXT.split())
 
 
 def keywords(question: str, most: int = 8) -> str:
-    """The question's topic words, for a second search alongside the model's query."""
+    """The question's topic words, as a search query: for a follow-up searched by code."""
     words = re.findall(r"[A-Za-zÀ-ÿ0-9][A-Za-zÀ-ÿ0-9-]*", question)
     kept = [w for w in words if w.lower() not in STOPWORDS and len(w) > 2]
     return " ".join(list(dict.fromkeys(kept))[:most])
 
 
 def find_papers(query: str, question: str, keep: int = 6, embed=None) -> list[Paper]:
-    """Candidates for the model's query and for the question's own words, merged and ranked
-    against the question: the model's query alone missed most of the relevant papers."""
+    """Candidates for the model's query, ranked against the question. A second search on the
+    question's own words was measured and dropped: it found no more relevant papers, brought
+    off-topic ones to trap questions, and used the daily search budget twice as fast."""
     from engine.rank import rank
 
     candidates = search_papers(query, limit=CANDIDATES)
-    asked = keywords(question) if question else ""
-    if asked and asked.lower() != query.lower():
-        seen = {p.id for p in candidates}
-        candidates += [p for p in search_papers(asked, limit=CANDIDATES // 2) if p.id not in seen]
     return rank(question or query, candidates, keep, embed)
