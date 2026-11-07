@@ -119,6 +119,27 @@ def test_reopening_restores_everything_without_recomputing(client, earth_engine)
     assert earth_engine.calls == calls  # nothing was recomputed
 
 
+def test_a_series_asked_for_again_is_sent_once_when_the_workspace_opens(client):
+    workspace = make_workspace(client)
+    wid = workspace["id"]
+    area = client.post(
+        f"/workspaces/{wid}/areas", json={"name": "orchard", "geometry": SQUARE}
+    ).json()
+    request = {
+        "workspace_id": wid,
+        "area_id": area["id"],
+        "start": "2023-01-01",
+        "end": "2024-01-01",
+    }
+    first = client.post("/jobs", json=request).json()
+    again = client.post("/jobs", json=request).json()
+    other = client.post("/jobs", json={**request, "end": "2023-06-01"}).json()
+
+    jobs = client.get(f"/workspaces/{wid}").json()["jobs"]
+    assert [j["id"] for j in jobs] == [again["id"], other["id"]]
+    assert first["id"] != again["id"]
+
+
 def test_deleting_a_workspace_forever_deletes_its_areas(client, store):
     workspace = make_workspace(client)
     client.post(f"/workspaces/{workspace['id']}/areas", json={"name": "a", "geometry": SQUARE})

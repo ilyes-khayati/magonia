@@ -30,7 +30,7 @@ export default function BoardPage({ board, onChange, onRemove, onNote, onSection
       <div className="page-head">
         <h1>Board</h1>
         <div className="row">
-          <button className="row" onClick={onSection}>
+          <button className="button" onClick={onSection}>
             <PlusIcon size={14} />
             Add a section
           </button>
@@ -47,22 +47,21 @@ export default function BoardPage({ board, onChange, onRemove, onNote, onSection
           <div className="tiles">
             <div className="tile">
               <strong>Pin a card</strong>
-              <span className="meta">The pin in a card&apos;s tools puts the live card here: hover it, change it, dated.</span>
+              <span className="meta">Use the pin on any chart or analysis. It stays live here, with the date it was pinned.</span>
             </div>
             <div className="tile">
               <strong>Pin an experiment</strong>
-              <span className="meta">On the Model page, &quot;Pin&quot; puts a run here with its scores and explanations.</span>
+              <span className="meta">On the Model page, Pin keeps a run with its scores and explanations.</span>
             </div>
             <div className="tile">
               <strong>Pin an answer or a passage</strong>
               <span className="meta">
-                Under each of Magon&apos;s answers, &quot;Pin&quot; keeps it with its question; a passage of a paper can
-                be pinned on its own.
+                Pin an answer from Magon with its question, or a single passage from a paper.
               </span>
             </div>
             <button className="tile" onClick={onNote}>
               <strong>Write a note</strong>
-              <span className="meta">Ideas, doubts, what to check next. Magon reads them too.</span>
+              <span className="meta">Ideas, doubts and what to check next. Magon can read your notes.</span>
             </button>
           </div>
         </section>
@@ -241,14 +240,14 @@ function Item({ b, update, remove, pagePath }: ItemProps) {
       ) : b.answer ? (
           // a pinned answer keeps its citations, paper links and checked numbers
           <div className="board-answer">
-            <p className="answer-text">
+            <div className="answer-text">
               <AnswerText
                 text={b.answer.text}
                 papers={b.answer.details.papers ?? []}
                 numbers={b.answer.details.numbers}
                 anchor={`board-${b.id}`}
               />
-            </p>
+            </div>
             <Sources turn={{ role: "assistant", content: b.answer.text, details: b.answer.details }} anchor={`board-${b.id}`} />
           </div>
         ) : (

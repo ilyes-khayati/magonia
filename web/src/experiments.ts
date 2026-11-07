@@ -9,40 +9,51 @@ export const MODEL_NAMES: ModelName[] = ["Ridge", "RandomForest", "XGBoost", "ML
 // the paper's three, chosen for a new experiment; the networks are added by choice
 export const DEFAULT_MODELS: ModelName[] = ["Ridge", "RandomForest", "XGBoost"];
 export const DEEP: ModelName[] = ["MLP", "LSTM", "GRU", "TCN"];
+// One line on what each model is, under its name in the recipe
+export const MODEL_KIND: Record<ModelName, string> = {
+  Ridge: "Linear regression with an L2 penalty",
+  RandomForest: "Bagged decision trees",
+  XGBoost: "Gradient-boosted trees",
+  MLP: "Feed-forward network over the lag window",
+  LSTM: "Recurrent network over the lag sequence",
+  GRU: "Recurrent network, lighter than the LSTM",
+  TCN: "Dilated convolutions over the lag sequence",
+};
 export const MODEL_LABEL: Record<ModelName, string> = {
   Ridge: "Ridge",
   RandomForest: "Random Forest",
   XGBoost: "XGBoost",
-  MLP: "MLP (neural network)",
-  LSTM: "LSTM (recurrent)",
-  GRU: "GRU (recurrent)",
-  TCN: "TCN (convolutional)",
+  MLP: "MLP",
+  LSTM: "LSTM",
+  GRU: "GRU",
+  TCN: "TCN",
 };
 
 const NEURAL: Setting[] = [
-  { key: "hidden", label: "Hidden units", min: 4, max: 256, step: 4 },
-  { key: "lr", label: "Learning rate", min: 0.0001, max: 0.1, step: 0.0005 },
-  { key: "weight_decay", label: "Weight decay", min: 0, max: 0.1, step: 0.0001 },
-  { key: "epochs", label: "Most epochs", min: 50, max: 5000, step: 50 },
+  { key: "hidden", label: "Hidden units", min: 4, max: 256, step: 4, fallback: "32" },
+  { key: "lr", label: "Learning rate", min: 0.0001, max: 0.1, step: 0.0005, fallback: "0.005" },
+  { key: "weight_decay", label: "Weight decay (L2)", min: 0, max: 0.1, step: 0.0001, fallback: "0.0001" },
+  { key: "epochs", label: "Maximum epochs", min: 50, max: 5000, step: 50, fallback: "500, early stopping" },
 ];
 
-// What can be set by hand instead of tuned, with the engine's limits (engine/models.py)
-export type Setting = { key: string; label: string; min: number; max: number; step: number };
+// Hyperparameters that can be set by hand instead of searched, with the engine's limits
+// (engine/models.py) and the value used when left empty (the library's default)
+export type Setting = { key: string; label: string; min: number; max: number; step: number; fallback: string };
 export const SETTABLE: Record<ModelName, Setting[]> = {
-  Ridge: [{ key: "alpha", label: "Alpha (shrinkage)", min: 1e-6, max: 1e6, step: 0.1 }],
+  Ridge: [{ key: "alpha", label: "Alpha (L2 penalty)", min: 1e-6, max: 1e6, step: 0.1, fallback: "1.0" }],
   RandomForest: [
-    { key: "n_estimators", label: "Trees", min: 10, max: 2000, step: 10 },
-    { key: "max_depth", label: "Maximum depth", min: 1, max: 50, step: 1 },
-    { key: "min_samples_leaf", label: "Smallest leaf", min: 1, max: 50, step: 1 },
-    { key: "max_features", label: "Share of inputs per split", min: 0.05, max: 1, step: 0.05 },
+    { key: "n_estimators", label: "Number of trees (n_estimators)", min: 10, max: 2000, step: 10, fallback: "100" },
+    { key: "max_depth", label: "Maximum depth (max_depth)", min: 1, max: 50, step: 1, fallback: "none" },
+    { key: "min_samples_leaf", label: "Minimum samples per leaf", min: 1, max: 50, step: 1, fallback: "1" },
+    { key: "max_features", label: "Features per split (max_features)", min: 0.05, max: 1, step: 0.05, fallback: "1.0" },
   ],
   XGBoost: [
-    { key: "n_estimators", label: "Trees", min: 10, max: 3000, step: 10 },
-    { key: "max_depth", label: "Maximum depth", min: 1, max: 15, step: 1 },
-    { key: "learning_rate", label: "Learning rate", min: 0.001, max: 1, step: 0.01 },
-    { key: "subsample", label: "Share of months per tree", min: 0.1, max: 1, step: 0.05 },
-    { key: "colsample_bytree", label: "Share of inputs per tree", min: 0.1, max: 1, step: 0.05 },
-    { key: "min_child_weight", label: "Smallest leaf weight", min: 0, max: 50, step: 1 },
+    { key: "n_estimators", label: "Boosting rounds (n_estimators)", min: 10, max: 3000, step: 10, fallback: "100" },
+    { key: "max_depth", label: "Maximum depth (max_depth)", min: 1, max: 15, step: 1, fallback: "6" },
+    { key: "learning_rate", label: "Learning rate (eta)", min: 0.001, max: 1, step: 0.01, fallback: "0.3" },
+    { key: "subsample", label: "Row subsample", min: 0.1, max: 1, step: 0.05, fallback: "1.0" },
+    { key: "colsample_bytree", label: "Column subsample per tree", min: 0.1, max: 1, step: 0.05, fallback: "1.0" },
+    { key: "min_child_weight", label: "Minimum child weight", min: 0, max: 50, step: 1, fallback: "1" },
   ],
   MLP: NEURAL,
   LSTM: NEURAL,

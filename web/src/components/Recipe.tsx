@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Area, Variable, VariableKey } from "../api";
-import { DEEP, DEFAULT_MODELS, MODEL_LABEL, MODEL_NAMES, SETTABLE, type ModelName, type Recipe as RecipeT } from "../experiments";
+import { DEEP, DEFAULT_MODELS, MODEL_KIND, MODEL_LABEL, MODEL_NAMES, SETTABLE, type ModelName, type Recipe as RecipeT } from "../experiments";
 
 type Props = {
   recipe: RecipeT;
@@ -69,11 +69,11 @@ export default function Recipe({ recipe, onChange, areas, variables, title }: Pr
       <fieldset className="recipe-group">
         <legend>Predictors</legend>
         <label className="field">
-          Its own past (months earlier)
+          Autoregressive lags (months)
           <input
             className="input"
             value={lagText}
-            placeholder="Chosen by the memory test"
+            placeholder="Automatic: lags whose autocorrelation stands out"
             onChange={(e) => setLagText(e.target.value)}
             onBlur={commitLags}
             onKeyDown={(e) => e.key === "Enter" && commitLags()}
@@ -93,19 +93,24 @@ export default function Recipe({ recipe, onChange, areas, variables, title }: Pr
                     })
                   }
                 />
-                {title(v)} <span className="meta">(lag chosen by the lag test)</span>
+                {title(v)}
               </label>
             ))}
           <label className="row">
             <input type="checkbox" checked={recipe.calendar} onChange={(e) => set({ calendar: e.target.checked })} />
-            Calendar month <span className="meta">(the seasonal cycle)</span>
+            Calendar month (sine and cosine)
           </label>
         </div>
+        <p className="reason">
+          Each driver enters at the lag with the strongest cross-correlation with the target, 1 to 12 months earlier,
+          tested against a bound corrected for autocorrelation and for picking the best of twelve lags. Lags can be
+          typed instead, separated by commas.
+        </p>
       </fieldset>
 
       <fieldset className="recipe-group">
         <legend>Models</legend>
-        {([["Statistical and tree models", DEFAULT_MODELS], ["Neural networks (slower: fewer seeds and tuning draws)", DEEP]] as const).map(([group, names]) => (
+        {([["Linear and tree models", DEFAULT_MODELS], ["Neural networks", DEEP]] as const).map(([group, names]) => (
         <div key={group} className="model-group">
         <span className="meta">{group}</span>
         <div className="model-choices">
@@ -114,13 +119,17 @@ export default function Recipe({ recipe, onChange, areas, variables, title }: Pr
             const manual = recipe.params[m] !== undefined;
             return (
               <div key={m} className="model-choice" data-on={on}>
-                <label className="row">
+                <label className="row model-name">
                   <input type="checkbox" checked={on} onChange={(e) => toggleModel(m, e.target.checked)} />
-                  <strong>{MODEL_LABEL[m]}</strong>
+                  <span>
+                    <strong>{MODEL_LABEL[m]}</strong>
+                    <span className="meta">{MODEL_KIND[m]}</span>
+                  </span>
                 </label>
                 {on && (
                   <>
-                    <div className="segmented small" role="group" aria-label={`${MODEL_LABEL[m]} settings`}>
+                    <span className="hyper-label">Hyperparameters</span>
+                    <div className="segmented small" role="group" aria-label={`${MODEL_LABEL[m]} hyperparameters`}>
                       <button
                         aria-pressed={!manual}
                         onClick={() => {
@@ -128,12 +137,22 @@ export default function Recipe({ recipe, onChange, areas, variables, title }: Pr
                           set({ params: rest });
                         }}
                       >
-                        Tuned by code
+                        Automatic search
                       </button>
                       <button aria-pressed={manual} onClick={() => !manual && set({ params: { ...recipe.params, [m]: {} } })}>
-                        Set by hand
+                        Manual
                       </button>
                     </div>
+                    {!manual && (
+                      <p className="reason">
+                        {m === "Ridge"
+                          ? "Grid search over 50 values of alpha"
+                          : DEEP.includes(m)
+                            ? "Random search, 6 candidates"
+                            : "Random search, 40 candidates"}
+                        , scored by 5-fold time-series cross-validation on the training years only.
+                      </p>
+                    )}
                     {manual &&
                       SETTABLE[m].map((s) => (
                         <label key={s.key} className="field setting">
@@ -144,7 +163,7 @@ export default function Recipe({ recipe, onChange, areas, variables, title }: Pr
                             min={s.min}
                             max={s.max}
                             step={s.step}
-                            placeholder="default"
+                            placeholder={`Default: ${s.fallback}`}
                             defaultValue={recipe.params[m]?.[s.key] ?? ""}
                             onBlur={(e) => setParam(m, s.key, e.target.value === "" ? null : Number(e.target.value))}
                           />
@@ -180,8 +199,8 @@ export default function Recipe({ recipe, onChange, areas, variables, title }: Pr
           </label>
         </div>
         <p className="reason">
-          Always split by time, never at random. Every model is compared with persistence and climatology, and the tree
-          models are refitted with 20 seeds to show how much a score moves by chance.
+          Always split by time, never at random. Every model is compared with persistence and climatology baselines, and
+          refitted with several random seeds (20 for trees, 5 for networks) to show how much a score moves by chance.
         </p>
       </fieldset>
     </div>

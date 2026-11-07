@@ -17,6 +17,7 @@ import { BASEMAPS, baseStyle, type Basemap } from "../basemaps";
 import { coordinate, distance, surface } from "../format";
 import { area as areaOf, length } from "../geo";
 import ContextMenu, { type MenuItem } from "./ContextMenu";
+import { FitIcon } from "./Icons";
 
 export type Tool = "polygon" | "rectangle" | "measure" | "inspect" | null;
 
@@ -37,8 +38,6 @@ type Props = {
   onDrawn: (geometry: GeoJSON.Polygon) => void;
   onInspect: (lngLat: [number, number]) => void;
   inspected: [number, number] | null;
-  focus: boolean;
-  onFocus: () => void;
   visible: boolean; // the map stays loaded while another page is open
   layer: Layer | null;
   month: string | null;
@@ -75,7 +74,7 @@ const HANDLES = {
 type Live = { kind: "polygon" | "line"; metres: number; m2: number; last: number } | null;
 
 export default function MapView(props: Props) {
-  const { areas, tool, target, onDrawn, focus, onFocus, visible, layer, month, compare, grid, onTiles, onView } = props;
+  const { areas, tool, target, onDrawn, visible, layer, month, compare, grid, onTiles, onView } = props;
   const container = useRef<HTMLDivElement>(null);
   const other = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibre | null>(null);
@@ -288,7 +287,7 @@ export default function MapView(props: Props) {
       right.current?.resize();
     }, 50);
     return () => window.clearTimeout(timer);
-  }, [focus, visible]);
+  }, [visible]);
 
   // A hidden map has no size, so a move waits until the map is shown, and is made only once
   useEffect(() => {
@@ -381,16 +380,13 @@ export default function MapView(props: Props) {
           <button aria-label="Zoom out" title="Zoom out (−)" onClick={() => map.current?.zoomOut({ duration: 0 })}>
             −
           </button>
-          <button aria-label="North up" title="North up" onClick={() => map.current?.resetNorth({ duration: 0 })}>
-            N
+          <button aria-label="Zoom to the areas" title="Zoom to the areas (Z)" onClick={props.onFit}>
+            <FitIcon size={16} />
           </button>
         </div>
         <div className="floating map-buttons">
           <button aria-expanded={choosing} onClick={() => setChoosing(!choosing)} title="Basemap">
             {BASEMAPS[basemap].label}
-          </button>
-          <button aria-pressed={focus} title={focus ? "Show the panels again (F)" : "Hide the panels and show only the map (F)"} onClick={onFocus}>
-            {focus ? "Show panels" : "Focus map"}
           </button>
         </div>
       </div>

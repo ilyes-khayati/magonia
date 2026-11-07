@@ -142,8 +142,8 @@ export default function CorrelationCard({ analysis, onChange, onRemove, variable
           </ul>
           <Cautions items={areas.flatMap((a) => a.cautions)} />
           <span className="meta">
-            Grey band: correlations that could arise by chance (95%, ignoring autocorrelation, so a little
-            optimistic).
+            Grey band: the 95% range expected by chance. It assumes independent months, so with autocorrelated
+            series it is somewhat too narrow.
             {!deseasonalise && " With the seasonal cycle kept, any two seasonal variables look correlated."}
           </span>
         </>

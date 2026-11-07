@@ -120,6 +120,46 @@ export default function DataPanel({ catalogue, areas, settings, onChange, progre
 
   return (
     <>
+      <div className="section">
+        <span className="label">Period</span>
+        <div className="period-fields">
+          <MonthField label="From" value={settings.start} min="2000-03" max={settings.end} onChange={(start) => onChange({ start })} />
+          <MonthField label="To" value={settings.end} min={settings.start} onChange={(end) => onChange({ end })} />
+        </div>
+      </div>
+
+      <div className="section">
+        <span className="label" id="resolution">
+          Resolution
+        </span>
+        <div className="segmented" role="group" aria-labelledby="resolution">
+          {RESOLUTIONS.map(([value, label]) => (
+            <button
+              key={value}
+              aria-pressed={settings.resolution === value}
+              onClick={() => onChange({ resolution: value })}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {progress.done + progress.failed < progress.total && (
+        <div className="progress" aria-hidden="true">
+          <div style={{ width: `${(100 * (progress.done + progress.failed)) / progress.total}%` }} />
+        </div>
+      )}
+      <p className="status top-status" role="status" aria-live="polite">
+        <span className="dot" data-busy={progress.done + progress.failed < progress.total} />
+        {progress.total === 0
+          ? "Nothing to load yet"
+          : progress.done + progress.failed < progress.total
+            ? `Extracting ${progress.done + progress.failed + 1} of ${progress.total} series from Earth Engine${eta(progress) ?? ""}`
+            : progress.failed
+              ? `${progress.failed} of ${progress.total} failed`
+              : "All results up to date"}
+      </p>
       <fieldset className="section" style={{ border: "none", margin: 0, padding: 0 }}>
         <legend className="label" style={{ padding: 0, marginBottom: 8 }}>
           Variables
@@ -134,10 +174,12 @@ export default function DataPanel({ catalogue, areas, settings, onChange, progre
                   <div className="variable-row">
                     <label className="variable-label" title={`${variable.product} · ${variable.resolution} · ${variable.cadence}`}>
                       <input type="checkbox" checked={on} onChange={() => toggle(variable.key)} />
-                      <span className="variable-name">{variable.name}</span>
-                      <span className="visually-hidden">{variable.product}</span>
-                      <span className="variable-spec">
-                        {variable.resolution} · {variable.cadence.replace(" days", " d").replace("monthly", "1 mo")}
+                      <span className="variable-text">
+                        <span className="variable-name">{variable.name}</span>
+                        <span className="visually-hidden">{variable.product}</span>
+                        <span className="variable-spec">
+                          {variable.resolution} · {variable.cadence === "monthly" ? "monthly" : `every ${variable.cadence}`}
+                        </span>
                       </span>
                     </label>
                     {variable.learn && (
@@ -186,31 +228,6 @@ export default function DataPanel({ catalogue, areas, settings, onChange, progre
           </div>
         ))}
       </fieldset>
-
-      <div className="section">
-        <span className="label">Period</span>
-        <div style={{ display: "grid", gap: 8 }}>
-          <MonthField label="From" value={settings.start} min="2000-03" max={settings.end} onChange={(start) => onChange({ start })} />
-          <MonthField label="To" value={settings.end} min={settings.start} onChange={(end) => onChange({ end })} />
-        </div>
-      </div>
-
-      <div className="section">
-        <span className="label" id="resolution">
-          Resolution
-        </span>
-        <div className="segmented" role="group" aria-labelledby="resolution">
-          {RESOLUTIONS.map(([value, label]) => (
-            <button
-              key={value}
-              aria-pressed={settings.resolution === value}
-              onClick={() => onChange({ resolution: value })}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
 
       <div className="section">
         <span className="label">Preparation</span>
@@ -332,21 +349,6 @@ export default function DataPanel({ catalogue, areas, settings, onChange, progre
         </span>
       </fieldset>
 
-      {progress.done + progress.failed < progress.total && (
-        <div className="progress" aria-hidden="true">
-          <div style={{ width: `${(100 * (progress.done + progress.failed)) / progress.total}%` }} />
-        </div>
-      )}
-      <p className="status" role="status" aria-live="polite">
-        <span className="dot" data-busy={progress.done + progress.failed < progress.total} />
-        {progress.total === 0
-          ? "Nothing to load yet"
-          : progress.done + progress.failed < progress.total
-            ? `Extracting ${progress.done + progress.failed + 1} of ${progress.total} series from Earth Engine${eta(progress) ?? ""}`
-            : progress.failed
-              ? `${progress.failed} of ${progress.total} failed`
-              : "All results up to date"}
-      </p>
     </>
   );
 }

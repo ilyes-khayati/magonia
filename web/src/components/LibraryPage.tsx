@@ -155,8 +155,8 @@ export default function LibraryPage({ workspaceId, onUndoable }: Props) {
             <div>
               <h3 id="instructions-title">How Magon should answer</h3>
               <span className="meta">
-                Given to Magon with every question in this workspace, after its own rules: it still cites only what it
-                found and checks every number.
+                Standing instructions for every question in this workspace. Magon still cites only the papers it found
+                and checks every number.
               </span>
             </div>
           </div>
@@ -165,7 +165,7 @@ export default function LibraryPage({ workspaceId, onUndoable }: Props) {
             aria-label="Instructions for Magon"
             rows={8}
             maxLength={2000}
-            placeholder={EXAMPLES.join("\n")}
+            placeholder={`For example:\n${EXAMPLES.join("\n")}`}
             value={instructions ?? ""}
             disabled={instructions === null}
             onChange={(e) => {
@@ -174,9 +174,9 @@ export default function LibraryPage({ workspaceId, onUndoable }: Props) {
             }}
           />
           <div className="row" style={{ justifyContent: "space-between" }}>
-            <span className="meta">{(instructions ?? "").length} / 2000</span>
+            <span className="meta">{instructions ? `${instructions.length} / 2000` : ""}</span>
             {saved ? (
-              <span className="state">Saved</span>
+              instructions ? <span className="state">Saved</span> : null
             ) : (
               <button className="primary" onClick={save}>
                 Save
