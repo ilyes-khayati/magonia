@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { NavLink } from "react-router";
 import { PAGES, pagePath } from "../pages";
-import { AnalysisIcon, BookIcon, ChartIcon, MagonIcon, MapIcon, ModelIcon, PinIcon } from "./Icons";
+import { AnalysisIcon, BookIcon, ChartIcon, MagonAvatar, MagonIcon, MapIcon, ModelIcon, PinIcon } from "./Icons";
 
 const ICONS = {
   map: MapIcon,
@@ -56,7 +56,7 @@ export default function Rail({ workspaceId, magon, workspace, settings }: Props)
         title={magon.open ? "Close Magon (⌘J)" : "Ask Magon, the research assistant (⌘J)"}
         onClick={magon.onToggle}
       >
-        <MagonIcon size={18} />
+        <MagonAvatar size={34} />
         <span>Magon</span>
       </button>
       {settings}

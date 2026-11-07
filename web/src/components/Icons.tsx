@@ -276,3 +276,10 @@ export const MoreIcon = (p: IconProps) => (
     <path d="M5 12h.01M12 12h.01M19 12h.01" strokeWidth={2.5} strokeLinecap="round" />
   </Svg>
 );
+
+// Magon's face: its mark on a round field, the same wherever Magon speaks
+export const MagonAvatar = ({ size = 28 }: IconProps) => (
+  <span className="magon-avatar" style={{ width: size, height: size }} aria-hidden="true">
+    <MagonIcon size={Math.round(size * 0.64)} />
+  </span>
+);

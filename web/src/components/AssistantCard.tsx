@@ -16,7 +16,7 @@ import {
 } from "../api";
 import { applyEvent, conversationTitle, fromSaved, type Turn } from "../chat";
 import { AnswerText, Sources } from "./Answer";
-import { ChevronIcon, CloseIcon, PlusIcon, SendIcon } from "./Icons";
+import { ChevronIcon, CloseIcon, MagonAvatar, PlusIcon, SendIcon } from "./Icons";
 
 // The conversation open in each workspace is this browser's own convenience
 const OPEN = (workspaceId: number) => `magonia-conversation-${workspaceId}`;
@@ -214,10 +214,15 @@ export default function AssistantCard(props: Props) {
   // follows the answer as it is written, until the researcher scrolls up to read
   const [following, setFollowing] = useState(true);
 
+  // the model in use, told again when it is changed in Settings
   useEffect(() => {
-    assistantInfo()
-      .then((info) => setModel(info.model))
-      .catch(() => undefined);
+    const refresh = () =>
+      assistantInfo()
+        .then((info) => setModel(info.model))
+        .catch(() => undefined);
+    refresh();
+    window.addEventListener("magon-settings", refresh);
+    return () => window.removeEventListener("magon-settings", refresh);
   }, []);
 
   // Each workspace has its own conversations; the card is re-created when the workspace
@@ -332,9 +337,12 @@ export default function AssistantCard(props: Props) {
   return (
     <section className="card assistant" aria-label="Magon">
       <div className="card-head">
-        <div>
-          <h3>Magon</h3>
-          <span className="meta">{model ? `Answers by ${model} · literature from OpenAlex` : "Research assistant"}</span>
+        <div className="magon-title">
+          <MagonAvatar size={30} />
+          <div>
+            <h3>Magon</h3>
+            <span className="meta">{model ? `Research assistant · ${model.replace(" (Ollama)", "")}` : "Research assistant"}</span>
+          </div>
         </div>
         <div className="row">{actions}</div>
       </div>
@@ -365,9 +373,7 @@ export default function AssistantCard(props: Props) {
             ) : (
               <div key={i} className="turn assistant">
                 <div className="message-head">
-                  <span className="avatar magon" aria-hidden="true">
-                    M
-                  </span>
+                  <MagonAvatar size={22} />
                   <span className="message-name">Magon</span>
                 </div>
                 {turn.status && <span className="thinking">{turn.status}</span>}

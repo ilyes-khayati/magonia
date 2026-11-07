@@ -437,3 +437,18 @@ def test_the_answer_is_shown_without_tool_names_code_or_a_closing_offer():
     assert tidy(said) == "NDVI peaks in April.\n\n- **Answer:** The peak is about 0.70."
     kept = "Use a lag of 12 months.\n```python\nmodel.fit(X, y)\n```"
     assert tidy(kept) == kept  # code that is not the machinery stays
+
+
+def test_detailed_answers_and_papers_per_search_follow_the_settings():
+    systems = []
+
+    class Recorder(Scripted):
+        def stream(self, messages, tools=None):
+            systems.append(messages[0]["content"])
+            yield from super().stream(messages, tools)
+
+    question = [{"role": "user", "content": "What is NDVI?"}]
+    list(answer(Recorder("Hi."), question))
+    list(answer(Recorder("Hi."), question, detail="detailed"))
+    assert "Be concise" in systems[0] and "thorough" not in systems[0]
+    assert "Be concise" not in systems[1] and "thorough" in systems[1]
