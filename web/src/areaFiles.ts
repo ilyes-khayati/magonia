@@ -3,6 +3,12 @@ import shp from "shpjs";
 
 export type NamedGeometry = { name: string; geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon };
 
+// A file name as an area's name: "olive-jendouba_polygon" → "Olive jendouba polygon"
+export function readable(name: string): string {
+  const words = name.replace(/[-_.]+/g, " ").replace(/\s+/g, " ").trim();
+  return words ? words[0].toUpperCase() + words.slice(1) : name;
+}
+
 // Reads an uploaded GeoJSON, KML or zipped shapefile into named polygons
 export async function readAreaFile(file: File): Promise<NamedGeometry[]> {
   const lower = file.name.toLowerCase();
@@ -17,7 +23,7 @@ export async function readAreaFile(file: File): Promise<NamedGeometry[]> {
     throw new Error("Upload a GeoJSON, KML or zipped shapefile (.zip).");
   }
 
-  const base = file.name.replace(/\.[^.]+$/, "");
+  const base = readable(file.name.replace(/\.[^.]+$/, ""));
   const features = (Array.isArray(data) ? data : [data]).flatMap((part) =>
     toFeatures(part as GeoJSON.GeoJSON),
   );

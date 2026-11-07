@@ -1,9 +1,21 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
-import { KINDS, SPEI_SCALES, duplicateAnalysis, type Analysis, type Kind } from "../analyses";
+import {
+  KINDS,
+  SPEI_SCALES,
+  duplicateAnalysis,
+  type Analysis,
+  type Kind,
+} from "../analyses";
 import type { Source } from "../board";
 import { moved } from "../cards";
-import { downloadNotebook, type Area, type SeriesOptions, type Variable, type VariableKey } from "../api";
+import {
+  downloadNotebook,
+  type Area,
+  type SeriesOptions,
+  type Variable,
+  type VariableKey,
+} from "../api";
 import type { Settings } from "../settings";
 import AnalysisCard from "./AnalysisCard";
 import CardSlot from "./CardSlot";
@@ -15,7 +27,11 @@ type Props = {
   settings: Settings;
   areas: Area[];
   entries: (variable: VariableKey, native?: boolean) => Entry[];
-  options: (areaId: number, variable: VariableKey, native?: boolean) => SeriesOptions;
+  options: (
+    areaId: number,
+    variable: VariableKey,
+    native?: boolean,
+  ) => SeriesOptions;
   analyses: Analysis[];
   onAdd: (kind: Kind) => void;
   onChange: (id: number, change: Partial<Analysis>) => void;
@@ -28,12 +44,29 @@ type Props = {
   onAsk?: (title: string) => void; // ask Magon about a card
 };
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
 const month = (value: string) => {
   const [year, m] = value.split("-").map(Number);
   return `${MONTHS[m - 1]} ${year}`;
 };
-const STEPS = { native: "each product's own time step", monthly: "monthly", seasonal: "seasonal means" };
+const STEPS = {
+  native: "each product's own time step",
+  monthly: "monthly",
+  seasonal: "seasonal means",
+};
 // How Magon's facts label each kind of analysis, numbered in page order (engine/facts.py)
 const FACT_LABEL: Record<Kind, string> = {
   correlation: "Correlation",
@@ -47,17 +80,33 @@ const FACT_LABEL: Record<Kind, string> = {
   purity: "Pixel purity",
 };
 
-const CLOUDS = { pixel: "cloudy pixels removed", date: "cloudy dates removed", none: "no cloud filter" };
+const CLOUDS = {
+  pixel: "cloudy pixels removed",
+  date: "cloudy dates removed",
+  none: "no cloud filter",
+};
 
-// The menu of analysis types, closed by a choice, Escape or a click elsewhere
-function AddAnalysis({ onAdd }: { onAdd: (kind: Kind) => void }) {
+// The menu of analysis types, closed by a choice, Escape or a click elsewhere. At the foot of the
+// page it is a wide button whose menu opens upwards.
+function AddAnalysis({
+  onAdd,
+  foot = false,
+}: {
+  onAdd: (kind: Kind) => void;
+  foot?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
     const close = (e: Event) => {
-      if (e instanceof KeyboardEvent ? e.key === "Escape" : !box.current?.contains(e.target as Node)) setOpen(false);
+      if (
+        e instanceof KeyboardEvent
+          ? e.key === "Escape"
+          : !box.current?.contains(e.target as Node)
+      )
+        setOpen(false);
     };
     document.addEventListener("keydown", close);
     document.addEventListener("mousedown", close);
@@ -68,13 +117,21 @@ function AddAnalysis({ onAdd }: { onAdd: (kind: Kind) => void }) {
   }, [open]);
 
   return (
-    <div className="add-analysis" ref={box}>
-      <button className="primary row" aria-expanded={open} onClick={() => setOpen(!open)}>
+    <div className={foot ? "add-analysis foot" : "add-analysis"} ref={box}>
+      <button
+        className={foot ? "add-tile" : "primary row"}
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+      >
         <PlusIcon size={14} />
-        Add analysis
+        {foot ? "Add another analysis" : "Add analysis"}
       </button>
       {open && (
-        <div className="floating kinds" role="group" aria-label="Analysis types">
+        <div
+          className="floating kinds"
+          role="group"
+          aria-label="Analysis types"
+        >
           {KINDS.map(({ kind, label, description }) => (
             <button
               key={kind}
@@ -94,8 +151,21 @@ function AddAnalysis({ onAdd }: { onAdd: (kind: Kind) => void }) {
 }
 
 export default function AnalysesPage(props: Props) {
-  const { catalogue, settings, areas, entries, options, analyses, onAdd, onChange, onRemove, onReorder, onSettings, dataPath, mapPath } =
-    props;
+  const {
+    catalogue,
+    settings,
+    areas,
+    entries,
+    options,
+    analyses,
+    onAdd,
+    onChange,
+    onRemove,
+    onReorder,
+    onSettings,
+    dataPath,
+    mapPath,
+  } = props;
   const data = [
     `${month(settings.start)} to ${month(settings.end)}`,
     STEPS[settings.resolution],
@@ -110,28 +180,41 @@ export default function AnalysesPage(props: Props) {
       entries(variable, native)
         .filter((e) => e.state?.status === "done")
         .map((e) => e.area.id);
-    const label = analysis.name ?? KINDS.find((k) => k.kind === analysis.kind)!.label;
+    const label =
+      analysis.name ?? KINDS.find((k) => k.kind === analysis.kind)!.label;
     let series: SeriesOptions[] = [];
     let choices: Record<string, unknown> = {};
     switch (analysis.kind) {
       case "decomposition":
-        series = ready(analysis.variable, true).map((id) => options(id, analysis.variable, true));
+        series = ready(analysis.variable, true).map((id) =>
+          options(id, analysis.variable, true),
+        );
         break;
       case "trend":
-        series = ready(analysis.variable).map((id) => options(id, analysis.variable));
+        series = ready(analysis.variable).map((id) =>
+          options(id, analysis.variable),
+        );
         break;
       case "phenology":
         series = ready("ndvi", true).map((id) => options(id, "ndvi", true));
         break;
       case "correlation": {
-        const both = ready(analysis.response).filter((id) => ready(analysis.driver).includes(id));
-        series = both.flatMap((id) => [options(id, analysis.response), options(id, analysis.driver)]);
+        const both = ready(analysis.response).filter((id) =>
+          ready(analysis.driver).includes(id),
+        );
+        series = both.flatMap((id) => [
+          options(id, analysis.response),
+          options(id, analysis.driver),
+        ]);
         choices = { deseasonalise: analysis.deseasonalise };
         break;
       }
       case "lags": {
         const id = analysis.area ?? ready(analysis.response)[0];
-        if (id !== undefined) series = [analysis.response, ...analysis.drivers].map((k) => options(id, k));
+        if (id !== undefined)
+          series = [analysis.response, ...analysis.drivers].map((k) =>
+            options(id, k),
+          );
         choices = { deseasonalise: analysis.deseasonalise };
         break;
       }
@@ -142,22 +225,38 @@ export default function AnalysesPage(props: Props) {
         break;
       }
       case "coherence": {
-        const id = analysis.area ?? ready(analysis.response).filter((a) => ready(analysis.driver).includes(a))[0];
-        if (id !== undefined) series = [options(id, analysis.response), options(id, analysis.driver)];
+        const id =
+          analysis.area ??
+          ready(analysis.response).filter((a) =>
+            ready(analysis.driver).includes(a),
+          )[0];
+        if (id !== undefined)
+          series = [
+            options(id, analysis.response),
+            options(id, analysis.driver),
+          ];
         choices = { deseasonalise: analysis.deseasonalise };
         break;
       }
       case "scales": {
         const id = analysis.area ?? ready(analysis.response)[0];
-        if (id !== undefined) series = [options(id, analysis.response), ...SPEI_SCALES.map((scale) => ({ ...options(id, "spei"), scale }))];
+        if (id !== undefined)
+          series = [
+            options(id, analysis.response),
+            ...SPEI_SCALES.map((scale) => ({ ...options(id, "spei"), scale })),
+          ];
         choices = { deseasonalise: analysis.deseasonalise };
         break;
       }
     }
     if (!series.length) return;
-    downloadNotebook({ title: label, kind: analysis.kind, options: choices, series }).catch(() => undefined);
+    downloadNotebook({
+      title: label,
+      kind: analysis.kind,
+      options: choices,
+      series,
+    }).catch(() => undefined);
   }
-
 
   return (
     <div className="page">
@@ -177,8 +276,12 @@ export default function AnalysesPage(props: Props) {
 
       {!areas.length ? (
         <p className="placeholder">
-          {mapPath ? <Link to={mapPath}>Draw or upload an area on the map</Link> : "Draw or upload an area on the map"} to
-          begin.
+          {mapPath ? (
+            <Link to={mapPath}>Draw or upload an area on the map</Link>
+          ) : (
+            "Draw or upload an area on the map"
+          )}{" "}
+          to begin.
         </p>
       ) : !analyses.length ? (
         <section className="suggestions" aria-label="Suggested analyses">
@@ -194,40 +297,96 @@ export default function AnalysesPage(props: Props) {
           </div>
         </section>
       ) : (
-        <div className="page-grid">
-          {analyses.map((analysis, i) => (
-            <CardSlot
-              key={analysis.id}
-              id={String(analysis.id)}
-              label={analysis.name ?? KINDS.find((k) => k.kind === analysis.kind)!.label}
-              layout={settings.cards[`analysis:${analysis.id}`] ?? {}}
-              onLayout={(layout) => onSettings({ cards: { ...settings.cards, [`analysis:${analysis.id}`]: layout } })}
-              onMove={(step) => onReorder(moved(analyses, i, i + step))}
-              onDrop={(from) => onReorder(moved(analyses, analyses.findIndex((a) => String(a.id) === from), i))}
-              onNotebook={analysis.kind === "purity" ? undefined : () => exportNotebook(analysis)}
-              onDuplicate={() => onReorder(duplicateAnalysis(analyses, analysis.id))}
-              onAsk={props.onAsk && ((title) => props.onAsk!(`${title} (${FACT_LABEL[analysis.kind]} ${i + 1})`))}
-              onPin={
-                props.onPin &&
-                ((card) =>
-                  props.onPin!(card, card.querySelector("h3")?.textContent ?? "Analysis", {
-                    type: "analysis",
-                    analysis: structuredClone(analysis),
-                  }))
-              }
-            >
-              <AnalysisCard
-                analysis={analysis}
-                onChange={(change) => onChange(analysis.id, change)}
-                onRemove={() => onRemove(analysis.id)}
-                catalogue={catalogue}
-                settings={settings}
-                entries={entries}
-                options={options}
-              />
-            </CardSlot>
-          ))}
-        </div>
+        <>
+          <nav className="contents" aria-label="Analyses on this page">
+            {analyses.map((analysis) => {
+              const label =
+                analysis.name ??
+                KINDS.find((k) => k.kind === analysis.kind)!.label;
+              return (
+                <button
+                  key={analysis.id}
+                  onClick={() =>
+                    document
+                      .querySelector(`[data-slot="${analysis.id}"]`)
+                      ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                  }
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </nav>
+          <div className="page-grid">
+            {analyses.map((analysis, i) => (
+              <CardSlot
+                key={analysis.id}
+                id={String(analysis.id)}
+                label={
+                  analysis.name ??
+                  KINDS.find((k) => k.kind === analysis.kind)!.label
+                }
+                layout={settings.cards[`analysis:${analysis.id}`] ?? {}}
+                onLayout={(layout) =>
+                  onSettings({
+                    cards: {
+                      ...settings.cards,
+                      [`analysis:${analysis.id}`]: layout,
+                    },
+                  })
+                }
+                onMove={(step) => onReorder(moved(analyses, i, i + step))}
+                onDrop={(from) =>
+                  onReorder(
+                    moved(
+                      analyses,
+                      analyses.findIndex((a) => String(a.id) === from),
+                      i,
+                    ),
+                  )
+                }
+                onNotebook={
+                  analysis.kind === "purity"
+                    ? undefined
+                    : () => exportNotebook(analysis)
+                }
+                onDuplicate={() =>
+                  onReorder(duplicateAnalysis(analyses, analysis.id))
+                }
+                onAsk={
+                  props.onAsk &&
+                  ((title) =>
+                    props.onAsk!(
+                      `${title} (${FACT_LABEL[analysis.kind]} ${i + 1})`,
+                    ))
+                }
+                onPin={
+                  props.onPin &&
+                  ((card) =>
+                    props.onPin!(
+                      card,
+                      card.querySelector("h3")?.textContent ?? "Analysis",
+                      {
+                        type: "analysis",
+                        analysis: structuredClone(analysis),
+                      },
+                    ))
+                }
+              >
+                <AnalysisCard
+                  analysis={analysis}
+                  onChange={(change) => onChange(analysis.id, change)}
+                  onRemove={() => onRemove(analysis.id)}
+                  catalogue={catalogue}
+                  settings={settings}
+                  entries={entries}
+                  options={options}
+                />
+              </CardSlot>
+            ))}
+          </div>
+          <AddAnalysis onAdd={onAdd} foot />
+        </>
       )}
     </div>
   );

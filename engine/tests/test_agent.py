@@ -1,6 +1,6 @@
 import pytest
 
-from engine.assistant import SEARCH_TOOL, Scripted, ToolCall, answer, written_calls
+from engine.assistant import SEARCH_TOOL, Scripted, ToolCall, answer, tidy, written_calls
 from engine.literature import LiteratureError, Paper
 
 
@@ -247,7 +247,6 @@ def test_numbers_in_a_data_answer_are_checked_against_facts_and_readings():
     # a number also in the reading taken for this answer is credited to that reading
     assert numbers == {
         "0.41": ("verified", "reading Orchard NDVI 2021"),
-        "2021": ("verified", "reading Orchard NDVI 2021"),
         "0.30": ("verified", "reading Orchard NDVI 2021"),
         "0.77": ("unverified", None),
     }
@@ -425,3 +424,16 @@ def test_numbers_from_the_model_settings_are_verified():
     question = [{"role": "user", "content": "Which XGBoost settings can I change?"}]
     events = list(answer(model, question, view=orchard_view()))
     assert {n["status"] for n in events[-1]["numbers"]} == {"verified"}
+
+
+def test_the_answer_is_shown_without_tool_names_code_or_a_closing_offer():
+    said = (
+        "NDVI peaks in April.\n\n"
+        "- **Answer:** To get the values, you would need to call `read_series` with the area. "
+        "The peak is about 0.70.\n"
+        "```python\nread_series(area='Orchard', variable='ndvi', year=2020)\n```\n\n"
+        "If you have any specific questions or need further analysis, feel free to ask!"
+    )
+    assert tidy(said) == "NDVI peaks in April.\n\n- **Answer:** The peak is about 0.70."
+    kept = "Use a lag of 12 months.\n```python\nmodel.fit(X, y)\n```"
+    assert tidy(kept) == kept  # code that is not the machinery stays

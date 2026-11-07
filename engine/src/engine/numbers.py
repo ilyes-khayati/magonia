@@ -15,6 +15,8 @@ from engine.citations import GROUP
 # 0.89  -0.15  +0.003  24.1  50%  2022   (a minus may be written as − or -)
 NUMBER = re.compile(r"(?<![\w.])(?P<sign>[-+−])?(?P<digits>\d+(?:\.\d+)?)(?![\w])")
 DATE = re.compile(r"\b\d{4}-\d{2}(?:-\d{2})?\b")  # 2022-07: a date, not a measurement
+# a year names a time, not a measurement: marking it as checked would only add noise
+YEAR = re.compile(r"(?<![\w.\-−+])(19[5-9]\d|20\d\d)(?![\w.%]|\.\d)")
 LIST_MARKER = re.compile(r"^[ \t#>*-]*\d+[.)][ \t]", re.MULTILINE)  # "1. " at a line start
 
 
@@ -44,8 +46,10 @@ def value_of(match: re.Match) -> Found:
 
 
 def skipped(text: str) -> list[tuple[int, int]]:
-    """Spans that hold numbers which are not measurements: dates, citations, list numbering."""
+    """Spans that hold numbers which are not measurements: dates, years, citations, list
+    numbering."""
     spans = [m.span() for m in DATE.finditer(text)]
+    spans += [m.span() for m in YEAR.finditer(text)]
     spans += [m.span() for m in GROUP.finditer(text)]
     spans += [m.span() for m in LIST_MARKER.finditer(text)]
     return spans

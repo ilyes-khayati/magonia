@@ -14,6 +14,7 @@ type Props = {
   areas: Area[];
   colours: Map<number, string>;
   hidden: Set<number>;
+  onZoom: (area: Area) => void;
   onToggle: (area: Area) => void;
   onRename: (area: Area, name: string) => void;
   onDelete: (area: Area) => void;
@@ -84,6 +85,7 @@ export default function Toolbar(props: Props) {
             area={area}
             colour={colours.get(area.id)!}
             hidden={hidden.has(area.id)}
+            onZoom={() => props.onZoom(area)}
             onToggle={() => props.onToggle(area)}
             onRename={(name) => props.onRename(area, name)}
             onDelete={() => props.onDelete(area)}

@@ -1,11 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { deletedWorkspaces, type EarthEngineStatus, type WorkspaceSummary } from "../api";
 import type { Theme } from "../theme";
-import { ChevronIcon, MoonIcon, PlusIcon, SunIcon } from "./Icons";
+import { PlusIcon, SettingsIcon } from "./Icons";
 
 type Props = {
-  theme: Theme;
-  onTheme: () => void;
   workspaces: WorkspaceSummary[];
   workspaceId: number | null;
   onOpen: (id: number) => void;
@@ -14,9 +12,30 @@ type Props = {
   onDelete: (id: number) => void; // to Recently deleted, with an Undo
   onRestore: (id: number) => void;
   onForget: (id: number) => Promise<void>; // deleted forever, from Recently deleted
-  earthEngine: EarthEngineStatus | null;
-  onEarthEngine: () => void;
 };
+
+// Closes a floating menu on Escape or a click outside its box
+function useDismiss(open: boolean, box: React.RefObject<HTMLDivElement | null>, close: () => void) {
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: Event) => {
+      if (e instanceof KeyboardEvent ? e.key === "Escape" : !box.current?.contains(e.target as Node)) close();
+    };
+    document.addEventListener("keydown", away);
+    document.addEventListener("mousedown", away);
+    return () => {
+      document.removeEventListener("keydown", away);
+      document.removeEventListener("mousedown", away);
+    };
+  }, [open, box, close]);
+}
+
+// "Jendouba orchard" → "JO", "Workspace 4" → "W4"
+function initials(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return "·";
+  return (words.length === 1 ? words[0].slice(0, 2) : words[0][0] + words[1][0]).toUpperCase();
+}
 
 // "3 days ago", for when something was deleted
 function ago(stamp: string): string {
@@ -79,12 +98,7 @@ function RecentlyDeleted(props: { onRestore: (id: number) => void; onForget: (id
 
 // The workspace is named once, like a file, and switched from its menu; the menu closes on a
 // choice, Escape or a click elsewhere
-type MenuProps = Pick<
-  Props,
-  "workspaces" | "workspaceId" | "onOpen" | "onNew" | "onRename" | "onDelete" | "onRestore" | "onForget"
->;
-
-function WorkspaceMenu(props: MenuProps) {
+export function WorkspaceMenu(props: Props) {
   const { workspaces, workspaceId, onOpen, onNew, onRename, onDelete, onRestore, onForget } = props;
   const [open, setOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -92,38 +106,27 @@ function WorkspaceMenu(props: MenuProps) {
   const box = useRef<HTMLDivElement>(null);
   const current = workspaces.find((w) => w.id === workspaceId);
 
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: Event) => {
-      if (e instanceof KeyboardEvent ? e.key === "Escape" : !box.current?.contains(e.target as Node)) {
-        setOpen(false);
-        setRenaming(false);
-        setTrash(false);
-      }
-    };
-    document.addEventListener("keydown", close);
-    document.addEventListener("mousedown", close);
-    return () => {
-      document.removeEventListener("keydown", close);
-      document.removeEventListener("mousedown", close);
-    };
-  }, [open]);
-
-  const done = () => {
+  const done = useCallback(() => {
     setOpen(false);
     setRenaming(false);
     setTrash(false);
-  };
+  }, []);
+  useDismiss(open, box, done);
 
   return (
     <div className="workspace-menu" ref={box}>
-      <button className="workspace-name" aria-expanded={open} onClick={() => setOpen(!open)} title="Workspaces">
-        <span className="meta">Workspace</span>
-        <strong>{current?.name ?? "…"}</strong>
-        <ChevronIcon size={14} />
+      <button
+        className="workspace-badge"
+        aria-expanded={open}
+        aria-label={`Workspace: ${current?.name ?? "…"}`}
+        title={`${current?.name ?? ""} · switch, rename or add a workspace`}
+        onClick={() => (open ? done() : setOpen(true))}
+      >
+        {initials(current?.name ?? "")}
       </button>
       {open && (
-        <div className="floating workspaces" role="group" aria-label="Workspaces">
+        <div className="floating workspaces rail-pop" role="group" aria-label="Workspaces">
+          {!trash && !renaming && <p className="pop-title">Workspaces</p>}
           {trash ? (
             <RecentlyDeleted
               onBack={() => setTrash(false)}
@@ -195,34 +198,70 @@ function WorkspaceMenu(props: MenuProps) {
   );
 }
 
-export default function TopBar(props: Props) {
-  const { theme, onTheme, earthEngine } = props;
+type SettingsProps = {
+  theme: Theme;
+  onTheme: (theme: Theme) => void;
+  earthEngine: EarthEngineStatus | null;
+  onEarthEngine: () => void;
+};
+
+// Appearance and connections, under Magon at the foot of the rail. A dot on the button says
+// when Earth Engine needs attention.
+export function SettingsMenu({ theme, onTheme, earthEngine, onEarthEngine }: SettingsProps) {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  const close = useCallback(() => setOpen(false), []);
+  useDismiss(open, box, close);
+  const connected = earthEngine?.connected ?? false;
   return (
-    <header className="topbar">
-      <span className="brand">
-        <svg className="brand-mark" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-          <rect x="1" y="1" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" />
-          <path d="M1 11 L5.5 6.5 L8.5 9.5 L11 7 L15 11" fill="none" stroke="currentColor" strokeWidth="1.5" />
-        </svg>
-        <span className="brand-name">Magonia</span>
-      </span>
-      <WorkspaceMenu {...props} />
-      <span style={{ flex: 1 }} />
-      <button className="engine-status" onClick={props.onEarthEngine}>
-        <span className="dot" data-ok={earthEngine?.connected ?? false} />
-        {earthEngine === null
-          ? "Checking Earth Engine…"
-          : earthEngine.connected
-            ? `Earth Engine · ${earthEngine.project}`
-            : "Earth Engine not connected"}
-      </button>
+    <div className="settings-menu" ref={box}>
       <button
-        className="icon-button"
-        aria-label={theme === "light" ? "Switch to dark theme" : "Switch to light theme"}
-        onClick={onTheme}
+        className="rail-link"
+        aria-expanded={open}
+        aria-label="Settings"
+        title="Settings"
+        onClick={() => setOpen(!open)}
       >
-        {theme === "light" ? <MoonIcon size={16} /> : <SunIcon size={16} />}
+        <SettingsIcon size={18} />
+        <span>Settings</span>
+        {earthEngine !== null && !connected && <span className="attention" aria-hidden="true" />}
       </button>
-    </header>
+      {open && (
+        <div className="floating settings rail-pop" role="group" aria-label="Settings">
+          <p className="pop-title">Settings</p>
+          <section>
+            <h3>Appearance</h3>
+            <div className="segmented" role="group" aria-label="Theme">
+              {(["light", "dark"] as const).map((t) => (
+                <button key={t} aria-pressed={theme === t} onClick={() => onTheme(t)}>
+                  {t === "light" ? "Light" : "Dark"}
+                </button>
+              ))}
+            </div>
+          </section>
+          <section>
+            <h3>Google Earth Engine</h3>
+            <p className="engine-line">
+              <span className="dot" data-ok={connected} />
+              {earthEngine === null ? "Checking…" : connected ? "Connected" : "Not connected"}
+            </p>
+            {connected && earthEngine?.project && (
+              <p className="meta">
+                Project <span className="mono">{earthEngine.project}</span>
+              </p>
+            )}
+            <button
+              className="button"
+              onClick={() => {
+                close();
+                onEarthEngine();
+              }}
+            >
+              {connected ? "Change project…" : "Connect…"}
+            </button>
+          </section>
+        </div>
+      )}
+    </div>
   );
 }

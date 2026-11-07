@@ -21,6 +21,7 @@ type Props = {
   anomaly?: boolean; // values centred on zero, so the axis follows the data
   hidden?: number[]; // areas left out of the chart
   onHidden?: (ids: number[]) => void; // without it, the card starts from hidden and keeps its own choice
+  pickAreas?: boolean; // false when the page chooses the areas for every chart at once
 };
 
 // Up to this many areas, each can be shown on its own with one click
@@ -52,7 +53,7 @@ function download(title: string, entries: Entry[]) {
   URL.revokeObjectURL(link.href);
 }
 
-export default function ChartCard({ variable, title, entries, mode, shown: changed, anomaly, hidden, onHidden }: Props) {
+export default function ChartCard({ variable, title, entries, mode, shown: changed, anomaly, hidden, onHidden, pickAreas = true }: Props) {
   const [provenance, setProvenance] = useState(false);
   const [about, setAbout] = useState(false);
   const [ownHidden, setOwnHidden] = useState<number[]>(hidden ?? []);
@@ -110,7 +111,7 @@ export default function ChartCard({ variable, title, entries, mode, shown: chang
 
       {about && <LearnPanel variable={variable} />}
 
-      {entries.length > 1 && entries.length <= PICKABLE && (
+      {pickAreas && entries.length > 1 && entries.length <= PICKABLE && (
         <div className="segmented small area-choice" role="group" aria-label={`Areas in the ${title} chart`}>
           <button aria-pressed={off.size === 0} onClick={() => setOff(new Set())}>
             Together
@@ -169,11 +170,11 @@ export default function ChartCard({ variable, title, entries, mode, shown: chang
               <th scope="col">Min</th>
               <th scope="col">Max</th>
               <th scope="col">SD</th>
-              <th scope="col" title="Real observations">
-                n
+              <th scope="col" title="Months with a real observation">
+                Observed
               </th>
-              <th scope="col" title="Filled values">
-                Filled
+              <th scope="col" title="Short gaps filled by interpolation, set on the Data panel">
+                Gap-filled
               </th>
             </tr>
           </thead>

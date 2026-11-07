@@ -290,13 +290,23 @@ export function Sources({ turn, anchor, onPinPassage }: { turn: Turn; anchor: st
     <div className="sources">
       {source && <span className="meta">{source}</span>}
       {cards.length > 0 && (
-        <span className="meta">
-          From your workspace: {cards.join(" · ")}
-          {reads.length > 0 &&
-            ` · looked closer at ${reads
-              .map((r) => `${r.area} ${r.variable.toUpperCase()}${r.year ? ` ${r.year}` : ""}`)
-              .join(", ")}`}
-        </span>
+        <details className="used">
+          <summary className="meta">
+            Based on {cards.length} {cards.length === 1 ? "item" : "items"} from your workspace
+            {reads.length > 0 && ` and ${reads.length} closer ${reads.length === 1 ? "reading" : "readings"}`}
+          </summary>
+          <ul className="used-list">
+            {cards.map((c) => (
+              <li key={c}>{c}</li>
+            ))}
+            {reads.map((r) => (
+              <li key={`${r.area}-${r.variable}-${r.year}`}>
+                {r.area} {r.variable.toUpperCase()}
+                {r.year ? ` ${r.year}` : ""}
+              </li>
+            ))}
+          </ul>
+        </details>
       )}
       {cited.length > 0 && (
         <>

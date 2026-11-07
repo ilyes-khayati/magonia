@@ -568,7 +568,8 @@ test("uploading a GeoJSON file adds its named areas", async ({ page }) => {
 });
 
 test("the theme can be switched to dark", async ({ page }) => {
-  await page.getByRole("button", { name: "Switch to dark theme" }).click();
+  await page.getByRole("button", { name: "Settings" }).click();
+  await page.getByRole("group", { name: "Theme" }).getByRole("button", { name: "Dark" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 });
 
@@ -757,7 +758,7 @@ test("an experiment runs a recipe, keeps its results, and two runs can be compar
   const experiment = page.getByRole("region", { name: "Experiment" });
   // nothing is chosen for the researcher: no model, no driver, no calendar
   await expect(experiment.getByRole("button", { name: "Run experiment" })).toBeDisabled();
-  for (const name of ["Ridge", "Random Forest", "XGBoost", /^LST \(/, /Calendar month/]) {
+  for (const name of ["Ridge", "Random Forest", "XGBoost", /^LST$/, /Calendar month/]) {
     await expect(experiment.getByRole("checkbox", { name })).not.toBeChecked();
     await experiment.getByRole("checkbox", { name }).check();
   }
@@ -806,7 +807,7 @@ test("an experiment runs a recipe, keeps its results, and two runs can be compar
   // a copy with one change, then the two side by side
   await experiment.getByRole("button", { name: "Duplicate" }).click();
   await experiment.getByRole("checkbox", { name: "Ridge" }).uncheck();
-  await experiment.getByRole("group", { name: "XGBoost settings" }).getByRole("button", { name: "Set by hand" }).click();
+  await experiment.getByRole("group", { name: "XGBoost hyperparameters" }).getByRole("button", { name: "Manual" }).click();
   await experiment.getByRole("spinbutton", { name: "Maximum depth" }).first().fill("3");
   await experiment.getByRole("spinbutton", { name: "Maximum depth" }).first().blur();
   await experiment.getByRole("checkbox", { name: /Calendar month/ }).uncheck();
@@ -833,32 +834,27 @@ test("when Earth Engine is not connected, the setup explains how and saves the p
   await dialog.getByLabel("Project id").fill("my-project");
   await dialog.getByRole("button", { name: "Connect" }).click();
   await expect(dialog).toBeHidden();
-  await expect(page.getByText("Earth Engine · my-project")).toBeVisible();
+  await page.getByRole("button", { name: "Settings" }).click();
+  await expect(page.getByRole("group", { name: "Settings" })).toContainText("Connected");
+  await expect(page.getByRole("group", { name: "Settings" })).toContainText("my-project");
 });
 
-test("focus mode hides the top bar", async ({ page }) => {
-  await page.getByRole("button", { name: "Focus map" }).click();
-  await expect(page.getByRole("banner")).toBeHidden();
-  await page.getByRole("button", { name: "Show panels" }).click();
-  await expect(page.getByRole("banner")).toBeVisible();
-});
-
-test("the workspace is named in the top bar and can be renamed", async ({ page }) => {
+test("the workspace is named at the head of the rail and can be renamed", async ({ page }) => {
   const renamed: string[] = [];
   page.on("request", (r) => {
     if (r.method() === "PATCH" && r.url().endsWith("/workspaces/1") && r.postDataJSON().name) renamed.push(r.postDataJSON().name);
   });
-  const menu = page.getByRole("banner").getByRole("button", { name: /My workspace/ });
+  const menu = page.getByRole("button", { name: /^Workspace: My workspace/ });
   await menu.click();
   await page.getByRole("group", { name: "Workspaces" }).getByRole("button", { name: "Rename this workspace…" }).click();
   await page.getByRole("textbox", { name: "Name" }).fill("Jendouba orchard");
   await page.getByRole("button", { name: "Rename", exact: true }).click();
-  await expect(page.getByRole("banner").getByRole("button", { name: /Jendouba orchard/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Workspace: Jendouba orchard/ })).toBeVisible();
   expect(renamed).toEqual(["Jendouba orchard"]);
 });
 
 test("a deleted workspace can be brought back, at once or from Recently deleted", async ({ page }) => {
-  const banner = page.getByRole("banner");
+  const banner = page.getByRole("navigation", { name: "Pages" });
   const workspaces = page.getByRole("group", { name: "Workspaces" });
   await banner.getByRole("button", { name: /My workspace/ }).click();
   await workspaces.getByRole("button", { name: "Delete this workspace" }).click();
@@ -1093,7 +1089,7 @@ test("the period chosen in the month fields is the one extracted", async ({ page
   await expect(page.getByText("Type a month as YYYY-MM")).toHaveCount(0);
 });
 
-test("a chart shows the areas together or one at a time, and keeps the choice", async ({ page }) => {
+test("the charts show the areas together or one at a time, and keep the choice", async ({ page }) => {
   const forest = { ...SQUARE.features[0], properties: { name: "Forest" } };
   await page.getByTestId("upload").setInputFiles({
     name: "fields.geojson",
@@ -1102,7 +1098,7 @@ test("a chart shows the areas together or one at a time, and keeps the choice", 
   });
   await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Data" }).click();
   const chart = page.getByRole("region", { name: "NDVI chart" });
-  const choice = chart.getByRole("group", { name: "Areas in the NDVI chart" });
+  const choice = page.getByRole("group", { name: "Areas in the charts" });
   await expect(chart.locator('.plot-svg [data-mark="line"]')).toHaveCount(2);
 
   await choice.getByRole("button", { name: "Forest" }).click();
@@ -1114,7 +1110,7 @@ test("a chart shows the areas together or one at a time, and keeps the choice", 
   await expect(choice.getByRole("button", { name: "Forest" })).toHaveAttribute("aria-pressed", "true");
   await expect(chart.locator('.plot-svg [data-mark="line"]')).toHaveCount(1);
 
-  await choice.getByRole("button", { name: "Together" }).click();
+  await choice.getByRole("button", { name: "All areas" }).click();
   await expect(chart.locator('.plot-svg [data-mark="line"]')).toHaveCount(2);
 });
 
@@ -1243,7 +1239,9 @@ test("Magonia is sent what is open and says which cards it read", async ({ page 
   const results = await new AxeBuilder({ page }).include(".assistant").analyze();
   const serious = results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? ""));
   expect(serious.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`)).toEqual([]);
-  await expect(assistant.getByText("From your workspace: NDVI chart · looked closer at Orchard NDVI 2024")).toBeVisible();
+  await assistant.getByText("Based on 1 item from your workspace and 1 closer reading").click();
+  await expect(assistant.locator(".used-list")).toContainText("NDVI chart");
+  await expect(assistant.locator(".used-list")).toContainText("Orchard NDVI 2024");
   const { view } = asked.at(-1)!;
   expect(view?.page).toBe("data");
   expect(view?.charts).toEqual(["ndvi"]);
@@ -1341,7 +1339,11 @@ test("an answer shows its checked sources and what the check removed", async ({ 
 
 for (const theme of ["light", "dark"]) {
   test(`no serious accessibility problems in the ${theme} theme`, async ({ page }) => {
-    if (theme === "dark") await page.getByRole("button", { name: "Switch to dark theme" }).click();
+    if (theme === "dark") {
+      await page.getByRole("button", { name: "Settings" }).click();
+      await page.getByRole("group", { name: "Theme" }).getByRole("button", { name: "Dark" }).click();
+      await page.keyboard.press("Escape");
+    }
     await page.getByTestId("upload").setInputFiles({
       name: "fields.geojson",
       mimeType: "application/geo+json",
