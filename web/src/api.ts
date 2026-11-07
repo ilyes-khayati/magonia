@@ -572,7 +572,7 @@ export async function ask(
 // An analysis as a Jupyter notebook that reproduces it from the data it used (REP-01)
 export type NotebookBody = {
   title: string;
-  kind: "experiment" | "decomposition" | "trend" | "phenology" | "lags" | "correlation";
+  kind: "experiment" | "decomposition" | "trend" | "phenology" | "lags" | "correlation" | "scales";
   options: Record<string, unknown>;
   series: SeriesOptions[];
 };

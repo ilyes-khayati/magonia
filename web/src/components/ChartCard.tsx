@@ -1,7 +1,7 @@
 import * as Plot from "@observablehq/plot";
 import { useMemo, useState } from "react";
 import type { Area, Variable } from "../api";
-import { describe, MONTHS, seasonalCycle } from "../stats";
+import { describe, median, MONTHS, observations, quantile, SEASONS, seasonalCycle } from "../stats";
 import type { SeriesState } from "../useSeries";
 import { InfoIcon } from "./Icons";
 import { large } from "../variables";
@@ -16,7 +16,7 @@ type Props = {
   variable: Variable;
   title: string;
   entries: Entry[];
-  mode: "series" | "seasonal";
+  mode: "series" | "seasonal" | "distribution";
   shown?: string | null; // how the values were changed for display, said under the title
   anomaly?: boolean; // values centred on zero, so the axis follows the data
   hidden?: number[]; // areas left out of the chart
@@ -66,7 +66,9 @@ export default function ChartCard({ variable, title, entries, mode, shown: chang
   const subtitle =
     mode === "series"
       ? `${variable.sampling === "centre" ? "Value of the grid cell at the area's centre" : "Area mean with ±1 SD of pixels"}${variable.units ? ` · ${variable.units}` : ""}`
-      : `Average year, shaded from the lowest to the highest year${variable.units ? ` · ${variable.units}` : ""}`;
+      : mode === "seasonal"
+        ? `Average year, shaded from the lowest to the highest year${variable.units ? ` · ${variable.units}` : ""}`
+        : `Every observation, by calendar month, season or as a whole: median, quartiles and outliers${variable.units ? ` · ${variable.units}` : ""}`;
 
   function flip(id: number) {
     const next = new Set(off);
@@ -133,8 +135,10 @@ export default function ChartCard({ variable, title, entries, mode, shown: chang
           y={{ label: yLabel(variable), digits: axis.digits, domain: axis.domain, ticks: axis.ticks, zero: DIVERGING.has(variable.key) || anomaly }}
           source={source(variable)}
         />
-      ) : (
+      ) : mode === "seasonal" ? (
         <SeasonalChart title={title} shown={shown} label={yLabel(variable)} digits={axis.digits} domain={axis.domain} source={source(variable)} />
+      ) : (
+        <DistributionChart title={title} shown={shown} label={yLabel(variable)} digits={axis.digits} domain={axis.domain} source={source(variable)} />
       )}
 
       <div className="legend">
@@ -206,6 +210,7 @@ export default function ChartCard({ variable, title, entries, mode, shown: chang
 
 // The average year: months on the axis, shaded from the lowest to the highest year
 function SeasonalChart({ title, shown, label, digits, domain, source }: { title: string; shown: Entry[]; label: string; digits: number; domain?: [number, number]; source: string }) {
+  const [centre, setCentre] = useState<"mean" | "median">("mean");
   const options = useMemo<Plot.PlotOptions>(() => {
     const rows = shown.flatMap(({ area, colour, state }) =>
       state?.status === "done" ? seasonalCycle(state.data.points).map((m) => ({ ...m, id: area.id, colour })) : [],
@@ -215,14 +220,85 @@ function SeasonalChart({ title, shown, label, digits, domain, source }: { title:
       y: { label, labelArrow: "none", domain, grid: true, nice: !domain, tickFormat: (v: number) => num(v, digits), tickSize: 0 },
       marks: [
         Plot.areaY(rows, { x: "month", y1: "low", y2: "high", z: "id", fill: "colour", fillOpacity: 0.13 }),
-        Plot.lineY(rows, { x: "month", y: "mean", z: "id", stroke: "colour", strokeWidth: 1.5 }),
-        Plot.dot(rows, { x: "month", y: "mean", fill: "colour", r: 2 }),
-        Plot.tip(rows, Plot.pointerX({ x: "month", y: "mean", title: (r: { month: number; mean: number }) => `${MONTHS[r.month]}  ${num(r.mean, digits + 1)}` })),
+        Plot.lineY(rows, { x: "month", y: centre, z: "id", stroke: "colour", strokeWidth: 1.5 }),
+        Plot.dot(rows, { x: "month", y: centre, fill: "colour", r: 2 }),
+        Plot.tip(
+          rows,
+          Plot.pointerX({
+            x: "month",
+            y: centre,
+            title: (r: { month: number; mean: number; median: number; years: number }) =>
+              `${MONTHS[r.month]}\nmean ${num(r.mean, digits + 1)} · median ${num(r.median, digits + 1)}\n${r.years} values`,
+          }),
+        ),
       ],
     };
-  }, [shown, label, digits, domain]);
-  return <PlotFrame title={title} options={options} height={200} source={source} />;
+  }, [shown, label, digits, domain, centre]);
+  return (
+    <>
+      <div className="segmented small" role="group" aria-label="Middle of each month">
+        <button aria-pressed={centre === "mean"} onClick={() => setCentre("mean")}>
+          Mean
+        </button>
+        <button aria-pressed={centre === "median"} onClick={() => setCentre("median")}>
+          Median
+        </button>
+      </div>
+      <PlotFrame title={title} options={options} height={200} source={source} />
+    </>
+  );
 }
+
+type Grouping = "month" | "season" | "all";
+
+// Boxplots of every observation: by calendar month, by season, or all together, one box per area
+function DistributionChart({ title, shown, label, digits, domain, source }: { title: string; shown: Entry[]; label: string; digits: number; domain?: [number, number]; source: string }) {
+  const [by, setBy] = useState<Grouping>("month");
+  const options = useMemo<Plot.PlotOptions>(() => {
+    const rows = shown.flatMap(({ area, colour, state }) =>
+      state?.status === "done" ? observations(state.data.points).map((o) => ({ ...o, area: area.name, colour })) : [],
+    );
+    const names = shown.map((e) => e.area.name);
+    const colours = shown.map((e) => e.colour);
+    const group = by === "month" ? (r: { month: number }) => MONTHS[r.month] : by === "season" ? (r: { season: string }) => r.season : () => "All";
+    const groups = by === "month" ? MONTHS : by === "season" ? [...SEASONS] : ["All"];
+    const summary: Summary[] = [];
+    for (const g of groups) {
+      for (const name of names) {
+        const values = rows.filter((r) => group(r as never) === g && r.area === name).map((r) => r.value);
+        if (values.length) summary.push({ group: g, area: name, n: values.length, median: median(values), q1: quantile(values, 0.25), q3: quantile(values, 0.75) });
+      }
+    }
+    return {
+      fx: { domain: groups, label: null, padding: 0.08 },
+      x: { domain: names, axis: null, padding: 0.2 },
+      y: { label, labelArrow: "none", domain, grid: true, nice: !domain, tickFormat: (v: number) => num(v, digits), tickSize: 0 },
+      color: { domain: names, range: colours },
+      marks: [
+        Plot.boxY(rows, { fx: group, x: "area", y: "value", fill: "area", stroke: "area", fillOpacity: 0.25, r: 1.5 }),
+        Plot.tip(summary, Plot.pointer({ fx: "group", x: "area", y: "median", title: (r: Summary) => `${r.area}, ${r.group}\nmedian ${num(r.median, digits + 1)} · IQR ${num(r.q1, digits + 1)} – ${num(r.q3, digits + 1)}\n${r.n} values` })),
+      ],
+    };
+  }, [shown, label, digits, domain, by]);
+  return (
+    <>
+      <div className="segmented small" role="group" aria-label="Group the observations">
+        <button aria-pressed={by === "month"} onClick={() => setBy("month")}>
+          By month
+        </button>
+        <button aria-pressed={by === "season"} onClick={() => setBy("season")}>
+          By season
+        </button>
+        <button aria-pressed={by === "all"} onClick={() => setBy("all")}>
+          All together
+        </button>
+      </div>
+      <PlotFrame title={title} options={options} height={by === "all" ? 200 : 230} source={source} />
+    </>
+  );
+}
+
+type Summary = { group: string; area: string; n: number; median: number; q1: number; q3: number };
 
 type Step = { step: string; [key: string]: unknown };
 

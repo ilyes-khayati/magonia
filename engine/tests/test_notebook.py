@@ -71,9 +71,15 @@ def test_an_exported_experiment_runs_and_gives_the_same_forecast():
 
 
 @pytest.mark.filterwarnings("ignore")
-@pytest.mark.parametrize("kind", ["trend", "lags", "correlation", "decomposition"])
+@pytest.mark.parametrize("kind", ["trend", "lags", "correlation", "decomposition", "scales"])
 def test_each_analysis_exports_a_notebook_that_runs(kind):
     used = [series("NDVI", "ndvi", "NDVI"), series("LST", "lst", "LST")]
+    if kind == "scales":
+        used = [
+            series("NDVI", "ndvi", "NDVI"),
+            series("LST", "spei", "SPEI-1"),
+            series("LST", "spei", "SPEI-3"),
+        ]
     if kind in ("trend", "decomposition"):
         used = used[:1]
     run(notebook(f"Orchard {kind}", kind, {"deseasonalise": True}, used))
