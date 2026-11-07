@@ -235,6 +235,22 @@ for area in dict.fromkeys(s.area for s in SERIES.values()):
 """
             ),
         ]
+    if kind == "leakage":
+        return [
+            markdown("## Wavelet leakage audit"),
+            code(
+                f"""
+from engine.leakage import audit
+
+target = SERIES[{key(first)!r}]
+found = audit(facts.monthly_series(target), target.title, target.area, {options.get("test_years", 3)!r})
+for row in found.rows:
+    print(row)
+for line in found.summary:
+    print(line)
+"""
+            ),
+        ]
     if kind == "coherence":
         second = series[1]
         return [

@@ -49,6 +49,13 @@ export type Coherence = Named & {
   area?: number;
 };
 
+export type Leakage = Named & {
+  kind: "leakage";
+  response: VariableKey;
+  test_years: number;
+  area?: number;
+};
+
 // A forecast card from before the Model page; read once and turned into an experiment
 export type Models = {
   kind: "models";
@@ -59,7 +66,7 @@ export type Models = {
   test_years: number;
 };
 
-export type AnalysisBody = Correlation | Decomposition | Trend | Phenology | Lags | Scales | Coherence;
+export type AnalysisBody = Correlation | Decomposition | Trend | Phenology | Lags | Scales | Coherence | Leakage;
 
 export type Analysis = { id: number } & AnalysisBody;
 
@@ -144,6 +151,13 @@ export const KINDS: KindInfo[] = [
       return { kind: "coherence", response, driver: other(response, chosen), deseasonalise: false };
     },
   },
+  {
+    kind: "leakage",
+    label: "Wavelet leakage audit",
+    question: "Is a wavelet-hybrid forecast's skill real?",
+    description: "The same forecast with the wavelet parts taken from the whole record and from the past only.",
+    create: (chosen) => ({ kind: "leakage", response: chosen.find((k) => k !== "spei") ?? "ndvi", test_years: 3 }),
+  },
 ];
 
 // The series an analysis needs; a decomposition works at the product's own time step
@@ -166,6 +180,8 @@ export function needsOf(analysis: Analysis): Need[] {
       return [analysis.response, ...analysis.drivers].map((variable) => ({ variable, native: false }));
     case "coherence":
       return [analysis.response, analysis.driver].map((variable) => ({ variable, native: false }));
+    case "leakage":
+      return [{ variable: analysis.response, native: false }];
     case "scales":
       return [
         { variable: analysis.response, native: false },

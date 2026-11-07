@@ -19,6 +19,7 @@ from engine.earth_engine import EarthEngineError, check, connect, plainly
 from engine.explain import Explanation, Pair, describe, explain, stability
 from engine.fulltext import FullTextError
 from engine.lags import explore
+from engine.leakage import LeakageError, audit
 from engine.library import Library, Uploads
 from engine.library import default_path as library_path
 from engine.models import ForecastError, design, forecast
@@ -636,6 +637,7 @@ class NotebookRequest(BaseModel):
         "correlation",
         "scales",
         "coherence",
+        "leakage",
     ]
     options: dict = {}  # the analysis' own choices, as the interface saves them
     series: list[SeriesRequest] = Field(min_length=1)  # in the order the analysis uses them
@@ -728,6 +730,36 @@ def wavelet_coherence(body: CoherenceRequest, store: StoreDep) -> dict:
     try:
         found = coherence(a, b, response.title, driver.title, response.area).to_dict()
     except CoherenceError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    store.save_result(key, found)
+    return found
+
+
+class LeakageRequest(BaseModel):
+    response: SeriesRequest
+    test_years: int = Field(3, ge=1, le=10)
+
+
+@app.post("/leakage")
+def leakage_audit(body: LeakageRequest, store: StoreDep) -> dict:
+    """How much of a wavelet-hybrid forecast's skill comes from decomposing the whole record."""
+    if body.response.resolution == "seasonal":
+        raise HTTPException(422, "the audit needs monthly values; use native or monthly")
+    response = cached_series(body.response, store)
+    key = fingerprint(
+        {
+            "leakage": cache_key(series_request(body.response, store)[1]),
+            "test_years": body.test_years,
+            "engine": engine.__version__,
+        }
+    )
+    if (held := store.result(key)) is not None:
+        return held
+    try:
+        found = audit(
+            facts.monthly_series(response), response.title, response.area, body.test_years
+        ).to_dict()
+    except LeakageError as exc:
         raise HTTPException(422, str(exc)) from exc
     store.save_result(key, found)
     return found

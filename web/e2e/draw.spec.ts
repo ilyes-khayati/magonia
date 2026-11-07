@@ -84,6 +84,24 @@ async function fakeApi(page: Page, connected = true) {
   await page.route("**/api/areas/*/pixels*", (route) =>
     route.fulfill({ json: { type: "FeatureCollection", features: [], pixel_m: 250 } }),
   );
+  await page.route("**/api/leakage", (route) => {
+    const dates = Array.from({ length: 24 }, (_, i) => `${2023 + Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, "0")}`);
+    const wave = dates.map((_, i) => 0.5 + 0.2 * Math.sin(i / 2));
+    route.fulfill({
+      json: {
+        test: ["2023-01", "2024-12"],
+        rows: ["Ridge", "RandomForest", "XGBoost"].map((model) => ({ model, trend_whole: 0.99, trend_causal: 0.95, seasonal_whole: 0.8, seasonal_causal: 0.85, whole: 0.05, causal: 0.051, raw: 0.05 })),
+        placebo: { whole: 0.99, causal: 0.4 },
+        baselines: { persistence: 0.09, climatology: 0.07 },
+        dates,
+        observed: wave,
+        whole: wave,
+        causal: wave,
+        best: "Ridge",
+        summary: ["Orchard: on white noise, where nothing can be forecast, the same recipe reaches trend R² 0.99 with whole-record parts and 0.40 with causal ones."],
+      },
+    });
+  });
   await page.route("**/api/coherence", (route) => {
     const times = Array.from({ length: 48 }, (_, i) => `${2020 + Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, "0")}`);
     const periods = [2, 4, 8, 12, 16];
@@ -1567,4 +1585,18 @@ test("wavelet coherence maps two variables over time and period", async ({ page 
   await expect(card.getByText(/At the annual period, NDVI and LST are coherent/)).toBeVisible();
   const results = await new AxeBuilder({ page }).include("[aria-label='Coherence chart']").analyze();
   expect(results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? "")).map((v) => v.id)).toEqual([]);
+});
+
+test("a leakage audit sets whole-record against past-only decomposition, with a noise placebo", async ({ page }) => {
+  await page.getByTestId("upload").setInputFiles({
+    name: "fields.geojson",
+    mimeType: "application/geo+json",
+    buffer: Buffer.from(JSON.stringify(SQUARE)),
+  });
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Analyses" }).click();
+  await page.getByRole("region", { name: "Suggested analyses" }).getByRole("button", { name: /skill real/ }).click();
+  const card = page.getByRole("region", { name: "Leakage audit" });
+  await expect(card.getByRole("row", { name: /White noise/ })).toContainText("0.99");
+  await expect(card.getByText(/On white noise, where nothing can be forecast/)).toBeVisible();
+  await expect(card.locator('.plot-svg [data-mark="line"]').first()).toBeVisible();
 });

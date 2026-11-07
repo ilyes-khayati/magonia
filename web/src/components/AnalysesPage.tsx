@@ -43,6 +43,7 @@ const FACT_LABEL: Record<Kind, string> = {
   lags: "Lags",
   scales: "Drought scale",
   coherence: "Coherence",
+  leakage: "Leakage audit",
 };
 
 const CLOUDS = { pixel: "cloudy pixels removed", date: "cloudy dates removed", none: "no cloud filter" };
@@ -130,6 +131,12 @@ export default function AnalysesPage(props: Props) {
         const id = analysis.area ?? ready(analysis.response)[0];
         if (id !== undefined) series = [analysis.response, ...analysis.drivers].map((k) => options(id, k));
         choices = { deseasonalise: analysis.deseasonalise };
+        break;
+      }
+      case "leakage": {
+        const id = analysis.area ?? ready(analysis.response)[0];
+        if (id !== undefined) series = [options(id, analysis.response)];
+        choices = { test_years: analysis.test_years };
         break;
       }
       case "coherence": {
