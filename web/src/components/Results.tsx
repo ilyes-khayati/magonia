@@ -543,6 +543,7 @@ function Effects({
   );
   const colour = (m: string) => areaColour(theme, shown.indexOf(m) + 1);
   const chart = (
+    input: string,
     curves: Record<string, { x: number; effect: number }[]>,
   ): Plot.PlotOptions => {
     const rows = shown.flatMap((m) =>
@@ -550,7 +551,16 @@ function Effects({
     );
     return {
       marginLeft: 46,
-      x: { label: null, tickFormat: (v: number) => num(v, 2), ticks: 4 },
+      marginBottom: 40,
+      // the input's name as the axis label, so that an exported panel still says what it shows
+      x: {
+        label: input.replace(/_/g, " "),
+        labelAnchor: "center",
+        labelArrow: "none",
+        labelOffset: 34,
+        tickFormat: (v: number) => num(v, 2),
+        ticks: 4,
+      },
       y: {
         label: "Change in forecast",
         labelArrow: "none",
@@ -591,8 +601,8 @@ function Effects({
           <PlotFrame
             key={input}
             title={input.replace(/_/g, " ")}
-            options={chart(curves)}
-            height={180}
+            options={chart(input, curves)}
+            height={200}
           />
         ))}
       </div>
@@ -634,6 +644,8 @@ function LagMap({
   });
   if (!cells.length) return null;
   const longest = Math.max(...cells.map((c) => c.input.length));
+  const top = Math.max(...cells.map((c) => c.share));
+  const percent = (c: { share: number }) => `${Math.round(100 * c.share)}%`;
   const options: Plot.PlotOptions = {
     // room for the longest input name, at about six pixels a letter
     marginLeft: Math.min(220, 20 + 6.2 * longest),
@@ -648,17 +660,20 @@ function LagMap({
     y: { type: "band", label: null },
     color: {
       scheme: "viridis",
-      domain: [0, Math.max(...cells.map((c) => c.share))],
+      domain: [0, top],
     },
     marks: [
       Plot.cell(cells, { x: "lag", y: "input", fill: "share", inset: 0.5 }),
-      Plot.text(cells, {
-        x: "lag",
-        y: "input",
-        text: (c: { share: number }) => `${Math.round(100 * c.share)}%`,
-        fill: (c: { share: number }) => (c.share > 0.25 ? "black" : "white"),
-        fontSize: 10,
-      }),
+      // dark ink on the light end of the scale, white on the dark end; constant fills, as a
+      // fill channel would be read through the colour scale
+      Plot.text(
+        cells.filter((c) => c.share > 0.5 * top),
+        { x: "lag", y: "input", text: percent, fill: "black", fontSize: 10 },
+      ),
+      Plot.text(
+        cells.filter((c) => c.share <= 0.5 * top),
+        { x: "lag", y: "input", text: percent, fill: "white", fontSize: 10 },
+      ),
     ],
   };
   return (
