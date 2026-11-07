@@ -1,12 +1,11 @@
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { ExplanationResponse, ModelsResponse, StabilityResponse } from "../api";
 import { MODEL_LABEL, type ModelName } from "../experiments";
 import { areaColour, type Theme } from "../theme";
 import Cautions from "./Cautions";
+import { TimeChart } from "../plot/Chart";
+import { dateOf } from "../plot/time";
 import type { AnalysisState } from "../useAnalysis";
 
-const TICK = { fill: "var(--muted)", fontSize: 10, fontFamily: "var(--mono)" };
-const TOOLTIP = { background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8 };
 const label = (name: string) => MODEL_LABEL[name as ModelName] ?? name;
 
 type Props = {
@@ -40,11 +39,17 @@ export default function Results({ fit, why, explain, onExplain, held, stable, on
     const sd = Math.sqrt(rmse.reduce((a, b) => a + (b - mean) ** 2, 0) / rmse.length);
     return `${fmt(mean)} ±${fmt(sd)}`;
   };
-  const chart = found.dates.map((date, i) => {
-    const row: Record<string, string | number> = { date, observed: found.observed[i] };
-    for (const m of found.models) row[m.name] = m.predictions[i];
-    return row;
-  });
+  const at = found.dates.map(dateOf);
+  const chart = [
+    { id: "observed", name: "Observed", colour: "var(--ink)", width: 2, points: at.map((date, i) => ({ date, value: found.observed[i] })) },
+    ...ranked.map((m, i) => ({
+      id: m.name,
+      name: label(m.name),
+      colour: areaColour(theme, i + 1),
+      width: 1.2,
+      points: at.map((date, j) => ({ date, value: m.predictions[j] })),
+    })),
+  ];
 
   return (
     <>
@@ -97,37 +102,7 @@ export default function Results({ fit, why, explain, onExplain, held, stable, on
           <span className="meta">
             Test period {found.test[0]} to {found.test[1]}: observed and forecast
           </span>
-          <ResponsiveContainer width="100%" height={190}>
-            <LineChart data={chart} margin={{ top: 6, right: 6, bottom: 0, left: 0 }}>
-              <CartesianGrid stroke="var(--grid)" vertical={false} />
-              <XAxis dataKey="date" tick={TICK} tickFormatter={(d: string) => d.slice(0, 7)} minTickGap={36} />
-              <YAxis
-                tick={TICK}
-                width={38}
-                domain={["auto", "auto"]}
-                tickFormatter={(v) => Number(v).toFixed(digits > 2 ? 2 : 1)}
-              />
-              <Tooltip
-                contentStyle={TOOLTIP}
-                labelFormatter={(d) => String(d).slice(0, 7)}
-                formatter={(value, key) => [
-                  Number(value).toFixed(digits > 2 ? 3 : 2),
-                  key === "observed" ? "Observed" : label(String(key)),
-                ]}
-              />
-              <Line dataKey="observed" stroke="var(--ink)" strokeWidth={2.2} dot={false} isAnimationActive={false} />
-              {ranked.map((m, i) => (
-                <Line
-                  key={m.name}
-                  dataKey={m.name}
-                  stroke={areaColour(theme, i + 1)}
-                  strokeWidth={1.4}
-                  dot={false}
-                  isAnimationActive={false}
-                />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
+          <TimeChart title="Observed and forecast" series={chart} height={200} y={{ label: "Value", digits: digits > 2 ? 2 : 1 }} />
         </>
       )}
 

@@ -1,11 +1,13 @@
 import CardTitle from "./CardTitle";
 import { useMemo, useState } from "react";
-import { CartesianGrid, Line, LineChart, ReferenceDot, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import * as Plot from "@observablehq/plot";
 import { phenologyOf, type SeriesOptions } from "../api";
 import { useAnalysis } from "../useAnalysis";
 import Cautions from "./Cautions";
 import type { Entry } from "./ChartCard";
 import { CloseIcon } from "./Icons";
+import { TimeChart } from "../plot/Chart";
+import { dateOf } from "../plot/time";
 
 type Props = {
   name?: string;
@@ -14,9 +16,6 @@ type Props = {
   entries: Entry[]; // NDVI at its native step, one per area
   options: (areaId: number) => SeriesOptions;
 };
-
-const TICK = { fill: "var(--muted)", fontSize: 10, fontFamily: "var(--mono)" };
-const TOOLTIP = { background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8 };
 
 // Each growing season's start, peak and end, marked on the smoothed NDVI of one area
 export default function PhenologyCard({ name, onRename, onRemove, entries, options }: Props) {
@@ -30,7 +29,17 @@ export default function PhenologyCard({ name, onRename, onRemove, entries, optio
   const [picked, setPicked] = useState<number | null>(null);
   const shown = found.find((f) => f.area.id === picked) ?? found.find((f) => f.result?.status === "done") ?? found[0];
   const data = shown?.result?.status === "done" ? shown.result.data : null;
-  const value = (date: string) => data?.smoothed.reduce((a, b) => (Math.abs(+new Date(b.date) - +new Date(date)) < Math.abs(+new Date(a.date) - +new Date(date)) ? b : a)).value;
+  const series = data && shown ? [{ id: "ndvi", name: "NDVI", colour: shown.colour, width: 1.5, points: data.smoothed.map((p) => ({ date: dateOf(p.date), value: p.value })) }] : [];
+  const marks = (() => {
+    if (!data) return [];
+    const near = (date: string) => data.smoothed.reduce((a, b) => (Math.abs(+new Date(b.date) - +new Date(date)) < Math.abs(+new Date(a.date) - +new Date(date)) ? b : a));
+    const at = (kind: "start" | "peak" | "end", colour: string, r: number) =>
+      Plot.dot(
+        data.seasons.map((s) => ({ date: dateOf(near(s[kind]).date), value: near(s[kind]).value })),
+        { x: "date", y: "value", r, fill: colour, stroke: "var(--card)", strokeWidth: 1, clip: true },
+      );
+    return [at("start", "var(--accent)", 3), at("peak", "var(--ink)", 3.5), at("end", "var(--warning)", 3)];
+  })();
 
   return (
     <section className="card" aria-label="Season dates chart">
@@ -63,20 +72,7 @@ export default function PhenologyCard({ name, onRename, onRemove, entries, optio
         <p className="placeholder">Waiting for the series to load.</p>
       ) : (
         <>
-          <ResponsiveContainer width="100%" height={180}>
-            <LineChart data={data.smoothed} margin={{ top: 6, right: 6, bottom: 0, left: 0 }}>
-              <CartesianGrid stroke="var(--grid)" vertical={false} />
-              <XAxis dataKey="date" tick={TICK} tickFormatter={(d: string) => d.slice(0, 4)} minTickGap={40} />
-              <YAxis tick={TICK} width={34} domain={["auto", "auto"]} tickFormatter={(v) => Number(v).toFixed(1)} />
-              <Tooltip contentStyle={TOOLTIP} labelFormatter={(d) => String(d)} formatter={(v) => [Number(v).toFixed(3), "NDVI"]} />
-              <Line dataKey="value" stroke={shown.colour} strokeWidth={1.6} dot={false} isAnimationActive={false} />
-              {data.seasons.flatMap((s) => [
-                <ReferenceDot key={`s${s.year}`} x={nearest(data.smoothed, s.start)} y={value(s.start)} r={3} fill="var(--accent)" stroke="none" />,
-                <ReferenceDot key={`p${s.year}`} x={nearest(data.smoothed, s.peak)} y={value(s.peak)} r={3.5} fill="var(--ink)" stroke="none" />,
-                <ReferenceDot key={`e${s.year}`} x={nearest(data.smoothed, s.end)} y={value(s.end)} r={3} fill="var(--warning)" stroke="none" />,
-              ])}
-            </LineChart>
-          </ResponsiveContainer>
+          <TimeChart title="Season dates" series={series} marks={marks} height={200} y={{ label: "NDVI", digits: 1 }} />
           <div className="legend">
             <span className="row" style={{ gap: 6 }}>
               <span className="dot" style={{ background: "var(--accent)" }} /> start
@@ -128,7 +124,3 @@ export default function PhenologyCard({ name, onRename, onRemove, entries, optio
 }
 
 // The chart's own date closest to a season date, so the marker sits on the line
-function nearest(points: { date: string }[], date: string): string {
-  const t = +new Date(date);
-  return points.reduce((a, b) => (Math.abs(+new Date(b.date) - t) < Math.abs(+new Date(a.date) - t) ? b : a)).date;
-}

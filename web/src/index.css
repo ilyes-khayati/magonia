@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap");
 
 /* Colour tokens. Light is the default; data-theme="dark" on <html> switches. */
 :root {
@@ -17,10 +17,12 @@
   --on-selected: #ffffff;
   --danger: #b3261e;
   --warning: #8a5a00;
-  --shadow: 0 6px 24px rgb(0 0 0 / 18%);
+  --shadow: 0 1px 2px rgb(0 0 0 / 10%), 0 2px 8px rgb(0 0 0 / 8%);
   --mono: "IBM Plex Mono", ui-monospace, monospace;
-  font-family: "IBM Plex Sans", system-ui, sans-serif;
+  font-family: "Inter", system-ui, sans-serif;
   font-size: 13px;
+  font-feature-settings: "cv11", "ss03";
+  -webkit-font-smoothing: antialiased;
   color: var(--ink);
   background: var(--ground);
 }
@@ -94,7 +96,7 @@ button:disabled {
 }
 
 .workbench.page-data {
-  --data-width: 280px;
+  --data-width: var(--data-open, 280px);
 }
 
 .workbench.docked {
@@ -149,7 +151,7 @@ button:disabled {
   gap: 8px;
   border: 1px solid transparent;
   background: transparent;
-  border-radius: 8px;
+  border-radius: 2px;
   padding: 5px 8px;
   color: var(--ink);
 }
@@ -176,7 +178,7 @@ button:disabled {
   border: none;
   background: transparent;
   padding: 8px 10px;
-  border-radius: 8px;
+  border-radius: 2px;
   text-align: left;
   color: var(--ink);
 }
@@ -249,7 +251,7 @@ button:disabled {
   text-align: left;
   padding: 16px;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 2px;
   background: var(--card);
   color: var(--ink);
   line-height: 1.4;
@@ -288,7 +290,7 @@ button:disabled {
   gap: 4px;
   padding: 9px 4px;
   border: none;
-  border-radius: 10px;
+  border-radius: 2px;
   background: transparent;
   color: var(--muted);
   font-size: 11px;
@@ -400,7 +402,7 @@ button:disabled {
   border: none;
   background: transparent;
   padding: 8px 10px;
-  border-radius: 8px;
+  border-radius: 2px;
   text-align: left;
 }
 
@@ -467,7 +469,7 @@ button:disabled {
 .input,
 .select {
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: 2px;
   background: var(--card);
   color: var(--ink);
   padding: 7px 8px;
@@ -477,7 +479,7 @@ button:disabled {
 .icon-button {
   width: 32px;
   height: 32px;
-  border-radius: 8px;
+  border-radius: 2px;
   border: 1px solid var(--line);
   background: transparent;
   display: inline-flex;
@@ -489,7 +491,7 @@ button:disabled {
 .button {
   border: 1px solid var(--line);
   background: var(--card);
-  border-radius: 8px;
+  border-radius: 2px;
   padding: 7px 12px;
 }
 
@@ -528,7 +530,7 @@ button:disabled {
 .setup {
   max-width: 520px;
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: 2px;
   background: var(--card);
   color: var(--ink);
   padding: 24px 26px;
@@ -556,7 +558,7 @@ button:disabled {
   font-size: 12px;
   background: var(--ground);
   padding: 1px 5px;
-  border-radius: 4px;
+  border-radius: 2px;
 }
 
 .setup a {
@@ -575,7 +577,7 @@ button:disabled {
 
 .primary {
   border: none;
-  border-radius: 8px;
+  border-radius: 2px;
   padding: 8px 16px;
   background: var(--accent);
   color: var(--on-accent);
@@ -603,7 +605,7 @@ button:disabled {
 .floating {
   background: var(--card);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 2px;
   box-shadow: var(--shadow);
 }
 
@@ -631,7 +633,7 @@ button:disabled {
 .tool {
   width: 36px;
   height: 36px;
-  border-radius: 8px;
+  border-radius: 2px;
   border: none;
   background: transparent;
   display: inline-flex;
@@ -661,7 +663,7 @@ button:disabled {
   gap: 6px;
   padding: 0 10px;
   height: 36px;
-  border-radius: 8px;
+  border-radius: 2px;
   border: 1px solid var(--line);
   color: var(--muted);
 }
@@ -691,7 +693,7 @@ button:disabled {
   border: none;
   background: transparent;
   padding: 8px;
-  border-radius: 6px;
+  border-radius: 2px;
 }
 
 .search li button:hover {
@@ -704,7 +706,7 @@ button:disabled {
   gap: 8px;
   height: 36px;
   padding: 0 6px 0 12px;
-  border-radius: 18px;
+  border-radius: 2px;
   border: 1px solid var(--line);
   background: var(--card);
 }
@@ -737,7 +739,7 @@ button:disabled {
 .chip .remove {
   width: 24px;
   height: 24px;
-  border-radius: 12px;
+  border-radius: 2px;
   justify-content: center;
   color: var(--muted);
 }
@@ -786,7 +788,7 @@ button:disabled {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-radius: 8px;
+  border-radius: 2px;
 }
 
 .zoom button {
@@ -805,14 +807,14 @@ button:disabled {
   display: flex;
   flex-direction: column;
   padding: 4px;
-  border-radius: 8px;
+  border-radius: 2px;
 }
 
 .basemaps button {
   border: none;
   background: transparent;
   padding: 7px 10px;
-  border-radius: 6px;
+  border-radius: 2px;
   text-align: left;
 }
 
@@ -825,7 +827,7 @@ button:disabled {
 .variable {
   border: 1px solid var(--line);
   background: var(--card);
-  border-radius: 10px;
+  border-radius: 2px;
   padding: 10px 12px;
   display: flex;
   flex-direction: column;
@@ -860,7 +862,7 @@ button:disabled {
   grid-auto-flow: column;
   grid-auto-columns: minmax(0, 1fr);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 2px;
   overflow: hidden;
 }
 
@@ -913,7 +915,7 @@ button:disabled {
 .card {
   background: var(--card);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 2px;
   padding: 12px 14px;
   display: flex;
   flex-direction: column;
@@ -942,7 +944,7 @@ button:disabled {
 .icon-button.round {
   width: 28px;
   height: 28px;
-  border-radius: 14px;
+  border-radius: 2px;
 }
 
 .icon-button[aria-expanded="true"] {
@@ -952,7 +954,7 @@ button:disabled {
 .text-button {
   border: 1px solid var(--line);
   background: transparent;
-  border-radius: 14px;
+  border-radius: 2px;
   padding: 3px 10px;
   font-size: 11px;
   font-family: var(--mono);
@@ -1019,13 +1021,13 @@ button:disabled {
 .stats th[scope="row"],
 .stats thead th:first-child {
   text-align: left;
-  font-family: "IBM Plex Sans", system-ui, sans-serif;
+  font-family: "Inter", system-ui, sans-serif;
 }
 
 .provenance dl {
   margin: 0 0 8px;
   padding: 10px 12px;
-  border-radius: 8px;
+  border-radius: 2px;
   background: var(--ground);
   display: grid;
   grid-template-columns: 96px minmax(0, 1fr);
@@ -1086,7 +1088,7 @@ button:disabled {
   white-space: pre-wrap;
   line-height: 1.55;
   padding: 8px 10px;
-  border-radius: 10px;
+  border-radius: 2px;
   max-width: 92%;
 }
 
@@ -1123,7 +1125,7 @@ button:disabled {
   height: 16px;
   margin-left: 2px;
   padding: 0 4px;
-  border-radius: 8px;
+  border-radius: 2px;
   background: var(--accent);
   color: var(--card);
   font-size: 10px;
@@ -1243,7 +1245,7 @@ button:disabled {
 .num.flagged {
   color: inherit;
   background: color-mix(in srgb, var(--warning) 24%, transparent);
-  border-radius: 3px;
+  border-radius: 2px;
   padding: 0 2px;
   cursor: help;
 }
@@ -1269,7 +1271,7 @@ button:disabled {
   flex: 1;
   resize: none;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 2px;
   background: var(--ground);
   color: inherit;
   font: inherit;
@@ -1289,7 +1291,7 @@ button:disabled {
   margin: 0;
   padding: 24px;
   border: 1px dashed var(--line);
-  border-radius: 10px;
+  border-radius: 2px;
   color: var(--muted);
   text-align: center;
   line-height: 1.5;
@@ -1333,7 +1335,7 @@ button:disabled {
 
 .experiment-item {
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 2px;
   background: var(--card);
   overflow: hidden;
 }
@@ -1370,7 +1372,7 @@ button:disabled {
   font-size: 15px;
   font-weight: 600;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: 2px;
   background: transparent;
   color: var(--ink);
   padding: 4px 6px;
@@ -1406,7 +1408,7 @@ button:disabled {
 
 .recipe-group {
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 2px;
   padding: 10px 12px 12px;
   margin: 0;
   display: flex;
@@ -1441,7 +1443,7 @@ button:disabled {
   flex-direction: column;
   gap: 8px;
   padding: 10px;
-  border-radius: 8px;
+  border-radius: 2px;
   background: var(--ground);
 }
 
@@ -1491,7 +1493,7 @@ button:disabled {
 .compare-diff {
   margin: 0;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: 2px;
   background: var(--card);
   border: 1px solid var(--line);
 }
@@ -1516,7 +1518,7 @@ button:disabled {
 .slot {
   position: relative;
   min-width: 0;
-  border-radius: 12px;
+  border-radius: 2px;
 }
 
 .slot[data-wide="true"] {
@@ -1542,11 +1544,10 @@ button:disabled {
   gap: 2px;
   padding: 2px;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 2px;
   background: var(--card);
   box-shadow: 0 2px 8px rgb(0 0 0 / 8%);
   opacity: 0;
-  transition: opacity 0.15s;
 }
 
 .slot:hover > .card-tools,
@@ -1561,7 +1562,7 @@ button:disabled {
   width: 24px;
   height: 20px;
   border: none;
-  border-radius: 999px;
+  border-radius: 2px;
   background: transparent;
   color: var(--muted);
 }
@@ -1577,7 +1578,6 @@ button:disabled {
 }
 
 .tool-button.fold svg {
-  transition: transform 0.15s;
 }
 
 .tool-button.fold[aria-expanded="false"] svg {
@@ -1605,7 +1605,7 @@ button:disabled {
   gap: 8px;
   align-items: flex-start;
   padding: 8px 10px;
-  border-radius: 8px;
+  border-radius: 2px;
   border-left: 3px solid var(--warning);
   background: color-mix(in srgb, var(--warning) 9%, var(--card));
   color: var(--ink);
@@ -1658,7 +1658,7 @@ button:disabled {
   border: 1px solid var(--line);
   background: var(--card);
   color: var(--muted);
-  border-radius: 5px;
+  border-radius: 2px;
   padding: 4px 0;
   font-size: 11px;
 }
@@ -1677,7 +1677,7 @@ button:disabled {
   gap: 12px;
   margin-top: 8px;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: 2px;
   border: 1px solid var(--accent);
   background: color-mix(in srgb, var(--accent) 7%, var(--card));
   white-space: normal;
@@ -1692,7 +1692,7 @@ button:disabled {
 /* The research board */
 .board-image {
   width: 100%;
-  border-radius: 8px;
+  border-radius: 2px;
   border: 1px solid var(--line);
 }
 
@@ -1743,7 +1743,7 @@ button:disabled {
   line-height: 1.5;
   padding: 8px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 2px;
   background: var(--card);
   color: var(--ink);
   resize: vertical;
@@ -1819,7 +1819,7 @@ button:disabled {
   color: var(--ink);
   padding: 2px 4px;
   margin-left: -4px;
-  border-radius: 6px;
+  border-radius: 2px;
 }
 
 .note-title:focus,
@@ -1832,7 +1832,7 @@ button:disabled {
   box-sizing: border-box; /* the padding inside the card's width */
   resize: vertical;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 2px;
   padding: 8px;
   background: var(--card);
   color: var(--ink);
@@ -1861,7 +1861,7 @@ button:disabled {
 .learn {
   border-left: 3px solid var(--accent);
   background: var(--panel);
-  border-radius: 0 8px 8px 0;
+  border-radius: 2px;
   padding: 10px 12px;
   font-size: 13px;
   line-height: 1.5;
@@ -1958,7 +1958,7 @@ button:disabled {
   flex-direction: column;
   gap: 2px;
   padding: 6px 10px;
-  border-radius: 8px;
+  border-radius: 2px;
 }
 
 .recently-deleted li .link {
@@ -1990,7 +1990,7 @@ button:disabled {
   max-width: 100%;
   border: 1px solid transparent;
   background: transparent;
-  border-radius: 8px;
+  border-radius: 2px;
   padding: 4px 6px;
   margin-left: -6px;
   color: var(--ink);
@@ -2024,7 +2024,7 @@ button:disabled {
   border: none;
   background: transparent;
   padding: 8px 10px;
-  border-radius: 8px;
+  border-radius: 2px;
   color: var(--ink);
   text-align: left;
 }
@@ -2052,7 +2052,7 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 6px;
-  border-radius: 8px;
+  border-radius: 2px;
   padding-right: 4px;
 }
 
@@ -2141,7 +2141,7 @@ button:disabled {
   margin-bottom: 6px;
   padding: 4px 4px 4px 10px;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 2px;
   background: var(--ground);
   font-size: 12px;
   max-width: 100%;
@@ -2178,7 +2178,7 @@ button:disabled {
   flex: 1;
   width: 100%;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 2px;
   background: var(--ground);
 }
 
@@ -2207,4 +2207,782 @@ button:disabled {
 
 .per-area summary {
   cursor: pointer;
+}
+
+/* ————————————————————————————————————————————————————————————————————————————
+   Flat panels divided by rules, square corners, tabular numbers,
+   underlined tabs, and nothing that moves on its own.
+   ———————————————————————————————————————————————————————————————————————————— */
+
+*,
+*::before,
+*::after {
+  animation-duration: 0s !important;
+  transition: none !important;
+}
+
+.stats,
+.meta,
+.mono,
+.chart,
+.coords,
+.measure,
+td {
+  font-variant-numeric: tabular-nums;
+}
+
+.mono {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+/* Brand: a mark and a plain wordmark */
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brand-name {
+  letter-spacing: 0;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* Cards: a panel with a rule under its head, not a floating box */
+.card {
+  border-radius: 0;
+  padding: 0 0 12px;
+  gap: 10px;
+  border-width: 1px;
+}
+
+.card > * {
+  margin-left: 14px;
+  margin-right: 14px;
+}
+
+.card > .card-head {
+  margin: 0;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.card h3 {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Buttons: text, not pills */
+.text-button {
+  border: none;
+  border-radius: 0;
+  padding: 3px 6px;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--muted);
+  text-decoration: underline;
+  text-decoration-color: var(--line);
+  text-underline-offset: 3px;
+}
+
+.text-button:hover:not(:disabled) {
+  color: var(--ink);
+  text-decoration-color: currentColor;
+}
+
+.icon-button.bare {
+  border: none;
+  background: transparent;
+  width: 22px;
+  height: 22px;
+  color: var(--muted);
+}
+
+.icon-button.bare:hover,
+.icon-button.bare[aria-expanded="true"] {
+  color: var(--ink);
+}
+
+/* Tabs: an underline under the chosen one */
+.segmented {
+  display: flex;
+  gap: 16px;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  overflow: visible;
+}
+
+.segmented button {
+  padding: 6px 0;
+  margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.segmented button[aria-pressed="true"] {
+  background: transparent;
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}
+
+/* Variables: one dense row each, divided by rules */
+.variable {
+  border: none;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  padding: 7px 2px;
+  gap: 6px;
+}
+
+.variable[data-on="true"] {
+  border-color: var(--line);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.variable {
+  padding-left: 8px;
+}
+
+.variable-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.variable-label {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.variable-label input[type="checkbox"] {
+  margin: 0;
+  flex: none;
+}
+
+.variable-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.variable-spec {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* Charts drawn by Observable Plot */
+.chart {
+  margin: 0;
+}
+
+.chart-box {
+  position: relative;
+  user-select: none;
+  cursor: crosshair;
+}
+
+.chart-box svg {
+  display: block;
+  color: var(--muted);
+}
+
+.chart-box svg [data-mark="y-grid"] line,
+.chart-box svg [data-mark="y-grid"] {
+  stroke: var(--grid);
+  stroke-opacity: 1;
+}
+
+.chart-box svg text {
+  fill: var(--muted);
+}
+
+.chart-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.chart-rule {
+  position: absolute;
+  width: 0;
+  border-left: 1px solid var(--ink);
+  opacity: 0.55;
+}
+
+.chart-rule.chosen {
+  border-left: 1px dashed var(--accent);
+  opacity: 1;
+}
+
+.chart-brush {
+  position: absolute;
+  background: var(--ink);
+  opacity: 0.08;
+  border-left: 1px solid var(--ink);
+  border-right: 1px solid var(--ink);
+}
+
+.chart-tip {
+  position: absolute;
+  transform: translateX(8px);
+  min-width: 150px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  padding: 6px 8px;
+  font-size: 11px;
+  z-index: 3;
+}
+
+.chart-tip.left {
+  transform: translateX(calc(-100% - 8px));
+}
+
+.chart-tip-date {
+  font-family: var(--mono);
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.chart-tip-row {
+  display: grid;
+  grid-template-columns: 14px 1fr auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.chart-tip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chart-tip-value {
+  font-family: var(--mono);
+  text-align: right;
+}
+
+.chart-source {
+  font-size: 10.5px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+/* Right-click menus */
+.context-menu {
+  position: fixed;
+  z-index: 50;
+  min-width: 220px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  padding: 4px 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.context-menu button {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
+.context-menu button:hover,
+.context-menu button:focus-visible {
+  background: var(--selected);
+  color: var(--on-selected);
+  outline: none;
+}
+
+.context-menu hr {
+  border: none;
+  border-top: 1px solid var(--line);
+  margin: 4px 0;
+}
+
+kbd {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  padding: 0 4px;
+  line-height: 16px;
+  min-width: 16px;
+  text-align: center;
+}
+
+/* ⌘K */
+.palette-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 25%);
+  z-index: 60;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 12vh;
+}
+
+.palette {
+  width: min(560px, calc(100vw - 32px));
+  background: var(--card);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+
+.palette-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  padding: 12px 14px;
+  font-size: 14px;
+  outline: none;
+}
+
+.palette-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  max-height: 50vh;
+  overflow: auto;
+}
+
+.palette-list button {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 110px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 6px 14px;
+}
+
+.palette-list [aria-selected="true"] button {
+  background: var(--selected);
+  color: var(--on-selected);
+}
+
+.palette-list [aria-selected="true"] .palette-group,
+.palette-list [aria-selected="true"] kbd {
+  color: inherit;
+}
+
+.palette-group {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.palette-empty {
+  padding: 8px 14px;
+}
+
+/* Map tools */
+.map-frame[data-tool] .maplibregl-canvas-container.maplibregl-interactive,
+.map-frame[data-tool] canvas {
+  cursor: crosshair !important;
+}
+
+.toolbar {
+  gap: 2px;
+  padding: 3px;
+}
+
+.tool {
+  width: 32px;
+  height: 32px;
+  color: var(--ink);
+}
+
+.tool:hover {
+  background: var(--panel);
+}
+
+.tool[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--card);
+}
+
+.map-status {
+  position: absolute;
+  left: 140px;
+  bottom: 8px;
+  display: flex;
+  gap: 8px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.map-status > span {
+  background: rgb(17 24 39 / 78%);
+  color: #f9fafb;
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 3px 7px;
+  white-space: pre;
+}
+
+.map-status .measure b {
+  font-weight: 500;
+  color: #ffd60a;
+}
+
+.maplibregl-ctrl-scale {
+  background: rgb(255 255 255 / 85%) !important;
+  border-color: #111 !important;
+  border-width: 0 1.5px 1.5px !important;
+  color: #111 !important;
+  font: 10.5px var(--mono) !important;
+  border-radius: 0 !important;
+}
+
+.map-buttons {
+  display: flex;
+  flex-direction: column;
+}
+
+.map-buttons button {
+  min-width: 32px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.map-buttons button + button {
+  border-top: 1px solid var(--line);
+}
+
+.map-buttons button:hover {
+  background: var(--panel);
+}
+
+.map-buttons button[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--card);
+}
+
+.map-compare {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.map-compare .map {
+  position: absolute;
+  inset: 0;
+}
+
+.swipe {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-left: 2px solid #ffffff;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 35%);
+  cursor: ew-resize;
+  z-index: 2;
+}
+
+.swipe::before {
+  content: "";
+  position: absolute;
+  inset: 0 -8px;
+}
+
+.swipe-label {
+  position: absolute;
+  bottom: 44px;
+  background: rgb(17 24 39 / 80%);
+  color: #fff;
+  font: 11px var(--mono);
+  padding: 2px 6px;
+  white-space: nowrap;
+}
+
+.swipe-label.left {
+  right: 6px;
+}
+
+.swipe-label.right {
+  left: 6px;
+}
+
+/* Panels floating on the map */
+.panel {
+  position: absolute;
+  z-index: 3;
+  width: 280px;
+  max-height: calc(100% - 90px);
+  overflow: auto;
+  padding: 0 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 -12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.panel-head h3 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.layer-panel {
+  top: 64px;
+  left: 14px;
+}
+
+.inspector {
+  top: 64px;
+  right: 14px;
+  width: 340px;
+}
+
+.coordinates {
+  position: absolute;
+  top: 56px;
+  width: 340px;
+  pointer-events: auto;
+  padding-top: 10px;
+}
+
+.coordinates textarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  border: 1px solid var(--line);
+  background: var(--card);
+  padding: 6px 8px;
+}
+
+.spread {
+  justify-content: space-between;
+}
+
+.stepper {
+  display: flex;
+  border: 1px solid var(--line);
+}
+
+.stepper button {
+  border: none;
+  background: transparent;
+  width: 28px;
+  font-size: 15px;
+}
+
+.stepper input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  border-left: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+  background: transparent;
+  padding: 4px 6px;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.legend-ramp .ramp {
+  height: 10px;
+  border: 1px solid var(--line);
+}
+
+.ramp-ticks {
+  position: relative;
+  height: 14px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--muted);
+  margin: 2px 0 4px;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.check input {
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  gap: 4px 8px;
+  margin: 0;
+  align-items: center;
+}
+
+.facts dt {
+  color: var(--muted);
+}
+
+.facts dd {
+  margin: 0;
+  min-width: 0;
+}
+
+/* The data panel can be widened by its edge */
+.sidebar {
+  position: relative;
+}
+
+.side-handle {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  z-index: 2;
+}
+
+.side-handle:hover,
+.side-handle:focus-visible,
+.dock-handle:hover {
+  background: var(--accent);
+  opacity: 0.4;
+}
+
+/* Tables: numbers right-aligned under their headings */
+.stats th,
+.stats td {
+  text-align: right;
+}
+
+.stats th[scope="row"],
+.stats thead th:first-child {
+  text-align: left;
+}
+
+.stats thead th {
+  font-weight: 500;
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.card > .chart {
+  margin: 0 14px;
+}
+
+.card > .stats {
+  width: calc(100% - 28px);
+}
+
+.ramp-ticks span {
+  position: absolute;
+  transform: translateX(-50%);
+}
+
+.ramp-ticks span:first-child {
+  transform: none;
+}
+
+.ramp-ticks span:last-child {
+  transform: translateX(-100%);
+}
+
+/* Magon: a research notebook, not a chat. Questions are headings of a sort, answers are
+   plain text across the full width, and citations are footnote numbers. */
+.turn {
+  max-width: 100%;
+  padding: 0;
+  background: transparent;
+}
+
+.turn.user {
+  align-self: stretch;
+  background: transparent;
+  color: var(--ink);
+  font-weight: 500;
+  padding: 10px 0 2px 10px;
+  border-left: 2px solid var(--ink);
+  margin-top: 8px;
+}
+
+.turn.assistant {
+  align-self: stretch;
+  background: transparent;
+  padding: 4px 0 12px;
+  border-bottom: 1px solid var(--line);
+  line-height: 1.6;
+}
+
+.cite {
+  height: auto;
+  min-width: 0;
+  padding: 0 1px;
+  margin-left: 1px;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-size: 0.72em;
+  font-weight: 600;
+  vertical-align: super;
+  line-height: 1;
+}
+
+.cite:hover {
+  text-decoration: underline;
+}
+
+.sources {
+  border-top: 1px solid var(--line);
+  padding-top: 6px;
+  font-size: 12px;
+}
+
+.paper .cite {
+  vertical-align: baseline;
+  font-size: 11px;
+  min-width: 18px;
+}
+
+.progress {
+  height: 2px;
+  background: var(--line);
+}
+
+.progress > div {
+  height: 100%;
+  background: var(--accent);
 }

@@ -1,21 +1,13 @@
 import CardTitle from "./CardTitle";
-import {
-  CartesianGrid,
-  Line,
-  LineChart,
-  ReferenceArea,
-  ReferenceLine,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import * as Plot from "@observablehq/plot";
 import type { Correlation } from "../analyses";
 import type { Variable, VariableKey } from "../api";
 import { correlationCautions, describeLink, lagCorrelation, type Lag } from "../correlation";
 import type { Entry } from "./ChartCard";
 import Cautions from "./Cautions";
 import { CloseIcon } from "./Icons";
+import { PlotFrame } from "../plot/Chart";
+import { num } from "../format";
 
 type Props = {
   analysis: Correlation;
@@ -48,16 +40,20 @@ export default function CorrelationCard({ analysis, onChange, onRemove, variable
     ];
   });
 
-  // One row per lag, one column per area; the band is drawn for the area with the fewest months
-  const data = Array.from({ length: 13 }, (_, lag) => {
-    const row: Record<string, number> = { lag };
-    for (const { area, lags } of areas) {
-      const hit = lags.find((l: Lag) => l.lag === lag);
-      if (hit) row[`r${area.id}`] = hit.r;
-    }
-    return row;
-  });
+  const rows = areas.flatMap(({ area, colour, lags }) => lags.map((l: Lag) => ({ ...l, area: area.name, colour })))
   const band = Math.max(0, ...areas.flatMap((a) => a.lags.map((l) => l.band)));
+  const chart: Plot.PlotOptions = {
+    marginBottom: 40,
+    x: { domain: [-0.5, 12.5], ticks: 13, label: "Lag (months)", labelAnchor: "center", labelArrow: "none", labelOffset: 34, tickSize: 4 },
+    y: { domain: [-1, 1], ticks: [-1, -0.5, 0, 0.5, 1], grid: true, label: "r", labelArrow: "none", tickFormat: (v: number) => num(v, 1), tickSize: 0 },
+    marks: [
+      Plot.rect([{}], { y1: -band, y2: band, fill: "currentColor", fillOpacity: 0.07 }),
+      Plot.ruleY([0], { stroke: "currentColor", strokeOpacity: 0.45 }),
+      Plot.lineY(rows, { x: "lag", y: "r", z: "area", stroke: "colour", strokeWidth: 1.6 }),
+      Plot.dot(rows, { x: "lag", y: "r", fill: "colour", r: 2.4 }),
+      Plot.tip(rows, Plot.pointer({ x: "lag", y: "r", title: (l: Lag & { area: string }) => `${l.area}: ${name(driver)} ${l.lag} month${l.lag === 1 ? "" : "s"} earlier\nr = ${num(l.r, 2)} (n = ${l.n})` })),
+    ],
+  };
 
   return (
     <section className="card" aria-label="Correlation chart">
@@ -124,42 +120,7 @@ export default function CorrelationCard({ analysis, onChange, onRemove, variable
         <p className="placeholder">Waiting for both variables to load.</p>
       ) : (
         <>
-          <ResponsiveContainer width="100%" height={180}>
-            <LineChart data={data} margin={{ top: 6, right: 6, bottom: 12, left: 0 }}>
-              <CartesianGrid stroke="var(--grid)" vertical={false} />
-              <ReferenceArea y1={-band} y2={band} fill="var(--muted)" fillOpacity={0.12} stroke="none" />
-              <ReferenceLine y={0} stroke="var(--zero)" />
-              <XAxis
-                dataKey="lag"
-                tick={{ fill: "var(--muted)", fontSize: 10, fontFamily: "var(--mono)" }}
-                label={{ value: "lag (months)", position: "insideBottom", offset: -10, fontSize: 10, fill: "var(--muted)" }}
-              />
-              <YAxis
-                domain={[-1, 1]}
-                ticks={[-1, -0.5, 0, 0.5, 1]}
-                tick={{ fill: "var(--muted)", fontSize: 10, fontFamily: "var(--mono)" }}
-                width={34}
-              />
-              <Tooltip
-                contentStyle={{ background: "var(--card)", border: "1px solid var(--line)", borderRadius: 8 }}
-                labelFormatter={(lag) => `${name(driver)} ${lag} month(s) earlier`}
-                formatter={(value, key) => {
-                  const id = Number(String(key).slice(1));
-                  return [Number(value).toFixed(2), areas.find((a) => a.area.id === id)?.area.name ?? key];
-                }}
-              />
-              {areas.map(({ area, colour }) => (
-                <Line
-                  key={area.id}
-                  dataKey={`r${area.id}`}
-                  stroke={colour}
-                  strokeWidth={1.8}
-                  dot={{ r: 2.5, fill: colour }}
-                  isAnimationActive={false}
-                />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
+          <PlotFrame title="Lag correlation" options={chart} height={200} />
           <ul className="summary">
             {areas.map(({ area, lags }) => (
               <li key={area.id}>{describeLink(area.name, name(response), name(driver), lags, deseasonalise)}</li>

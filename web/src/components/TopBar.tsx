@@ -199,7 +199,13 @@ export default function TopBar(props: Props) {
   const { theme, onTheme, earthEngine } = props;
   return (
     <header className="topbar">
-      <span className="brand-name">MAGONIA</span>
+      <span className="brand">
+        <svg className="brand-mark" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+          <rect x="1" y="1" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.5" />
+          <path d="M1 11 L5.5 6.5 L8.5 9.5 L11 7 L15 11" fill="none" stroke="currentColor" strokeWidth="1.5" />
+        </svg>
+        <span className="brand-name">Magonia</span>
+      </span>
       <WorkspaceMenu {...props} />
       <span style={{ flex: 1 }} />
       <button className="engine-status" onClick={props.onEarthEngine}>

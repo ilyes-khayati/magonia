@@ -33,7 +33,7 @@ export async function chartImage(
   subtitle = "",
   { scale = 2, type = "image/png", quality }: { scale?: number; type?: string; quality?: number } = {},
 ): Promise<Blob | null> {
-  const svgs = [...card.querySelectorAll<SVGSVGElement>("svg.recharts-surface")];
+  const svgs = [...card.querySelectorAll<SVGSVGElement>("svg.plot-svg")];
   if (!svgs.length) return null;
   const page = getComputedStyle(document.documentElement);
   const ink = page.getPropertyValue("--ink").trim() || "#17201b";
@@ -52,11 +52,11 @@ export async function chartImage(
   ctx.fillStyle = background;
   ctx.fillRect(0, 0, width, height);
   ctx.fillStyle = ink;
-  ctx.font = "600 14px 'IBM Plex Sans', system-ui, sans-serif";
+  ctx.font = "600 14px 'Inter', system-ui, sans-serif";
   ctx.fillText(title, pad, pad + 10);
   if (subtitle) {
     ctx.fillStyle = muted;
-    ctx.font = "11px 'IBM Plex Sans', system-ui, sans-serif";
+    ctx.font = "11px 'Inter', system-ui, sans-serif";
     ctx.fillText(subtitle, pad, pad + 28);
   }
   let y = head;

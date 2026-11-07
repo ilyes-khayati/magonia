@@ -27,10 +27,12 @@ let modelled: {
   params?: Record<string, Record<string, number>>;
   calendar?: boolean;
 }[] = [];
+let tilesAsked: { variable: string; month: string }[] = [];
 let lagged: { response: { variable: string }; drivers: { variable: string }[]; deseasonalise: boolean }[] = [];
 
 async function fakeApi(page: Page, connected = true) {
   asked = [];
+  tilesAsked = [];
   conversations = [];
   messages = {};
   library = [];
@@ -56,6 +58,32 @@ async function fakeApi(page: Page, connected = true) {
     jobs.push(route.request().postDataJSON());
     return route.fulfill({ status: 202, json: { id: 1, status: "done", error: null, result: RESULT } });
   });
+  await page.route("**/api/layers/*/tiles*", (route) => {
+    const url = new URL(route.request().url());
+    tilesAsked.push({ variable: url.pathname.split("/")[3], month: url.searchParams.get("month") ?? "" });
+    return route.fulfill({
+      json: { url: `${url.origin}/api/tile/{z}/{x}/{y}.png`, month: url.searchParams.get("month"), low: 0, high: 0.9, palette: ["#8c510a", "#00441b"] },
+    });
+  });
+  // a transparent pixel for every tile
+  await page.route("**/api/tile/**", (route) =>
+    route.fulfill({ contentType: "image/png", body: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64") }),
+  );
+  await page.route("**/api/inspect", (route) => {
+    const body = route.request().postDataJSON();
+    route.fulfill({
+      json: {
+        ...body,
+        name: "NDVI",
+        units: "",
+        pixel_m: 250,
+        points: Array.from({ length: 24 }, (_, i) => ({ date: `${2023 + Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, "0")}-01`, value: 0.5 + 0.2 * Math.sin(i / 2) })),
+      },
+    });
+  });
+  await page.route("**/api/areas/*/pixels*", (route) =>
+    route.fulfill({ json: { type: "FeatureCollection", features: [], pixel_m: 250 } }),
+  );
   await page.route("**/api/decomposition", (route) => route.fulfill({ json: DECOMPOSITION }));
   await page.route("**/api/phenology", (route) => {
     phenologyAsked.push(route.request().postDataJSON());
@@ -502,7 +530,7 @@ test("an area with NDVI chosen shows its chart, statistics, provenance and summa
   });
   await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Data" }).click();
   const chart = page.getByRole("region", { name: "NDVI chart" });
-  await expect(chart.locator(".recharts-line")).toBeVisible();
+  await expect(chart.locator('.plot-svg [data-mark="line"]')).toBeVisible();
   await expect(chart.getByRole("rowheader", { name: "Orchard" })).toBeVisible();
   await chart.getByRole("button", { name: "Where this comes from" }).click();
   await expect(chart.getByText("7fd36665e815857e")).toBeVisible();
@@ -525,7 +553,7 @@ test("a correlation is shown only once added, and is saved with the workspace", 
 
   await page.getByRole("region", { name: "Suggested analyses" }).getByRole("button", { name: /Correlation and lag/ }).click();
   const card = page.getByRole("region", { name: "Correlation chart" });
-  await expect(card.locator(".recharts-line")).toBeVisible();
+  await expect(card.locator('.plot-svg [data-mark="line"]')).toBeVisible();
   // the fake API returns the same series for both variables, so they match in the same month
   await expect(card.getByText(/Orchard: NDVI anomalies are most closely linked to LST anomalies from the same month \(r = 1\.00\)/)).toBeVisible();
 
@@ -533,7 +561,7 @@ test("a correlation is shown only once added, and is saved with the workspace", 
   await expect(card.getByRole("list", { name: "Cautions" })).toContainText("months in common"); // a guardrail
   await page.waitForTimeout(700); // saving waits half a second after the last change
   await page.reload();
-  await expect(card.locator(".recharts-line")).toBeVisible();
+  await expect(card.locator('.plot-svg [data-mark="line"]')).toBeVisible();
   await expect(card.getByRole("checkbox", { name: "Remove seasonal cycle" })).not.toBeChecked();
 
   await card.getByRole("button", { name: "Remove this analysis" }).click();
@@ -545,7 +573,7 @@ test("a correlation is shown only once added, and is saved with the workspace", 
   await card.getByRole("button", { name: "Remove this analysis" }).click();
   await expect(card).toHaveCount(0);
   await page.keyboard.press("ControlOrMeta+z");
-  await expect(card.locator(".recharts-line")).toBeVisible();
+  await expect(card.locator('.plot-svg [data-mark="line"]')).toBeVisible();
 });
 
 test("an analysis fetches its variables even when they are not charted", async ({ page }) => {
@@ -558,7 +586,7 @@ test("an analysis fetches its variables even when they are not charted", async (
   await page.getByRole("region", { name: "Suggested analyses" }).getByRole("button", { name: /Correlation and lag/ }).click();
   const card = page.getByRole("region", { name: "Correlation chart" });
   await expect(card.getByRole("combobox", { name: "Driver" })).toHaveValue("lst");
-  await expect(card.locator(".recharts-line")).toBeVisible();
+  await expect(card.locator('.plot-svg [data-mark="line"]')).toBeVisible();
   await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Data" }).click();
   await expect(page.getByRole("checkbox", { name: /LST/ })).not.toBeChecked();
 });
@@ -574,7 +602,7 @@ test("a decomposition asks for the series at its own time step and shows trend a
 
   const card = page.getByRole("region", { name: "Decomposition chart" });
   await expect(card.getByText("Discrete Meyer wavelet, level 5 on 16-day steps")).toBeVisible();
-  await expect(card.locator(".recharts-line")).toHaveCount(3); // value and trend above, season below
+  await expect(card.locator('.plot-svg [data-mark="line"]')).toHaveCount(3); // value and trend above, season below
   await expect(card.getByText(/the trend went from 0.45 \(2023 mean\)/)).toBeVisible();
   await expect(card.getByText(/not a forecast\. 3 empty dates were filled/)).toBeVisible();
   expect(jobs.some((j) => j.variable === "ndvi" && j.resolution === "native")).toBe(true);
@@ -655,7 +683,7 @@ test("the lag explorer tests drivers and says which stand out", async ({ page })
   const card = page.getByRole("region", { name: "Lags chart" });
   await expect(card.getByText("LST: stands out")).toBeVisible();
   await expect(card.getByText(/it stands out with the expected sign/)).toBeVisible();
-  await expect(card.locator(".recharts-bar-rectangle")).toHaveCount(24);
+  await expect(card.locator('.plot-svg [data-mark="bar"] rect')).toHaveCount(24);
   expect(lagged.at(-1)?.response.variable).toBe("ndvi");
   expect(lagged.at(-1)?.drivers.map((d) => d.variable)).toEqual(["lst", "spei"]);
 
@@ -894,7 +922,8 @@ test("cards can be moved, widened and folded, and stay so", async ({ page }) => 
   await page.getByRole("button", { name: "Move LST" }).hover();
   await page.mouse.down();
   const target = (await page.getByRole("region", { name: "NDVI chart" }).boundingBox())!;
-  await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2, { steps: 8 });
+  // near the card's title: a tall card's middle can be below the window
+  await page.mouse.move(target.x + target.width / 2, target.y + 30, { steps: 8 });
   await page.mouse.up();
   await expect(titles).toHaveText(["NDVI", "LST"]);
 
@@ -903,7 +932,7 @@ test("cards can be moved, widened and folded, and stay so", async ({ page }) => 
   const lst = page.getByRole("region", { name: "LST chart" });
   await expect(page.locator(".slot", { has: ndvi })).toHaveAttribute("data-wide", "true"); // spans every column
   await page.getByRole("button", { name: "Show LST" }).click();
-  await expect(lst.locator(".recharts-wrapper")).toBeHidden();
+  await expect(lst.locator(".plot-svg")).toBeHidden();
   await expect(lst.getByRole("heading", { name: "LST" })).toBeVisible();
 
   const download = page.waitForEvent("download");
@@ -928,7 +957,7 @@ test("the Data page can smooth, show anomalies and keep some months, without ask
   });
   await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Data" }).click();
   const chart = page.getByRole("region", { name: "NDVI chart" });
-  await expect(chart.locator(".recharts-line")).toBeVisible();
+  await expect(chart.locator('.plot-svg [data-mark="line"]')).toBeVisible();
   const extracted = jobs.length;
   const panel = page.getByRole("complementary", { name: "Data" });
   await panel.getByRole("checkbox", { name: "Smooth" }).check();
@@ -952,7 +981,7 @@ test("cards, answers and notes are pinned to the board, and Magonia is told abou
     buffer: Buffer.from(JSON.stringify(SQUARE)),
   });
   await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Data" }).click();
-  await expect(page.getByRole("region", { name: "NDVI chart" }).locator(".recharts-line")).toBeVisible();
+  await expect(page.getByRole("region", { name: "NDVI chart" }).locator('.plot-svg [data-mark="line"]')).toBeVisible();
   await page.getByRole("button", { name: "Pin NDVI to the board" }).click();
   await expect(page.getByText("Pinned NDVI to the board.")).toBeVisible();
 
@@ -966,7 +995,7 @@ test("cards, answers and notes are pinned to the board, and Magonia is told abou
   await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Board" }).click();
   // a pinned card is the live card, not a picture of it
   const ndvi = page.getByRole("region", { name: "NDVI chart" });
-  await expect(ndvi.locator(".recharts-line")).toBeVisible();
+  await expect(ndvi.locator('.plot-svg [data-mark="line"]')).toBeVisible();
   await ndvi.getByRole("button", { name: "Where this comes from" }).click();
   await expect(ndvi.getByText("7fd36665e815857e")).toBeVisible();
   await expect(page.getByRole("region", { name: "Magon: When does it peak?" })).toContainText("Orchard NDVI peaks in Aug");
@@ -980,7 +1009,7 @@ test("cards, answers and notes are pinned to the board, and Magonia is told abou
 
   await page.waitForTimeout(700);
   await page.reload();
-  await expect(page.getByRole("region", { name: "NDVI chart" }).locator(".recharts-line")).toBeVisible();
+  await expect(page.getByRole("region", { name: "NDVI chart" }).locator('.plot-svg [data-mark="line"]')).toBeVisible();
   await page.getByRole("button", { name: "Unpin NDVI" }).click();
   await expect(page.getByRole("region", { name: "NDVI chart" })).toHaveCount(0);
   const results = await new AxeBuilder({ page }).exclude(".maplibregl-canvas").analyze();
@@ -988,15 +1017,15 @@ test("cards, answers and notes are pinned to the board, and Magonia is told abou
 });
 
 test("each page has its own address, and back and reload keep it", async ({ page }) => {
-  await expect(page).toHaveURL(/\/workspaces\/1\/map$/);
+  await expect(page).toHaveURL(/\/workspaces\/1\/map(\?|$)/);
   await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Data" }).click();
-  await expect(page).toHaveURL(/\/workspaces\/1\/data$/);
+  await expect(page).toHaveURL(/\/workspaces\/1\/data(\?|$)/);
   await expect(page.getByRole("heading", { name: "Data" })).toBeVisible();
   await expect(page.locator(".map")).toBeHidden();
   await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Analyses" }).click();
   await expect(page.getByRole("heading", { name: "Analyses" })).toBeVisible();
   await page.goBack();
-  await expect(page).toHaveURL(/\/data$/);
+  await expect(page).toHaveURL(/\/data(\?|$)/);
   await page.reload();
   await expect(page.getByRole("heading", { name: "Data" })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Data" })).toHaveAttribute("aria-current", "page");
@@ -1024,19 +1053,19 @@ test("a chart shows the areas together or one at a time, and keeps the choice", 
   await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Data" }).click();
   const chart = page.getByRole("region", { name: "NDVI chart" });
   const choice = chart.getByRole("group", { name: "Areas in the NDVI chart" });
-  await expect(chart.locator(".recharts-line")).toHaveCount(2);
+  await expect(chart.locator('.plot-svg [data-mark="line"]')).toHaveCount(2);
 
   await choice.getByRole("button", { name: "Forest" }).click();
-  await expect(chart.locator(".recharts-line")).toHaveCount(1);
+  await expect(chart.locator('.plot-svg [data-mark="line"]')).toHaveCount(1);
   await expect(chart.getByRole("rowheader", { name: "Orchard" })).toHaveCount(0);
 
   await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Map" }).click();
   await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Data" }).click();
   await expect(choice.getByRole("button", { name: "Forest" })).toHaveAttribute("aria-pressed", "true");
-  await expect(chart.locator(".recharts-line")).toHaveCount(1);
+  await expect(chart.locator('.plot-svg [data-mark="line"]')).toHaveCount(1);
 
   await choice.getByRole("button", { name: "Together" }).click();
-  await expect(chart.locator(".recharts-line")).toHaveCount(2);
+  await expect(chart.locator('.plot-svg [data-mark="line"]')).toHaveCount(2);
 });
 
 
@@ -1096,10 +1125,10 @@ test("Magonia opens beside a page, and the conversation carries over to its own 
   await expect(assistant.getByText("Drought lowers olive NDVI")).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Magon" })).toHaveCount(0);
   await assistant.getByRole("button", { name: "Make Magon bigger" }).click();
-  await expect(page).toHaveURL(/\/assistant$/);
+  await expect(page).toHaveURL(/\/assistant(\?|$)/);
   await expect(assistant.getByText("Drought lowers olive NDVI")).toBeVisible();
   await assistant.getByRole("button", { name: "Make Magon smaller" }).click();
-  await expect(page).toHaveURL(/\/map$/);
+  await expect(page).toHaveURL(/\/map(\?|$)/);
   await expect(assistant.getByText("Drought lowers olive NDVI")).toBeVisible();
   await assistant.getByRole("button", { name: "Close Magon" }).click();
   await expect(assistant).toBeHidden();
@@ -1223,7 +1252,7 @@ test("Magon proposes analyses, and nothing is added until the researcher clicks"
   await expect(trend).toContainText("Added");
 
   await assistant.getByRole("group", { name: /Proposed: Forecast experiment/ }).getByRole("button", { name: "Add it" }).click();
-  await expect(page).toHaveURL(/\/model$/);
+  await expect(page).toHaveURL(/\/model(\?|$)/);
   await expect.poll(() => modelled.at(-1)).toMatchObject({ models: ["Ridge"], test_years: 2 });
 });
 
@@ -1271,10 +1300,10 @@ for (const theme of ["light", "dark"]) {
     await page.getByRole("button", { name: "Magon", exact: true }).click();
     for (const name of ["Data", "Analyses", "Map"]) {
       await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name }).click();
-      if (name === "Data") await expect(page.locator(".recharts-line")).toBeVisible();
+      if (name === "Data") await expect(page.locator('.plot-svg [data-mark="line"]')).toBeVisible();
       if (name === "Analyses") {
         await page.getByRole("region", { name: "Suggested analyses" }).getByRole("button", { name: /Correlation and lag/ }).click();
-        await expect(page.locator(".recharts-line").first()).toBeVisible();
+        await expect(page.locator('.plot-svg [data-mark="line"]').first()).toBeVisible();
       }
       const results = await new AxeBuilder({ page }).exclude(".maplibregl-canvas").analyze();
       const serious = results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? ""));
@@ -1395,4 +1424,66 @@ test("the library takes the researcher's PDFs and their instructions for Magonia
   await expect(page.getByRole("button", { name: "field survey", exact: true })).toBeVisible();
   const results = await new AxeBuilder({ page }).exclude(".maplibregl-canvas").analyze();
   expect(results.violations.filter((v) => ["serious", "critical"].includes(v.impact ?? "")).map((v) => v.id)).toEqual([]);
+});
+
+test("the map draws a variable for a month, steps months by key, and keeps the view in its address", async ({ page }) => {
+  await page.keyboard.press("l");
+  const panel = page.getByRole("region", { name: "Map layers" });
+  await expect(panel).toBeVisible();
+  await expect.poll(() => tilesAsked.at(-1)?.variable).toBe("ndvi");
+  const first = tilesAsked.at(-1)!.month;
+  await page.locator("body").press("[");
+  await expect.poll(() => tilesAsked.at(-1)?.month).not.toBe(first);
+  await expect(panel.getByText("NDVI · ")).toBeVisible();
+  await expect(page).toHaveURL(/layer=ndvi/);
+  await expect(page).toHaveURL(/month=\d{4}-\d{2}/);
+});
+
+test("a pixel is inspected on its own, and can become an area", async ({ page }) => {
+  await page.getByRole("button", { name: "Inspect a pixel" }).click();
+  const map = (await page.locator(".map").boundingBox())!;
+  await page.mouse.click(map.x + map.width / 2, map.y + map.height / 2);
+  const inspector = page.getByRole("region", { name: "Pixel inspector" });
+  await expect(inspector.getByText("250 m · 24 of 24 dates with a value")).toBeVisible();
+  await expect(inspector.locator('.plot-svg [data-mark="line"]')).toBeVisible();
+  await inspector.getByRole("button", { name: "Make this pixel an area" }).click();
+  await expect(page.getByRole("toolbar", { name: "Areas" }).getByText(/Pixel 36\.\d+, 8\.\d+/)).toBeVisible();
+  await page.locator("body").press("Escape");
+  await expect(inspector).toBeHidden();
+});
+
+test("coordinates typed as a box become an area", async ({ page }) => {
+  await page.getByRole("button", { name: "Enter coordinates" }).click();
+  await page.getByRole("textbox", { name: "Coordinates" }).fill("8.55, 36.50, 8.57, 36.52");
+  await expect(page.getByText("Area with 4 corners")).toBeVisible();
+  await page.getByRole("button", { name: "Add area" }).click();
+  await expect(page.getByRole("toolbar", { name: "Areas" }).getByText("Area 1")).toBeVisible();
+});
+
+test("⌘K finds any action by name", async ({ page }) => {
+  await page.locator("body").press("ControlOrMeta+k");
+  const palette = page.getByRole("dialog", { name: "Commands" });
+  await page.getByRole("textbox", { name: "Command" }).fill("go data");
+  await page.keyboard.press("Enter");
+  await expect(palette).toBeHidden();
+  await expect(page).toHaveURL(/\/data(\?|$)/);
+});
+
+test("hovering a date marks it on every chart, and a click picks the map's month", async ({ page }) => {
+  await page.getByTestId("upload").setInputFiles({
+    name: "fields.geojson",
+    mimeType: "application/geo+json",
+    buffer: Buffer.from(JSON.stringify(SQUARE)),
+  });
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Data" }).click();
+  await page.getByRole("checkbox", { name: /LST/ }).check();
+  const charts = page.locator(".chart-box");
+  await expect(charts).toHaveCount(2);
+  const box = (await charts.first().boundingBox())!;
+  await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.5);
+  await expect(page.locator(".chart-rule:not(.chosen)")).toHaveCount(2);
+  await expect(page.locator(".chart-tip")).toHaveCount(1);
+  await page.mouse.click(box.x + box.width * 0.6, box.y + box.height * 0.5);
+  await expect(page.locator(".chart-rule.chosen")).toHaveCount(2);
+  await expect(page).toHaveURL(/month=\d{4}-\d{2}/);
 });
