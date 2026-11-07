@@ -44,6 +44,7 @@ const FACT_LABEL: Record<Kind, string> = {
   scales: "Drought scale",
   coherence: "Coherence",
   leakage: "Leakage audit",
+  purity: "Pixel purity",
 };
 
 const CLOUDS = { pixel: "cloudy pixels removed", date: "cloudy dates removed", none: "no cloud filter" };
@@ -104,6 +105,7 @@ export default function AnalysesPage(props: Props) {
 
   // The series an analysis used, in its order, for a notebook that reproduces it
   function exportNotebook(analysis: Analysis) {
+    if (analysis.kind === "purity") return; // read pixel by pixel from Earth Engine, not from series
     const ready = (variable: VariableKey, native = false) =>
       entries(variable, native)
         .filter((e) => e.state?.status === "done")
@@ -202,7 +204,7 @@ export default function AnalysesPage(props: Props) {
               onLayout={(layout) => onSettings({ cards: { ...settings.cards, [`analysis:${analysis.id}`]: layout } })}
               onMove={(step) => onReorder(moved(analyses, i, i + step))}
               onDrop={(from) => onReorder(moved(analyses, analyses.findIndex((a) => String(a.id) === from), i))}
-              onNotebook={() => exportNotebook(analysis)}
+              onNotebook={analysis.kind === "purity" ? undefined : () => exportNotebook(analysis)}
               onDuplicate={() => onReorder(duplicateAnalysis(analyses, analysis.id))}
               onAsk={props.onAsk && ((title) => props.onAsk!(`${title} (${FACT_LABEL[analysis.kind]} ${i + 1})`))}
               onPin={

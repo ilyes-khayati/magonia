@@ -99,3 +99,35 @@ def test_an_areas_pixels_are_outlined_and_kept(client, monkeypatch):
     client.get(f"/areas/{area}/pixels", params={"variable": "lst"})
     assert grids == ["lst"]
     assert client.get("/areas/999/pixels", params={"variable": "lst"}).status_code == 404
+
+
+def test_an_areas_purity_is_measured_once_and_kept(client, monkeypatch):
+    import numpy as np
+
+    connected(monkeypatch)
+    area = workspace_area(client)
+    tree = [0.55] * 12
+    crop = [0.3, 0.5, 0.8, 0.7, 0.4, 0.25, 0.2, 0.2, 0.22, 0.3, 0.35, 0.4]  # vegetated on average
+    calls = []
+
+    def sample(geometry, start, end):
+        calls.append((start, end))
+        return [
+            {
+                "lon": 8.54 + i * 0.002,
+                "lat": 36.5 + j * 0.002,
+                "cycle": list(np.array(crop) * 0.3 + np.array(tree) * 0.7),
+            }
+            for i in range(6)
+            for j in range(6)
+        ] + [
+            {"lon": 8.53, "lat": 36.49, "cycle": crop},
+            {"lon": 8.53, "lat": 36.495, "cycle": tree},
+        ]
+
+    monkeypatch.setattr(main, "sample_pixels", sample)
+    found = client.get(f"/areas/{area}/purity").json()
+    assert found["area_share"] == 0.3 and "30% annual crop" in found["summary"][0]
+    client.get(f"/areas/{area}/purity")
+    assert calls == [("2003-01-01", "2023-01-01")]
+    assert client.get("/areas/999/purity").status_code == 404
