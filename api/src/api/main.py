@@ -623,6 +623,14 @@ def forecast_cautions(result: dict, response: facts.Series, drivers: list[facts.
     return guardrails.models(response.area, result, warnings)
 
 
+def under_current_name(lines: list[str], stored: dict, area: str) -> list[str]:
+    """Stored sentences begin with the area's name when they were written; an area renamed
+    since is given its name now. Results stored before the name was kept give it in their
+    first sentence."""
+    old = stored.get("area") or (lines[0].partition(": ")[0] if lines else area)
+    return [area + line[len(old) :] if line.startswith(f"{old}: ") else line for line in lines]
+
+
 def fit_forecast(store: Store, key: str, response: facts.Series, drivers: list[facts.Series], body):
     try:
         found = forecast(
@@ -637,7 +645,7 @@ def fit_forecast(store: Store, key: str, response: facts.Series, drivers: list[f
             calendar=body.calendar,
             rolling=body.rolling,
         )
-        store.save_result(key, found.to_dict())
+        store.save_result(key, {**found.to_dict(), "area": response.area})
     except ForecastError as exc:
         FAILED[key] = str(exc)
     except Exception as exc:  # noqa: BLE001 - any failure must reach the user, not vanish
@@ -660,6 +668,7 @@ def models(body: ModelsRequest, store: StoreDep, runner: RunnerDep, reply: Respo
         return {
             "status": "done",
             **result,
+            "summary": under_current_name(result["summary"], result, response.area),
             "cautions": forecast_cautions(result, response, drivers),
         }
     if key in FAILED:
@@ -684,7 +693,7 @@ def explain_forecast(store, key, models_result, response, drivers, body) -> None
         train = X.index < test_start
         params = {m["name"]: m["params"] for m in models_result["models"]}
         found = explain(X[train], y[train], params)
-        store.save_result(key, {**found.to_dict(), "area": response.area})
+        store.save_result(key, found.to_dict())
     except Exception as exc:  # noqa: BLE001 - any failure must reach the user, not vanish
         FAILED[key] = f"The models could not be explained: {exc}"
     finally:
@@ -693,7 +702,7 @@ def explain_forecast(store, key, models_result, response, drivers, body) -> None
 
 def explanation_summary(stored: dict, area: str) -> list[str]:
     """The sentences are written when read, so that results explained earlier gain what the
-    engine has learned to say since."""
+    engine has learned to say since, and the area's name now."""
     found = Explanation(
         stored["importance"],
         stored["families"],
@@ -702,7 +711,7 @@ def explanation_summary(stored: dict, area: str) -> list[str]:
         stored.get("family_range", {}),
         stored.get("dropped", {}),
     )
-    return describe(stored.get("area", area), found)
+    return describe(area, found)
 
 
 def explanations_key(body: ModelsRequest, store: Store) -> str:
@@ -742,7 +751,8 @@ def check_stability(store, key, models_result, response, drivers, body) -> None:
             body.calendar,
         )
         params = {m["name"]: m["params"] for m in models_result["models"]}
-        store.save_result(key, stability(response.area, X, y, params, test_start).to_dict())
+        held = stability(response.area, X, y, params, test_start)
+        store.save_result(key, {**held.to_dict(), "area": response.area})
     except Exception as exc:  # noqa: BLE001 - any failure must reach the user, not vanish
         FAILED[key] = f"Stability could not be checked: {exc}"
     finally:
@@ -764,7 +774,12 @@ def explanation_stability(
         raise HTTPException(409, "fit the models first")
     key = stability_key(body, store)
     if (result := store.result(key)) is not None:
-        return {"status": "done", **result}
+        area = cached_series(body.response, store).area
+        return {
+            "status": "done",
+            **result,
+            "summary": under_current_name(result["summary"], result, area),
+        }
     if key in FAILED:
         return {"status": "failed", "error": FAILED.pop(key)}
     if key not in FITTING:
@@ -957,7 +972,8 @@ def forecast_facts(store: Store, view: View, areas: dict[int, dict]) -> list[fac
             card = f"{name}: {analysis['response'].upper()} forecast"
             key = models_key(body, store)
             if (result := store.result(key)) is not None:
-                found += [facts.Fact(card, line) for line in result["summary"]]
+                lines = under_current_name(result["summary"], result, area["name"])
+                found += [facts.Fact(card, line) for line in lines]
                 footprints = [
                     w
                     for k in analysis.get("drivers", [])
@@ -975,7 +991,8 @@ def forecast_facts(store: Store, view: View, areas: dict[int, dict]) -> list[fac
                 found += [facts.Fact(card, line) for line in lines]
             if (held := store.result(stability_key(body, store))) is not None:
                 card = f"{name}: stability across training windows"
-                found += [facts.Fact(card, line) for line in held["summary"]]
+                lines = under_current_name(held["summary"], held, area["name"])
+                found += [facts.Fact(card, line) for line in lines]
     return found
 
 
