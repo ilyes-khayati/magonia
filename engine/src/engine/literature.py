@@ -1,6 +1,7 @@
 """Searching the scholarly literature through OpenAlex (about 250 million works, free API)."""
 
 import json
+import logging
 import os
 import ssl
 from dataclasses import asdict, dataclass, field
@@ -10,6 +11,8 @@ from urllib.request import Request, urlopen
 
 import certifi
 from dotenv import load_dotenv
+
+log = logging.getLogger("magonia")
 
 OPENALEX = "https://api.openalex.org/works"
 FIELDS = (
@@ -110,18 +113,17 @@ def search_papers(query: str, limit: int = 6, from_year: int | None = None) -> l
             found = json.load(response)
     except HTTPError as exc:
         if exc.code == 429:
+            if not key:  # for whoever runs Magonia, not for the researcher
+                log.warning("OpenAlex budget used up: a free key in OPENALEX_API_KEY gives its own")
             raise LiteratureError(
-                "OpenAlex's daily search budget is used up"
-                + (
-                    " for this key."
-                    if key
-                    else " for this network; it resets at midnight UTC. A free OpenAlex "
-                    "API key (openalex.org) in OPENALEX_API_KEY in .env gives Magonia its own."
-                )
+                "The literature search has reached its daily limit; it starts again at "
+                "midnight UTC. Answers from your data and your files still work."
             ) from exc
-        raise LiteratureError(f"OpenAlex answered with an error: {exc}") from exc
+        raise LiteratureError("The literature search failed. Try again in a minute.") from exc
     except (URLError, TimeoutError) as exc:
-        raise LiteratureError(f"Could not reach OpenAlex: {exc}") from exc
+        raise LiteratureError(
+            "The literature search cannot be reached right now. Try again in a minute."
+        ) from exc
     return [to_paper(work) for work in found.get("results", [])]
 
 

@@ -4,6 +4,7 @@ import * as Plot from "@observablehq/plot";
 import { phenologyOf, type SeriesOptions } from "../api";
 import { useAnalysis } from "../useAnalysis";
 import Cautions from "./Cautions";
+import { oneArea } from "../format";
 import type { Entry } from "./ChartCard";
 import { CloseIcon } from "./Icons";
 import { TimeChart } from "../plot/Chart";
@@ -112,7 +113,7 @@ export default function PhenologyCard({ name, onRename, onRemove, entries, optio
             </table>
           </div>
           <ul className="summary">
-            {data.summary.map((line) => (
+            {oneArea(data.summary).map((line) => (
               <li key={line}>{line}</li>
             ))}
           </ul>

@@ -1,15 +1,18 @@
 """Series requests run as background jobs, with results cached in the store."""
 
+import logging
 import math
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 
 import engine
-from engine.earth_engine import EarthEngineError, connect
+from engine.earth_engine import EarthEngineError, connect, plainly
 from engine.pipeline import Request, Result, fingerprint, run
 from engine.series import fetch
 
 from api.store import Store
+
+log = logging.getLogger("magonia")
 
 
 class Runner:
@@ -67,7 +70,8 @@ def execute(store: Store, job_id: int, request: Request, key: str) -> None:
         store.save_result(key, to_response(result, request))
     except (EarthEngineError, ValueError) as exc:
         store.set_job(job_id, "failed", str(exc))
-    except Exception as exc:  # noqa: BLE001 - any failure must reach the user, not vanish
-        store.set_job(job_id, "failed", f"Earth Engine could not complete the request: {exc}")
+    except Exception as exc:  # any failure must reach the user, not vanish
+        log.exception("job %s failed", job_id)
+        store.set_job(job_id, "failed", plainly(exc, "extract this series"))
     else:
         store.set_job(job_id, "done")

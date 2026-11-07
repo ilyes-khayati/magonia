@@ -96,7 +96,7 @@ export function errorText(body: { detail?: unknown }, status: number): string {
       })
       .join("; ");
   }
-  return `status ${status}`;
+  return status >= 500 ? `Something went wrong on Magonia's side (error ${status}). Try again.` : `The request was refused (error ${status}).`;
 }
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {

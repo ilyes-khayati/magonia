@@ -2,6 +2,7 @@ import type { ExplanationResponse, ModelsResponse, StabilityResponse } from "../
 import { MODEL_LABEL, type ModelName } from "../experiments";
 import { areaColour, type Theme } from "../theme";
 import Cautions from "./Cautions";
+import { oneArea } from "../format";
 import { TimeChart } from "../plot/Chart";
 import { dateOf } from "../plot/time";
 import type { AnalysisState } from "../useAnalysis";
@@ -18,9 +19,10 @@ type Props = {
   onStable?: () => void;
   digits: number; // decimals of the forecast variable
   compact?: boolean; // side by side with another run: no chart, no predictors
+  label?: string; // the forecast variable, for the chart's axis
 };
 
-export default function Results({ fit, why, explain, onExplain, held, stable, onStable, digits, compact }: Props) {
+export default function Results({ fit, why, explain, onExplain, held, stable, onStable, digits, compact, label: axis }: Props) {
   const theme = (document.documentElement.dataset.theme as Theme) ?? "light";
   if (!fit || fit.status === "loading")
     return (
@@ -102,12 +104,20 @@ export default function Results({ fit, why, explain, onExplain, held, stable, on
           <span className="meta">
             Test period {found.test[0]} to {found.test[1]}: observed and forecast
           </span>
-          <TimeChart title="Observed and forecast" series={chart} height={200} y={{ label: "Value", digits: digits > 2 ? 2 : 1 }} />
+          <TimeChart title="Observed and forecast" series={chart} height={210} y={{ label: axis ?? "Forecast variable", digits: digits > 2 ? 2 : 1 }} />
+          <div className="legend">
+            {chart.map((s) => (
+              <span key={s.id} className="row" style={{ gap: 6 }}>
+                <span className="swatch" style={{ background: s.colour, height: s.id === "observed" ? 3 : 2 }} />
+                {s.name}
+              </span>
+            ))}
+          </div>
         </>
       )}
 
       <ul className="summary">
-        {found.summary.map((line) => (
+        {oneArea(found.summary).map((line) => (
           <li key={line}>{line}</li>
         ))}
       </ul>
@@ -247,7 +257,7 @@ function Explanations({ data }: { data: ExplanationResponse }) {
         </div>
       )}
       <ul className="summary">
-        {data.summary.map((line) => (
+        {oneArea(data.summary).map((line) => (
           <li key={line}>{line}</li>
         ))}
       </ul>
@@ -296,7 +306,7 @@ function Stability({ data }: { data: StabilityResponse }) {
         </table>
       </div>
       <ul className="summary">
-        {data.summary.map((line) => (
+        {oneArea(data.summary).map((line) => (
           <li key={line}>{line}</li>
         ))}
       </ul>

@@ -56,7 +56,7 @@ def test_ollama_sends_the_rules_first_and_streams_the_reply(ollama_url):
 
 
 def test_unreachable_model_gives_a_clear_error():
-    with pytest.raises(ProviderError, match="Is Ollama running"):
+    with pytest.raises(ProviderError, match="not available right now"):
         list(Ollama("http://127.0.0.1:9").stream([]))
 
 

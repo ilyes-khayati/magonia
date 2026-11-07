@@ -354,10 +354,22 @@ export default function AssistantCard(props: Props) {
             const last = busy && i === turns.length - 1;
             return turn.role === "user" ? (
               <div key={i} className="turn user">
-                {turn.content}
+                <div className="message-head">
+                  <span className="avatar" aria-hidden="true">
+                    Y
+                  </span>
+                  <span className="message-name">You</span>
+                </div>
+                <div className="message-body">{turn.content}</div>
               </div>
             ) : (
               <div key={i} className="turn assistant">
+                <div className="message-head">
+                  <span className="avatar magon" aria-hidden="true">
+                    M
+                  </span>
+                  <span className="message-name">Magon</span>
+                </div>
                 {turn.status && <span className="thinking">{turn.status}</span>}
                 {!turn.status && !turn.content && last && <span className="thinking">Thinking…</span>}
                 {turn.content && (
@@ -377,7 +389,7 @@ export default function AssistantCard(props: Props) {
                 {!last && <Sources turn={turn} anchor={anchor} onPinPassage={onPinPassage} />}
                 {turn.role === "assistant" && turn.content && !(busy && last) && onPin && (
                   <button
-                    className="link pin-answer"
+                    className="text-button pin-answer"
                     onClick={() => onPin(turns[i - 1]?.content ?? "", turn)}
                   >
                     Pin to the board
@@ -389,7 +401,7 @@ export default function AssistantCard(props: Props) {
           {!following && (
             <button
               type="button"
-              className="icon-button round to-latest"
+              className="icon-button to-latest"
               aria-label="Go to the latest"
               title="Go to the latest"
               onClick={() => setFollowing(true)}
@@ -446,15 +458,16 @@ export default function AssistantCard(props: Props) {
           }}
         />
         <button
-          className="icon-button round"
+          className="send"
           aria-label="Send"
           title="Send (Enter)"
           onClick={submit}
           disabled={busy || !draft.trim() || loading?.opening}
         >
-          <SendIcon size={15} />
+          <SendIcon size={14} />
         </button>
       </div>
+      <p className="composer-hint meta">Enter to send · Shift+Enter for a new line</p>
     </section>
   );
 }
