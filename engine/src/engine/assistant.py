@@ -18,13 +18,13 @@ from engine.citations import check
 from engine.facts import View
 from engine.library import Library, Uploads
 from engine.library import for_the_model as passages_for_the_model
-from engine.literature import LiteratureError, Paper, find_papers
+from engine.literature import LiteratureError, Paper, find_papers, keywords
 from engine.models import LABELS, SETTABLE
 from engine.numbers import check_numbers
 from engine.proposals import PROPOSE_TOOL, ProposalError, proposal
 from engine.proposals import describe as describe_proposal
 from engine.rank import ollama_embedder
-from engine.route import SOURCES, follows, glossary, route
+from engine.route import SOURCES, follows, glossary, in_french, route, together
 from engine.standing import standing_instruction
 from engine.support import Judge, check_support, faithfulness, judge_with
 
@@ -43,6 +43,7 @@ methods around it. Politely decline anything else.
 - Never invent a reference, a number or a result. If you do not know, say so.
 - Say how sure you are, and say when evidence is thin or studies disagree.
 - Be concise and plain. Researchers are busy.
+- Answer in the language the researcher writes in, even when the papers are in English.
 - Questions on methods, such as models, their settings or statistics, may be answered from \
 general knowledge: say it is general advice, and relate it to what Magonia lets them set."""
 
@@ -125,6 +126,8 @@ read_series (one area and variable, a year or every year) and quote what it retu
 write a value you were not given.
 - A question about a year (which year was lowest, driest, greenest) is answered with the \
 annual means: quote the "annual means" fact, never a single month.
+- A question about when in the year, or how high or low it usually goes, is answered with \
+the average year: quote both ends from the "average year" fact, never a single month.
 - Interpret only what the facts state. A positive r means the two rise together. A trend \
 that is not statistically significant is not evidence of a trend. A correlation beyond its \
 chance band is unlikely to be chance.
@@ -357,11 +360,12 @@ def answer(
     workspace or papers, every number checked against what the model was given.
     """
     text = str(conversation[-1]["content"])
+    topic = text  # what the papers are ranked against; a follow-up adds the earlier question
     if search is None:
         embed = getattr(provider, "embed", None)
 
         def search(query: str) -> list[Paper]:
-            return find_papers(query, text, embed=embed)
+            return find_papers(query, topic, embed=embed)
 
     areas = list(dict.fromkeys(s.area for s in view.series)) if view is not None else []
     kind = route(text, areas, view is not None)
@@ -403,11 +407,22 @@ def answer(
     elif kind == "method" and (known := glossary(text)):
         sources.append(("Magonia's catalogue", known))
         messages[-1] = {**messages[-1], "content": f"{known}\n\n---\nThe researcher asks: {text}"}
+    # a follow-up of a literature question is searched by code: given the earlier papers, the
+    # model answered from them instead of searching again (measured, f01)
+    forced: list[ToolCall] = []
     if follow_up and kind == "research":
         messages[-1] = {
             **messages[-1],
             "content": f'{text}\n\n(This follows the earlier question: "{earlier_question}". '
-            "Search again for both together, the earlier topic with what is asked now.)",
+            "Answer it about what is asked now, from the papers of the new search.)",
+        }
+        topic = together(text, earlier_question)
+        forced = [ToolCall("search_papers", {"query": keywords(topic)})]
+    if in_french(text):
+        # said last, where a small model attends to it, or it answers in the papers' English
+        messages[-1] = {
+            **messages[-1],
+            "content": f"{messages[-1]['content']}\n\n(Réponds en français.)",
         }
     papers: list[Paper] = []
     pages: dict[int, set[int]] = {}  # the pages of each paper whose passages the model read
@@ -516,12 +531,15 @@ def answer(
             tools.append(PROPOSE_TOOL)
         calls = []
         begun = len(said)
-        for piece in provider.stream(messages, tools or None):
-            if isinstance(piece, ToolCall):
-                calls.append(piece)
-            else:
-                said.append(piece)
-                yield {"type": "text", "text": piece}
+        if forced and tools and tools[0] is SEARCH_TOOL:
+            calls, forced = forced, []
+        else:
+            for piece in provider.stream(messages, tools or None):
+                if isinstance(piece, ToolCall):
+                    calls.append(piece)
+                else:
+                    said.append(piece)
+                    yield {"type": "text", "text": piece}
         offered = {t["function"]["name"] for t in tools}
         if not calls:
             written, _ = written_calls("".join(said[begun:]))

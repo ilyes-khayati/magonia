@@ -208,3 +208,31 @@ def test_a_follow_up_can_cite_the_papers_of_the_earlier_answer(tmp_path):
     assert "(Sghaier, 2022, p. 6)" in model.seen[-2]["content"]
     check = events[-1]
     assert check["cited"] == [1] and check["removed"] == []
+
+
+def test_a_follow_up_of_a_literature_question_is_searched_again():
+    model = Scripted("In Tunisia, rainfed groves lost NDVI [3].")
+    asked = []
+    list(
+        answer(
+            model,
+            [
+                {
+                    "role": "user",
+                    "content": "What do studies say about drought and olive NDVI in Spain?",
+                },
+                ANSWER,
+                {"role": "user", "content": "And in Tunisia?"},
+            ],
+            search=lambda q: asked.append(q) or [],
+        )
+    )
+    # searched by code, before the model could answer from the earlier papers
+    assert asked == ["Tunisia drought olive NDVI"]
+    assert model.calls == 1
+
+
+def test_a_question_in_french_is_answered_in_french():
+    model = Scripted("Bonjour.")
+    list(answer(model, [{"role": "user", "content": "Bonjour, qu'est-ce que tu peux faire ?"}]))
+    assert model.seen[-1]["content"].endswith("(Réponds en français.)")
