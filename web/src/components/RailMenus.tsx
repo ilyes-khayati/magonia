@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { deletedWorkspaces, type EarthEngineStatus, type WorkspaceSummary } from "../api";
-import type { Theme } from "../theme";
-import { PlusIcon, SettingsIcon } from "./Icons";
+import { deletedWorkspaces, type WorkspaceSummary } from "../api";
+import { PlusIcon } from "./Icons";
 
 type Props = {
   workspaces: WorkspaceSummary[];
@@ -192,74 +191,6 @@ export function WorkspaceMenu(props: Props) {
               </button>
             </>
           )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-type SettingsProps = {
-  theme: Theme;
-  onTheme: (theme: Theme) => void;
-  earthEngine: EarthEngineStatus | null;
-  onEarthEngine: () => void;
-};
-
-// Appearance and connections, under Magon at the foot of the rail. A dot on the button says
-// when Earth Engine needs attention.
-export function SettingsMenu({ theme, onTheme, earthEngine, onEarthEngine }: SettingsProps) {
-  const [open, setOpen] = useState(false);
-  const box = useRef<HTMLDivElement>(null);
-  const close = useCallback(() => setOpen(false), []);
-  useDismiss(open, box, close);
-  const connected = earthEngine?.connected ?? false;
-  return (
-    <div className="settings-menu" ref={box}>
-      <button
-        className="rail-link"
-        aria-expanded={open}
-        aria-label="Settings"
-        title="Settings"
-        onClick={() => setOpen(!open)}
-      >
-        <SettingsIcon size={18} />
-        <span>Settings</span>
-        {earthEngine !== null && !connected && <span className="attention" aria-hidden="true" />}
-      </button>
-      {open && (
-        <div className="floating settings rail-pop" role="group" aria-label="Settings">
-          <p className="pop-title">Settings</p>
-          <section>
-            <h3>Appearance</h3>
-            <div className="segmented" role="group" aria-label="Theme">
-              {(["light", "dark"] as const).map((t) => (
-                <button key={t} aria-pressed={theme === t} onClick={() => onTheme(t)}>
-                  {t === "light" ? "Light" : "Dark"}
-                </button>
-              ))}
-            </div>
-          </section>
-          <section>
-            <h3>Google Earth Engine</h3>
-            <p className="engine-line">
-              <span className="dot" data-ok={connected} />
-              {earthEngine === null ? "Checking…" : connected ? "Connected" : "Not connected"}
-            </p>
-            {connected && earthEngine?.project && (
-              <p className="meta">
-                Project <span className="mono">{earthEngine.project}</span>
-              </p>
-            )}
-            <button
-              className="button"
-              onClick={() => {
-                close();
-                onEarthEngine();
-              }}
-            >
-              {connected ? "Change project…" : "Connect…"}
-            </button>
-          </section>
         </div>
       )}
     </div>

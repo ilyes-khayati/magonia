@@ -352,3 +352,44 @@ def test_a_question_asked_from_a_card_is_about_that_card(client, model):
     )
     assert got[0]["kind"] == "data"  # not small talk, though it reads like it
     assert 'The question is about the card "Drought years (Trend 1)"' in model.seen[-1]["content"]
+
+
+def test_magon_settings_are_saved_and_choose_the_model(client, monkeypatch):
+    monkeypatch.setenv("MAGONIA_MODEL_URL", "http://127.0.0.1:9")
+    monkeypatch.setenv("MAGONIA_MODEL", "qwen2.5:7b")
+    first = client.get("/assistant/settings").json()
+    assert (
+        first["model"] is None and first["detail"] == "concise" and first["papers_per_search"] == 6
+    )
+    assert first["in_use"] == {"model_url": "http://127.0.0.1:9", "model": "qwen2.5:7b"}
+
+    chosen = {"model": "qwen3:8b", "temperature": 0.2, "detail": "detailed", "papers_per_search": 8}
+    assert client.put("/assistant/settings", json=chosen).status_code == 200
+    again = client.get("/assistant/settings").json()
+    assert again["in_use"]["model"] == "qwen3:8b"
+    assert {k: again[k] for k in chosen} == chosen
+    assert client.get("/assistant").json()["model"] == "qwen3:8b (Ollama)"
+
+    assert client.put("/assistant/settings", json={"papers_per_search": 50}).status_code == 422
+    assert client.put("/assistant/settings", json={"model_url": "not a url"}).status_code == 422
+
+
+def test_an_unreachable_model_server_lists_no_models(client):
+    found = client.get("/assistant/models", params={"url": "http://127.0.0.1:9"}).json()
+    assert found["models"] == [] and "did not answer" in found["error"]
+
+
+def test_the_chosen_answer_length_reaches_the_model(client, monkeypatch, library):
+    seen = []
+
+    class Recorder(Scripted):
+        def stream(self, messages, tools=None):
+            seen.append(messages[0]["content"])
+            yield from super().stream(messages, tools)
+
+    main.app.dependency_overrides[main.get_provider] = lambda: Recorder("Fine.")
+    client.put("/assistant/settings", json={"detail": "detailed"})
+    wid = workspace(client)
+    conversation = client.post(f"/workspaces/{wid}/conversations").json()["id"]
+    client.post(f"/conversations/{conversation}/chat", json={"content": "What is NDVI?"})
+    assert "thorough" in seen[0]

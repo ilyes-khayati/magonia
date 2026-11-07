@@ -70,9 +70,13 @@ def get_runner() -> Runner:
     return Runner()
 
 
-@cache
-def get_provider() -> assistant.Provider:
-    return assistant.from_environment()
+def magon_settings(store: Store) -> dict:
+    """What the researcher chose for Magon in the settings; empty keeps the environment's."""
+    return json.loads(store.setting("magon") or "{}")
+
+
+def get_provider(store: Annotated[Store, Depends(get_store)]) -> assistant.Provider:
+    return assistant.from_environment(magon_settings(store))
 
 
 def get_library(provider: Annotated[assistant.Provider, Depends(get_provider)]) -> Library:
@@ -1056,6 +1060,48 @@ def assistant_info(provider: ProviderDep) -> dict:
     return {"name": assistant.NAME, "model": provider.name}
 
 
+class MagonSettings(BaseModel):
+    """How Magon answers. A field left empty keeps the default (the environment's server and
+    model, the model's own temperature)."""
+
+    model_url: str | None = Field(None, max_length=200, pattern=r"^(https?://\S+|scripted)$")
+    model: str | None = Field(None, max_length=100)
+    temperature: float | None = Field(None, ge=0, le=1.5)
+    detail: Literal["concise", "detailed"] = "concise"
+    papers_per_search: int = Field(6, ge=3, le=10)
+
+
+@app.get("/assistant/settings")
+def get_magon_settings(store: StoreDep, provider: ProviderDep) -> dict:
+    """The settings saved, with the server and model in use, so the form can show them."""
+    saved = MagonSettings(**magon_settings(store))
+    return {
+        **saved.model_dump(),
+        "in_use": {
+            "model_url": getattr(provider, "url", None),
+            "model": getattr(provider, "model", None),
+        },
+    }
+
+
+@app.put("/assistant/settings")
+def set_magon_settings(body: MagonSettings, store: StoreDep) -> MagonSettings:
+    store.set_setting("magon", body.model_dump_json())
+    return body
+
+
+@app.get("/assistant/models")
+def assistant_models(provider: ProviderDep, url: str | None = None) -> dict:
+    """The chat models installed on the model server (the one in use, or the one given)."""
+    server = url or getattr(provider, "url", None)
+    if not server:
+        return {"models": [], "error": None}
+    try:
+        return {"models": assistant.installed_models(server), "error": None}
+    except (OSError, ValueError):
+        return {"models": [], "error": "The model server did not answer at this address."}
+
+
 def existing_conversation(store: Store, conversation_id: int, deleted: bool = False) -> dict:
     conversation = store.conversation(conversation_id, deleted=deleted)
     if not conversation or not store.workspace(conversation["workspace_id"]):
@@ -1364,12 +1410,15 @@ def chat(
     view = workspace_view(store, workspace_id, body.view) if body.view else None
     question = {"role": "user", "content": body.content}
     instructions = store.setting(f"instructions:{workspace_id}") or ""
+    chosen = MagonSettings(**magon_settings(store))
     events = assistant.answer(
         provider,
         [*history, question],
         view=view,
         library=library.scoped(workspace_id),  # this workspace's files only
         instructions=instructions,
+        papers_per_search=chosen.papers_per_search,
+        detail=chosen.detail,
     )
     # fail with a clear status before streaming starts, if the model cannot be reached: the
     # route and view events come before the model is asked anything

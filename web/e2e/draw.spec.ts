@@ -567,8 +567,41 @@ test("uploading a GeoJSON file adds its named areas", async ({ page }) => {
   await expect(page.getByText("Added 1 area from fields.geojson.")).toBeVisible();
 });
 
+test("Magon's model and answers are chosen in Settings", async ({ page }) => {
+  const saved: unknown[] = [];
+  await page.route("**/api/assistant/settings", (route) => {
+    if (route.request().method() === "PUT") {
+      saved.push(route.request().postDataJSON());
+      return route.fulfill({ json: route.request().postDataJSON() });
+    }
+    return route.fulfill({
+      json: {
+        model_url: null,
+        model: null,
+        temperature: null,
+        detail: "concise",
+        papers_per_search: 6,
+        in_use: { model_url: "http://localhost:11434", model: "qwen2.5:7b" },
+      },
+    });
+  });
+  await page.route("**/api/assistant/models*", (route) =>
+    route.fulfill({ json: { models: ["qwen2.5:7b", "qwen3:8b"], error: null } }),
+  );
+  await page.getByRole("button", { name: "Settings" }).click();
+  const settings = page.getByRole("dialog", { name: "Settings" });
+  await settings.getByLabel("Language model").selectOption("qwen3:8b");
+  await settings.getByRole("button", { name: "Detailed" }).click();
+  await settings.getByRole("button", { name: "Precise" }).click();
+  await settings.getByLabel("Papers read per search").selectOption("8");
+  await settings.getByRole("button", { name: "Save" }).click();
+  await expect(settings.getByText("Saved")).toBeVisible();
+  expect(saved).toEqual([{ model_url: null, model: "qwen3:8b", temperature: 0.2, detail: "detailed", papers_per_search: 8 }]);
+});
+
 test("the theme can be switched to dark", async ({ page }) => {
   await page.getByRole("button", { name: "Settings" }).click();
+  await page.getByRole("navigation", { name: "Settings sections" }).getByRole("button", { name: "Appearance" }).click();
   await page.getByRole("group", { name: "Theme" }).getByRole("button", { name: "Dark" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 });
@@ -835,8 +868,10 @@ test("when Earth Engine is not connected, the setup explains how and saves the p
   await dialog.getByRole("button", { name: "Connect" }).click();
   await expect(dialog).toBeHidden();
   await page.getByRole("button", { name: "Settings" }).click();
-  await expect(page.getByRole("group", { name: "Settings" })).toContainText("Connected");
-  await expect(page.getByRole("group", { name: "Settings" })).toContainText("my-project");
+  const settings = page.getByRole("dialog", { name: "Settings" });
+  await settings.getByRole("button", { name: "Earth Engine" }).click();
+  await expect(settings).toContainText("Connected");
+  await expect(settings).toContainText("my-project");
 });
 
 test("the workspace is named at the head of the rail and can be renamed", async ({ page }) => {
@@ -1341,8 +1376,9 @@ for (const theme of ["light", "dark"]) {
   test(`no serious accessibility problems in the ${theme} theme`, async ({ page }) => {
     if (theme === "dark") {
       await page.getByRole("button", { name: "Settings" }).click();
+      await page.getByRole("navigation", { name: "Settings sections" }).getByRole("button", { name: "Appearance" }).click();
       await page.getByRole("group", { name: "Theme" }).getByRole("button", { name: "Dark" }).click();
-      await page.keyboard.press("Escape");
+      await page.getByRole("button", { name: "Close settings" }).click();
     }
     await page.getByTestId("upload").setInputFiles({
       name: "fields.geojson",

@@ -700,6 +700,26 @@ export const setInstructions = (workspaceId: number, text: string) =>
 export const assistantInfo = () =>
   call<{ name: string; model: string }>("/assistant");
 
+// How Magon answers, chosen in Settings; null keeps the default
+export type MagonSettings = {
+  model_url: string | null;
+  model: string | null;
+  temperature: number | null;
+  detail: "concise" | "detailed";
+  papers_per_search: number;
+};
+
+export const magonSettings = () =>
+  call<MagonSettings & { in_use: { model_url: string | null; model: string | null } }>("/assistant/settings");
+
+export const saveMagonSettings = (settings: MagonSettings) =>
+  call<MagonSettings>("/assistant/settings", send("PUT", settings));
+
+export const installedModels = (url?: string) =>
+  call<{ models: string[]; error: string | null }>(
+    `/assistant/models${url ? `?url=${encodeURIComponent(url)}` : ""}`,
+  );
+
 // Conversations with Magonia, several per workspace; a deleted one can be restored for 30 days
 export type Conversation = {
   id: number;
