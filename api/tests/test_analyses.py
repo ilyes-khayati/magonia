@@ -377,6 +377,41 @@ def test_stability_needs_fitted_models_then_runs_in_the_background(client, store
     assert done["status"] == "done" and done["summary"] == ["Orchard: stable."]
 
 
+def test_findings_follow_an_area_renamed_after_they_ran(client, store, monkeypatch):
+    from api import main
+
+    class Held:
+        def to_dict(self):
+            return {"windows": [], "leading": {}, "summary": ["Orchard: stable."]}
+
+    monkeypatch.setattr(main, "forecast", FakeForecast())
+    monkeypatch.setattr(main, "explain", lambda X, y, params: Explained())
+    monkeypatch.setattr(main, "describe", lambda area, found: [f"{area}: explained."])
+    monkeypatch.setattr(main, "stability", lambda *args, **kwargs: Held())
+    ndvi = cache_years(store, "ndvi", None, [0.5 + 0.1 * math.sin(i) for i in range(180)])
+    area_id = area(client)
+    body = {"response": {**ndvi, "area_id": area_id, "masking": "pixel"}, "own_lags": [1]}
+    for path in ("/models", "/explanations", "/stability"):
+        client.post(path, json=body)
+
+    client.patch(f"/areas/{area_id}", json={"name": "Grove"})
+    assert client.post("/models", json=body).json()["summary"] == ["Grove: fitted."]
+    assert client.post("/explanations", json=body).json()["summary"] == ["Grove: explained."]
+    assert client.post("/stability", json=body).json()["summary"] == ["Grove: stable."]
+
+
+def test_a_forecast_stored_without_its_area_name_is_still_renamed():
+    from api.main import under_current_name
+
+    lines = ["Orchard: fitted.", "Orchard: tested."]
+    assert under_current_name(lines, {}, "Grove") == ["Grove: fitted.", "Grove: tested."]
+
+
+class Explained:
+    def to_dict(self):
+        return {"importance": {}, "families": {}, "agreement": [], "seeds": 5}
+
+
 def test_a_trend_is_tested_on_annual_means(client, store):
     rising = [0.4 + 0.01 * (i // 12) + 0.2 * math.sin(2 * math.pi * i / 12) for i in range(180)]
     ndvi = cache_years(store, "ndvi", None, rising)
