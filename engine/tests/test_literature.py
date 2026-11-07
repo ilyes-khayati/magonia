@@ -85,3 +85,39 @@ def test_unreachable_openalex_is_a_clear_error(monkeypatch):
     monkeypatch.setattr(literature, "urlopen", offline)
     with pytest.raises(LiteratureError, match="cannot be reached right now"):
         search_papers("olive")
+
+
+def test_a_second_search_uses_the_questions_own_words(monkeypatch):
+    from engine.literature import Paper, find_papers, keywords
+
+    assert (
+        keywords("What do studies say about drought and olive NDVI in Spain?")
+        == "drought olive NDVI Spain"
+    )
+    asked = []
+
+    def fake(query, limit=30, **kwargs):
+        asked.append(query)
+        return [
+            Paper(f"W{len(asked)}{i}", f"{query} {i}", ["A"], 2020, None, None, query, None, 0, [])
+            for i in range(3)
+        ]
+
+    monkeypatch.setattr(literature, "search_papers", fake)
+    found = find_papers(
+        "olive drought remote sensing", "What do studies say about drought and olive NDVI in Spain?"
+    )
+    assert asked == ["olive drought remote sensing", "drought olive NDVI Spain"]
+    # the second search's papers, about the question itself, rank first
+    assert found and found[0].title.startswith("drought olive NDVI Spain")
+
+
+def test_an_opening_that_only_announces_the_answer_is_dropped():
+    from engine.citations import check
+
+    paper = literature.Paper("W1", "Olive drought", ["A"], 2020, None, None, None, None, 0, [])
+    found = check(
+        "Based on the literature, here is what is known:\n\nOlive NDVI falls in drought [1].",
+        [paper],
+    )
+    assert found.text == "Olive NDVI falls in drought [1]."

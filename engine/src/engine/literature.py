@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import re
 import ssl
 from dataclasses import asdict, dataclass, field
 from urllib.error import HTTPError, URLError
@@ -131,8 +132,29 @@ def search_papers(query: str, limit: int = 6, from_year: int | None = None) -> l
 CANDIDATES = 30
 
 
+# Words a search engine matches on but that say nothing about the topic
+STOPWORD_TEXT = """a an and are as at be by can could did do does done for from has have how
+i in into is it its my of on or our over so studies study say says than that the their them
+then there these they this to was we were what when where which while who why will with would
+about any known research papers paper literature found find show shown"""
+STOPWORDS = frozenset(STOPWORD_TEXT.split())
+
+
+def keywords(question: str, most: int = 8) -> str:
+    """The question's topic words, for a second search alongside the model's query."""
+    words = re.findall(r"[A-Za-zÀ-ÿ0-9][A-Za-zÀ-ÿ0-9-]*", question)
+    kept = [w for w in words if w.lower() not in STOPWORDS and len(w) > 2]
+    return " ".join(list(dict.fromkeys(kept))[:most])
+
+
 def find_papers(query: str, question: str, keep: int = 6, embed=None) -> list[Paper]:
-    """Many candidates for the query, ranked against the researcher's question."""
+    """Candidates for the model's query and for the question's own words, merged and ranked
+    against the question: the model's query alone missed most of the relevant papers."""
     from engine.rank import rank
 
-    return rank(question or query, search_papers(query, limit=CANDIDATES), keep, embed)
+    candidates = search_papers(query, limit=CANDIDATES)
+    asked = keywords(question) if question else ""
+    if asked and asked.lower() != query.lower():
+        seen = {p.id for p in candidates}
+        candidates += [p for p in search_papers(asked, limit=CANDIDATES // 2) if p.id not in seen]
+    return rank(question or query, candidates, keep, embed)
