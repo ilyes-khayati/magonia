@@ -52,6 +52,9 @@ export default function DataPage({ catalogue, settings, onChange, areas, entries
           <button aria-pressed={settings.mode === "seasonal"} onClick={() => onChange({ mode: "seasonal" })}>
             Seasonal cycle
           </button>
+          <button aria-pressed={settings.mode === "distribution"} onClick={() => onChange({ mode: "distribution" })}>
+            Distribution
+          </button>
         </div>
       </div>
 

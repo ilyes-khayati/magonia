@@ -1487,3 +1487,52 @@ test("hovering a date marks it on every chart, and a click picks the map's month
   await expect(page.locator(".chart-rule.chosen")).toHaveCount(2);
   await expect(page).toHaveURL(/month=\d{4}-\d{2}/);
 });
+
+test("the Data page shows every observation as boxplots by month, season or all together", async ({ page }) => {
+  await page.getByTestId("upload").setInputFiles({
+    name: "fields.geojson",
+    mimeType: "application/geo+json",
+    buffer: Buffer.from(JSON.stringify(SQUARE)),
+  });
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Data" }).click();
+  await page.getByRole("button", { name: "Distribution" }).click();
+  const chart = page.getByRole("region", { name: "NDVI chart" });
+  await expect(chart.locator('.plot-svg [data-mark="bar"]').first()).toBeVisible();
+  await chart.getByRole("button", { name: "By season" }).click();
+  await expect(chart.locator(".plot-svg")).toContainText("Winter");
+  await page.getByRole("button", { name: "Seasonal cycle" }).click();
+  await chart.getByRole("button", { name: "Median" }).click();
+  await expect(chart.getByRole("button", { name: "Median" })).toHaveAttribute("aria-pressed", "true");
+});
+
+test("a drought-scale analysis asks for SPEI at every scale and says which one is followed", async ({ page }) => {
+  await page.getByTestId("upload").setInputFiles({
+    name: "fields.geojson",
+    mimeType: "application/geo+json",
+    buffer: Buffer.from(JSON.stringify(SQUARE)),
+  });
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Analyses" }).click();
+  await page.getByRole("region", { name: "Suggested analyses" }).getByRole("button", { name: /drought scale/ }).click();
+  const card = page.getByRole("region", { name: "Drought scale chart" });
+  await expect(card.locator('.plot-svg [data-mark="cell"]').first()).toBeVisible();
+  await expect.poll(() => jobs.filter((j) => (j as { variable: string }).variable === "spei").map((j) => (j as { scale: number }).scale).sort((a, b) => a - b)).toEqual(
+    expect.arrayContaining([1, 2, 3, 4, 6, 9, 12]),
+  );
+  await expect(card.getByText(/follow SPEI-\d+ from/)).toBeVisible();
+});
+
+test("a correlation can be split into its trend and seasonal parts", async ({ page }) => {
+  await page.getByTestId("upload").setInputFiles({
+    name: "fields.geojson",
+    mimeType: "application/geo+json",
+    buffer: Buffer.from(JSON.stringify(SQUARE)),
+  });
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Data" }).click();
+  await page.getByRole("checkbox", { name: /LST/ }).check();
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Analyses" }).click();
+  await page.getByRole("region", { name: "Suggested analyses" }).getByRole("button", { name: /Correlation and lag/ }).click();
+  const card = page.getByRole("region", { name: "Correlation chart" });
+  await card.getByRole("checkbox", { name: /trend and seasonal parts/ }).check();
+  await expect(card.getByRole("cell", { name: "Trend", exact: true })).toBeVisible();
+  await expect(card.getByRole("cell", { name: "Seasonal", exact: true })).toBeVisible();
+});

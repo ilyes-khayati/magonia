@@ -626,7 +626,9 @@ def season_dates(body: SeriesRequest, store: StoreDep) -> dict:
 
 class NotebookRequest(BaseModel):
     title: str = Field("Magonia analysis", max_length=120)
-    kind: Literal["experiment", "decomposition", "trend", "phenology", "lags", "correlation"]
+    kind: Literal[
+        "experiment", "decomposition", "trend", "phenology", "lags", "correlation", "scales"
+    ]
     options: dict = {}  # the analysis' own choices, as the interface saves them
     series: list[SeriesRequest] = Field(min_length=1)  # in the order the analysis uses them
 

@@ -11,6 +11,7 @@ export type Correlation = Named & {
   response: VariableKey;
   driver: VariableKey;
   deseasonalise: boolean;
+  components?: boolean; // also correlated part by part, after a wavelet decomposition
 };
 
 export type Decomposition = Named & {
@@ -33,6 +34,13 @@ export type Lags = Named & {
   area?: number; // the area studied, saved so that it is still chosen after a reload
 };
 
+export type Scales = Named & {
+  kind: "scales";
+  response: VariableKey;
+  deseasonalise: boolean;
+  area?: number;
+};
+
 // A forecast card from before the Model page; read once and turned into an experiment
 export type Models = {
   kind: "models";
@@ -43,7 +51,7 @@ export type Models = {
   test_years: number;
 };
 
-export type AnalysisBody = Correlation | Decomposition | Trend | Phenology | Lags;
+export type AnalysisBody = Correlation | Decomposition | Trend | Phenology | Lags | Scales;
 
 export type Analysis = { id: number } & AnalysisBody;
 
@@ -59,6 +67,10 @@ type KindInfo = {
 };
 
 const ALL: VariableKey[] = ["ndvi", "lst", "spei"];
+
+// The accumulation scales a drought-scale analysis tries: the short ones crops answer to, and
+// the longer ones of trees and groundwater
+export const SPEI_SCALES = [1, 2, 3, 4, 6, 9, 12];
 
 const other = (key: VariableKey, chosen: VariableKey[]): VariableKey =>
   chosen.find((k) => k !== key) ?? (key === "ndvi" ? "lst" : "ndvi");
@@ -107,15 +119,25 @@ export const KINDS: KindInfo[] = [
       return { kind: "lags", response, drivers: charted.length ? charted : others, deseasonalise: true };
     },
   },
+  {
+    kind: "scales",
+    label: "Drought scale and lag",
+    question: "Which drought scale does it answer to, and how fast?",
+    description: "A variable against SPEI at 1 to 12 months of accumulation and 0 to 6 months of lag.",
+    create: (chosen) => ({ kind: "scales", response: chosen.find((k) => k !== "spei") ?? "ndvi", deseasonalise: true }),
+  },
 ];
 
 // The series an analysis needs; a decomposition works at the product's own time step
-export type Need = { variable: VariableKey; native: boolean };
+export type Need = { variable: VariableKey; native: boolean; scale?: number }; // scale: a SPEI accumulation other than the chosen one
 
 export function needsOf(analysis: Analysis): Need[] {
   switch (analysis.kind) {
     case "correlation":
-      return [analysis.response, analysis.driver].map((variable) => ({ variable, native: false }));
+      return [analysis.response, analysis.driver].flatMap((variable) => [
+        { variable, native: false },
+        ...(analysis.components ? [{ variable, native: true }] : []),
+      ]);
     case "decomposition":
       return [{ variable: analysis.variable, native: true }];
     case "trend":
@@ -124,6 +146,11 @@ export function needsOf(analysis: Analysis): Need[] {
       return [{ variable: "ndvi", native: true }];
     case "lags":
       return [analysis.response, ...analysis.drivers].map((variable) => ({ variable, native: false }));
+    case "scales":
+      return [
+        { variable: analysis.response, native: false },
+        ...SPEI_SCALES.map((scale) => ({ variable: "spei" as const, native: false, scale })),
+      ];
   }
 }
 

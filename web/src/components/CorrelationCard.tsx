@@ -1,7 +1,8 @@
 import CardTitle from "./CardTitle";
 import * as Plot from "@observablehq/plot";
 import type { Correlation } from "../analyses";
-import type { Variable, VariableKey } from "../api";
+import type { SeriesOptions, Variable, VariableKey } from "../api";
+import ComponentCorrelation from "./ComponentCorrelation";
 import { correlationCautions, describeLink, lagCorrelation, type Lag } from "../correlation";
 import type { Entry } from "./ChartCard";
 import Cautions from "./Cautions";
@@ -17,9 +18,11 @@ type Props = {
   title: (v: Variable) => string;
   entries: (variable: VariableKey) => Entry[];
   seasonal: boolean; // seasonal means cannot be lagged by month
+  native: (variable: VariableKey) => Entry[];
+  options: (areaId: number, variable: VariableKey) => SeriesOptions;
 };
 
-export default function CorrelationCard({ analysis, onChange, onRemove, variables, title, entries, seasonal }: Props) {
+export default function CorrelationCard({ analysis, onChange, onRemove, variables, title, entries, seasonal, native, options }: Props) {
   const { response, driver, deseasonalise } = analysis;
   const name = (key: VariableKey) => {
     const variable = variables.find((v) => v.key === key);
@@ -112,6 +115,14 @@ export default function CorrelationCard({ analysis, onChange, onRemove, variable
           />
           Remove seasonal cycle
         </label>
+        <label className="row" style={{ gap: 6, fontSize: 12, gridColumn: "1 / -1" }}>
+          <input
+            type="checkbox"
+            checked={analysis.components ?? false}
+            onChange={(e) => onChange({ components: e.target.checked })}
+          />
+          Also correlate trend and seasonal parts separately
+        </label>
       </div>
 
       {seasonal ? (
@@ -121,6 +132,9 @@ export default function CorrelationCard({ analysis, onChange, onRemove, variable
       ) : (
         <>
           <PlotFrame title="Lag correlation" options={chart} height={200} />
+          {analysis.components && (
+            <ComponentCorrelation response={response} driver={driver} name={name} native={native} options={options} />
+          )}
           <ul className="summary">
             {areas.map(({ area, lags }) => (
               <li key={area.id}>{describeLink(area.name, name(response), name(driver), lags, deseasonalise)}</li>
