@@ -97,7 +97,15 @@ def decomposition(area: str, title: str, years: float) -> list[str]:
     return []
 
 
-LABELS = {"Ridge": "Ridge", "RandomForest": "Random Forest", "XGBoost": "XGBoost"}
+LABELS = {
+    "Ridge": "Ridge",
+    "RandomForest": "Random Forest",
+    "XGBoost": "XGBoost",
+    "MLP": "MLP",
+    "LSTM": "LSTM",
+    "GRU": "GRU",
+    "TCN": "TCN",
+}
 
 
 def models(area: str, forecast: dict, warnings: list[str] | None = None) -> list[str]:

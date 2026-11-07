@@ -1,9 +1,11 @@
+import { useState } from "react";
 import type { ExplanationResponse, ModelsResponse, StabilityResponse } from "../api";
 import { MODEL_LABEL, type ModelName } from "../experiments";
 import { areaColour, type Theme } from "../theme";
 import Cautions from "./Cautions";
-import { oneArea } from "../format";
-import { TimeChart } from "../plot/Chart";
+import { num, oneArea } from "../format";
+import * as Plot from "@observablehq/plot";
+import { PlotFrame, TimeChart } from "../plot/Chart";
 import { dateOf } from "../plot/time";
 import type { AnalysisState } from "../useAnalysis";
 
@@ -194,7 +196,7 @@ const FAMILIES = ["own history", "LST", "drought", "calendar"];
 
 // Share of each model's importance by family of inputs, and how far the models agree
 function Explanations({ data }: { data: ExplanationResponse }) {
-  const models = (["XGBoost", "RandomForest", "Ridge"] as const).filter((m) => data.families[m]);
+  const models = (["XGBoost", "RandomForest", "Ridge", "MLP", "LSTM", "GRU", "TCN"] as const).filter((m) => data.families[m]);
   return (
     <>
       <div className="table-scroll" tabIndex={0}>
@@ -256,6 +258,31 @@ function Explanations({ data }: { data: ExplanationResponse }) {
           </table>
         </div>
       )}
+      {data.native && Object.keys(data.native).length > 0 && (
+        <div className="table-scroll" tabIndex={0}>
+          <table className="stats models">
+            <caption className="caption">Each model&apos;s own explanation against shuffling</caption>
+            <thead>
+              <tr>
+                <th scope="col">Model</th>
+                <th scope="col">Own method</th>
+                <th scope="col" title="Weighted Kendall's τ between the two rankings of the inputs">Agreement (τ)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {models.filter((m) => data.native?.[m]).map((m) => (
+                <tr key={m}>
+                  <th scope="row">{label(m)}</th>
+                  <td style={{ textAlign: "left" }}>{data.native![m].method}</td>
+                  <td>{num(data.native![m].tau, 2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <LagMap data={data} models={models} />
+      {data.timeline && Object.keys(data.timeline).length > 0 && <Timeline data={data} models={models.filter((m) => data.timeline?.[m])} />}
       <ul className="summary">
         {oneArea(data.summary).map((line) => (
           <li key={line}>{line}</li>
@@ -310,6 +337,83 @@ function Stability({ data }: { data: StabilityResponse }) {
           <li key={line}>{line}</li>
         ))}
       </ul>
+    </>
+  );
+}
+
+// Month by month, how far each family of inputs moved one model's forecast: when the
+// explanation holds, and when the model leaned on something else
+function Timeline({ data, models }: { data: ExplanationResponse; models: string[] }) {
+  const [model, setModel] = useState(models[0]);
+  const rows = data.timeline?.[model] ?? [];
+  const families = [...new Set(rows.flatMap((r) => Object.keys(r).filter((k) => k !== "date")))];
+  const theme = (document.documentElement.dataset.theme as Theme) ?? "light";
+  const series = families.map((f, i) => ({
+    id: f,
+    name: f,
+    colour: areaColour(theme, i),
+    width: 1.3,
+    points: rows.map((r) => ({ date: dateOf(`${r.date}-01`), value: Number(r[f]) })),
+  }));
+  return (
+    <>
+      <h4 className="results-head">What moved the forecast, month by month</h4>
+      <div className="segmented small" role="group" aria-label="Model shown month by month">
+        {models.map((m) => (
+          <button key={m} aria-pressed={m === model} onClick={() => setModel(m)}>
+            {label(m)}
+          </button>
+        ))}
+      </div>
+      <TimeChart title={`What moved ${label(model)}'s forecast`} series={series} height={190} y={{ label: "Change in forecast", digits: 2, zero: true }} />
+      <div className="legend">
+        {series.map((s) => (
+          <span key={s.id} className="row" style={{ gap: 6 }}>
+            <span className="swatch" style={{ background: s.colour }} />
+            {s.name}
+          </span>
+        ))}
+      </div>
+      <span className="meta">
+        Each family set to its average and the forecast made again: above zero, that family pushed the forecast up that month.
+      </span>
+    </>
+  );
+}
+
+// Which month of which input each model leans on: shuffling importance by lag, as a share of
+// the model's total, one row per input series
+function LagMap({ data, models }: { data: ExplanationResponse; models: string[] }) {
+  const [model, setModel] = useState(models[0]);
+  const importance = data.importance[model] ?? {};
+  const total = Object.values(importance).reduce((a, v) => a + Math.max(0, v), 0) || 1;
+  const cells = Object.entries(importance).flatMap(([feature, v]) => {
+    const m = /^(.*)_lag(\d+)$/.exec(feature);
+    return m ? [{ input: m[1], lag: Number(m[2]), share: Math.max(0, v) / total }] : [];
+  });
+  if (!cells.length) return null;
+  const options: Plot.PlotOptions = {
+    marginLeft: 110,
+    marginBottom: 40,
+    x: { type: "band", label: "Months earlier", labelAnchor: "center", labelArrow: "none", labelOffset: 34 },
+    y: { type: "band", label: null },
+    color: { scheme: "viridis", domain: [0, Math.max(...cells.map((c) => c.share))] },
+    marks: [
+      Plot.cell(cells, { x: "lag", y: "input", fill: "share", inset: 0.5 }),
+      Plot.text(cells, { x: "lag", y: "input", text: (c: { share: number }) => `${Math.round(100 * c.share)}%`, fill: (c: { share: number }) => (c.share > 0.25 ? "black" : "white"), fontSize: 10 }),
+    ],
+  };
+  return (
+    <>
+      <h4 className="results-head">Which month of which input it leans on</h4>
+      <div className="segmented small" role="group" aria-label="Model shown by lag">
+        {models.map((m) => (
+          <button key={m} aria-pressed={m === model} onClick={() => setModel(m)}>
+            {label(m)}
+          </button>
+        ))}
+      </div>
+      <PlotFrame title={`Importance by lag, ${label(model)}`} options={options} height={Math.max(120, 40 * new Set(cells.map((c) => c.input)).size + 60)} />
     </>
   );
 }

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Area, Variable, VariableKey } from "../api";
-import { MODEL_LABEL, MODEL_NAMES, SETTABLE, type ModelName, type Recipe as RecipeT } from "../experiments";
+import { DEEP, DEFAULT_MODELS, MODEL_LABEL, MODEL_NAMES, SETTABLE, type ModelName, type Recipe as RecipeT } from "../experiments";
 
 type Props = {
   recipe: RecipeT;
@@ -105,8 +105,11 @@ export default function Recipe({ recipe, onChange, areas, variables, title }: Pr
 
       <fieldset className="recipe-group">
         <legend>Models</legend>
+        {([["Statistical and tree models", DEFAULT_MODELS], ["Neural networks (slower: fewer seeds and tuning draws)", DEEP]] as const).map(([group, names]) => (
+        <div key={group} className="model-group">
+        <span className="meta">{group}</span>
         <div className="model-choices">
-          {MODEL_NAMES.map((m) => {
+          {names.map((m) => {
             const on = recipe.models.includes(m);
             const manual = recipe.params[m] !== undefined;
             return (
@@ -153,6 +156,8 @@ export default function Recipe({ recipe, onChange, areas, variables, title }: Pr
             );
           })}
         </div>
+        </div>
+        ))}
         {!recipe.models.length && <p className="reason">Choose at least one model.</p>}
       </fieldset>
 

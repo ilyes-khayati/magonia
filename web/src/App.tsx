@@ -35,7 +35,7 @@ import ChartCard from "./components/ChartCard";
 import PinnedExperiment from "./components/PinnedExperiment";
 import BoardPage from "./components/BoardPage";
 import { describeDisplay } from "./display";
-import { EMPTY, MODEL_NAMES, newExperiment, readExperiments, type Experiment } from "./experiments";
+import { DEFAULT_MODELS, EMPTY, newExperiment, readExperiments, type Experiment } from "./experiments";
 import { readAreaFile } from "./areaFiles";
 import AnalysesPage from "./components/AnalysesPage";
 import AssistantCard from "./components/AssistantCard";
@@ -627,7 +627,7 @@ export default function App() {
         response: p.variable ?? "ndvi",
         drivers: p.drivers ?? [],
         calendar: true,
-        models: p.models ?? [...MODEL_NAMES],
+        models: p.models ?? [...DEFAULT_MODELS],
         test_years: p.test_years ?? 3,
       };
       const e = newExperiment(experiments, areaId, recipe);

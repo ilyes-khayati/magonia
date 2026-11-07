@@ -4,13 +4,27 @@ import type { Area, ModelsBody, SeriesOptions, VariableKey } from "./api";
 // Forecasting experiments on the Model page. Each is a recipe the researcher edits and the
 // recipe it last ran: results always belong to a run, so nothing refits while editing.
 
-export type ModelName = "Ridge" | "RandomForest" | "XGBoost";
-export const MODEL_NAMES: ModelName[] = ["Ridge", "RandomForest", "XGBoost"];
+export type ModelName = "Ridge" | "RandomForest" | "XGBoost" | "MLP" | "LSTM" | "GRU" | "TCN";
+export const MODEL_NAMES: ModelName[] = ["Ridge", "RandomForest", "XGBoost", "MLP", "LSTM", "GRU", "TCN"];
+// the paper's three, chosen for a new experiment; the networks are added by choice
+export const DEFAULT_MODELS: ModelName[] = ["Ridge", "RandomForest", "XGBoost"];
+export const DEEP: ModelName[] = ["MLP", "LSTM", "GRU", "TCN"];
 export const MODEL_LABEL: Record<ModelName, string> = {
   Ridge: "Ridge",
   RandomForest: "Random Forest",
   XGBoost: "XGBoost",
+  MLP: "MLP (neural network)",
+  LSTM: "LSTM (recurrent)",
+  GRU: "GRU (recurrent)",
+  TCN: "TCN (convolutional)",
 };
+
+const NEURAL: Setting[] = [
+  { key: "hidden", label: "Hidden units", min: 4, max: 256, step: 4 },
+  { key: "lr", label: "Learning rate", min: 0.0001, max: 0.1, step: 0.0005 },
+  { key: "weight_decay", label: "Weight decay", min: 0, max: 0.1, step: 0.0001 },
+  { key: "epochs", label: "Most epochs", min: 50, max: 5000, step: 50 },
+];
 
 // What can be set by hand instead of tuned, with the engine's limits (engine/models.py)
 export type Setting = { key: string; label: string; min: number; max: number; step: number };
@@ -30,6 +44,10 @@ export const SETTABLE: Record<ModelName, Setting[]> = {
     { key: "colsample_bytree", label: "Share of inputs per tree", min: 0.1, max: 1, step: 0.05 },
     { key: "min_child_weight", label: "Smallest leaf weight", min: 0, max: 50, step: 1 },
   ],
+  MLP: NEURAL,
+  LSTM: NEURAL,
+  GRU: NEURAL,
+  TCN: NEURAL,
 };
 
 export type Recipe = {
@@ -98,7 +116,8 @@ export function bodyOf(r: Recipe, options: (areaId: number, variable: VariableKe
     test_years: r.test_years,
   };
   const models = MODEL_NAMES.filter((m) => r.models.includes(m));
-  if (models.length < MODEL_NAMES.length) body.models = models;
+  // the API fits the paper's three when told nothing, so only another choice is sent
+  if (models.join() !== DEFAULT_MODELS.join()) body.models = models;
   const params = Object.fromEntries(models.filter((m) => r.params[m]).map((m) => [m, r.params[m]!]));
   if (Object.keys(params).length) body.params = params;
   if (!r.calendar) body.calendar = false;

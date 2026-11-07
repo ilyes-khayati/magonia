@@ -15,6 +15,7 @@ dependencies = [
     "scikit-learn>=1.5",
     "xgboost>=2.1",
     "pypdf>=6.21.4",
+    "torch>=2.6",
 ]
 
 [dependency-groups]
@@ -30,3 +31,13 @@ line-length = 100
 [tool.pytest.ini_options]
 markers = ["live: needs a real Earth Engine connection"]
 addopts = "-m 'not live'"
+
+# PyTorch from its CPU-only index: the series are short, a GPU is not needed, and the CPU
+# wheels are a fraction of the size
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true

@@ -757,7 +757,7 @@ test("an experiment runs a recipe, keeps its results, and two runs can be compar
   const experiment = page.getByRole("region", { name: "Experiment" });
   // nothing is chosen for the researcher: no model, no driver, no calendar
   await expect(experiment.getByRole("button", { name: "Run experiment" })).toBeDisabled();
-  for (const name of ["Ridge", "Random Forest", "XGBoost", /^LST/, /Calendar month/]) {
+  for (const name of ["Ridge", "Random Forest", "XGBoost", /^LST \(/, /Calendar month/]) {
     await expect(experiment.getByRole("checkbox", { name })).not.toBeChecked();
     await experiment.getByRole("checkbox", { name }).check();
   }
