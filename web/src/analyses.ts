@@ -56,6 +56,8 @@ export type Leakage = Named & {
   area?: number;
 };
 
+export type Purity = Named & { kind: "purity"; area?: number };
+
 // A forecast card from before the Model page; read once and turned into an experiment
 export type Models = {
   kind: "models";
@@ -66,7 +68,7 @@ export type Models = {
   test_years: number;
 };
 
-export type AnalysisBody = Correlation | Decomposition | Trend | Phenology | Lags | Scales | Coherence | Leakage;
+export type AnalysisBody = Correlation | Decomposition | Trend | Phenology | Lags | Scales | Coherence | Leakage | Purity;
 
 export type Analysis = { id: number } & AnalysisBody;
 
@@ -158,6 +160,13 @@ export const KINDS: KindInfo[] = [
     description: "The same forecast with the wavelet parts taken from the whole record and from the past only.",
     create: (chosen) => ({ kind: "leakage", response: chosen.find((k) => k !== "spei") ?? "ndvi", test_years: 3 }),
   },
+  {
+    kind: "purity",
+    label: "Pixel purity",
+    question: "How much of each pixel is the crop I think it is?",
+    description: "Each MODIS pixel's average year split into the most seasonal and the most even cover nearby.",
+    create: () => ({ kind: "purity" }),
+  },
 ];
 
 // The series an analysis needs; a decomposition works at the product's own time step
@@ -182,6 +191,8 @@ export function needsOf(analysis: Analysis): Need[] {
       return [analysis.response, analysis.driver].map((variable) => ({ variable, native: false }));
     case "leakage":
       return [{ variable: analysis.response, native: false }];
+    case "purity":
+      return []; // read from Earth Engine by the card, pixel by pixel
     case "scales":
       return [
         { variable: analysis.response, native: false },

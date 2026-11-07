@@ -3246,3 +3246,15 @@ input[type="checkbox"]:focus-visible {
   fill: var(--ink);
   fill-opacity: 0.82;
 }
+
+.purity-figures {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 900px) {
+  .purity-figures {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
