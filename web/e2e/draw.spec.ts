@@ -84,6 +84,23 @@ async function fakeApi(page: Page, connected = true) {
   await page.route("**/api/areas/*/pixels*", (route) =>
     route.fulfill({ json: { type: "FeatureCollection", features: [], pixel_m: 250 } }),
   );
+  await page.route("**/api/areas/*/purity*", (route) => {
+    const pixels = [];
+    for (let i = 0; i < 6; i++)
+      for (let j = 0; j < 6; j++)
+        pixels.push({ lon: 8.548 + i * 0.0025, lat: 36.498 + j * 0.0025, share: (i + j) / 10, amplitude: 0.3, error: 0.01, inside: i > 1 && i < 4 && j > 1 && j < 4 });
+    route.fulfill({
+      json: {
+        pixels,
+        perennial: Array(12).fill(0.55),
+        seasonal: [0.4, 0.6, 0.8, 0.7, 0.4, 0.2, 0.15, 0.15, 0.2, 0.25, 0.3, 0.35],
+        area_cycle: Array(12).fill(0.5),
+        area_share: 0.4,
+        pixel_m: 231.7,
+        summary: ["Orchard: its 4 MODIS pixels are on average 40% annual crop and 60% perennial cover."],
+      },
+    });
+  });
   await page.route("**/api/leakage", (route) => {
     const dates = Array.from({ length: 24 }, (_, i) => `${2023 + Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, "0")}`);
     const wave = dates.map((_, i) => 0.5 + 0.2 * Math.sin(i / 2));
@@ -1599,4 +1616,18 @@ test("a leakage audit sets whole-record against past-only decomposition, with a 
   await expect(card.getByRole("row", { name: /White noise/ })).toContainText("0.99");
   await expect(card.getByText(/On white noise, where nothing can be forecast/)).toBeVisible();
   await expect(card.locator('.plot-svg [data-mark="line"]').first()).toBeVisible();
+});
+
+test("pixel purity maps how much of each pixel around an area is annual crop", async ({ page }) => {
+  await page.getByTestId("upload").setInputFiles({
+    name: "fields.geojson",
+    mimeType: "application/geo+json",
+    buffer: Buffer.from(JSON.stringify(SQUARE)),
+  });
+  await page.getByRole("navigation", { name: "Pages" }).getByRole("link", { name: "Analyses" }).click();
+  await page.getByRole("region", { name: "Suggested analyses" }).getByRole("button", { name: /crop I think it is/ }).click();
+  const card = page.getByRole("region", { name: "Pixel purity" });
+  await expect(card.locator('.plot-svg [data-mark="geo"]').first()).toBeVisible();
+  await expect(card.getByText(/40% annual crop and 60% perennial/)).toBeVisible();
+  await expect(page.getByRole("button", { name: /notebook/i })).toHaveCount(0);
 });

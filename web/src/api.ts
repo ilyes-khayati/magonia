@@ -180,6 +180,19 @@ export type LeakageResponse = {
 export type LeakageBody = { response: SeriesOptions; test_years: number };
 export const leakageOf = (body: LeakageBody) => call<LeakageResponse>("/leakage", send("POST", body));
 
+export type PurityPixel = { lon: number; lat: number; share: number; amplitude: number; error: number; inside: boolean };
+export type PurityResponse = {
+  pixels: PurityPixel[];
+  perennial: number[];
+  seasonal: number[];
+  area_cycle: number[];
+  area_share: number;
+  pixel_m: number;
+  summary: string[];
+};
+export const areaPurity = (body: { area: number; start: string; end: string }) =>
+  call<PurityResponse>(`/areas/${body.area}/purity?start=${body.start}&end=${body.end}`);
+
 export type EarthEngineStatus = { connected: boolean; project: string | null; error: string | null };
 export const earthEngineStatus = () => call<EarthEngineStatus>("/earth-engine");
 export const setEarthEngineProject = (project: string) =>

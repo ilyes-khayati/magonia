@@ -8,6 +8,7 @@ import LagsCard from "./LagsCard";
 import PhenologyCard from "./PhenologyCard";
 import CoherenceCard from "./CoherenceCard";
 import LeakageCard from "./LeakageCard";
+import PurityCard from "./PurityCard";
 import ScalesCard from "./ScalesCard";
 import TrendCard from "./TrendCard";
 
@@ -37,6 +38,17 @@ export default function AnalysisCard({ analysis, onChange, onRemove, catalogue, 
           native={(v) => entries(v, true)}
           options={(id, v) => options(id, v, true)}
           seasonal={settings.resolution === "seasonal"}
+        />
+      );
+    case "purity":
+      return (
+        <PurityCard
+          analysis={analysis}
+          onChange={(change) => onChange(change)}
+          onRemove={() => onRemove()}
+          areas={entries("ndvi").map((e) => e.area)}
+          start={settings.start}
+          end={settings.end}
         />
       );
     case "leakage":

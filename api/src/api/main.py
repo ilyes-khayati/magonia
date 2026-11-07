@@ -26,6 +26,8 @@ from engine.models import ForecastError, design, forecast
 from engine.phenology import PhenologyError, phenology
 from engine.pipeline import Request, fingerprint
 from engine.prepare import Resolution
+from engine.purity import PurityError, purity
+from engine.purity import sample as sample_pixels
 from engine.series import Masking, band_name
 from engine.trend import trend
 from fastapi import Depends, FastAPI, HTTPException, Query, Response, UploadFile
@@ -374,6 +376,38 @@ def layer_tiles(
             502, plainly(exc, f"draw {get_variable(key).name} for {month}")
         ) from exc
     TILES[name] = (time.time(), found)
+    return found
+
+
+@app.get("/areas/{area_id}/purity")
+def area_purity(
+    area_id: int,
+    store: StoreDep,
+    start: Annotated[str, Query(pattern=r"^\d{4}-\d{2}$")] = "2003-01",
+    end: Annotated[str, Query(pattern=r"^\d{4}-\d{2}$")] = "2022-12",
+) -> dict:
+    """How much of each MODIS pixel over and around an area is annual crop, from its average
+    year split between the most seasonal and the most even vegetated pixels nearby."""
+    area = store.area(area_id)
+    if not area:
+        raise HTTPException(404, "area not found")
+    key = fingerprint(
+        {"purity": area["geometry"], "start": start, "end": end, "engine": engine.__version__}
+    )
+    if (held := store.result(key)) is not None:
+        return held
+    earth_engine(store)
+    last = pd.Period(end, "M").end_time.date() + timedelta(days=1)
+    try:
+        pixels = sample_pixels(area["geometry"], f"{start}-01", last.isoformat())
+    except Exception as exc:
+        log.exception("purity of area %s", area_id)
+        raise HTTPException(502, plainly(exc, "read the pixels around this area")) from exc
+    try:
+        found = purity(pixels, area["geometry"], area["name"]).to_dict()
+    except PurityError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    store.save_result(key, found)
     return found
 
 
