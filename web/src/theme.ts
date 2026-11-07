@@ -1,11 +1,11 @@
 export type Theme = "light" | "dark";
 
-// Area colours, by position in the workspace. Each pair differs in lightness as well
-// as hue, and green/blue come first so the first two areas stay apart for
-// colour-blind readers. Dark-theme versions are lighter to keep contrast.
+// Area colours, by position in the workspace: the Okabe–Ito palette, chosen to stay apart for
+// colour-blind readers and recommended by many journals. The dark theme starts from its lighter
+// members so the first areas keep their contrast on a dark background.
 const PALETTE: Record<Theme, string[]> = {
-  light: ["#2e7d4f", "#2459b8", "#c8571c", "#8e3fa8", "#a07800", "#c2185b"],
-  dark: ["#6cc28f", "#6d9df2", "#f08a4b", "#c58ae0", "#e0b84a", "#f0679a"],
+  light: ["#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00", "#56B4E9"],
+  dark: ["#56B4E9", "#E69F00", "#2EC4A0", "#E08FC1", "#F0E442", "#FF7A3D"],
 };
 
 export const areaColour = (theme: Theme, index: number) =>

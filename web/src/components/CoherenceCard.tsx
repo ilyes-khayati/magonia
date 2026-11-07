@@ -1,4 +1,5 @@
 import * as Plot from "@observablehq/plot";
+import { useEffect, useRef } from "react";
 import type { Coherence } from "../analyses";
 import { coherenceOf, type CoherenceBody, type CoherenceResponse, type SeriesOptions, type Variable, type VariableKey } from "../api";
 import { oneArea } from "../format";
@@ -20,8 +21,10 @@ type Props = {
   seasonal: boolean;
 };
 
-const TICKS = [2, 3, 6, 12, 24, 48, 96];
-const RAMP = ["#f7fbff", "#c6dbef", "#6baed6", "#2171b5", "#08306b"];
+// powers of two, as wavelet plots label periods: one tick per octave
+const TICKS = [2, 4, 8, 16, 32, 64, 128];
+const periodTicks = (found: CoherenceResponse) =>
+  TICKS.filter((t) => t >= found.periods[0] && t <= found.periods[found.periods.length - 1]);
 
 const nextMonth = (d: Date) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1));
 
@@ -63,11 +66,22 @@ function marks(found: CoherenceResponse) {
     }
   }
   return [
-    Plot.rect(cells, { x1: "x1", x2: "x2", y1: "y1", y2: "y2", fill: "value" }),
-    Plot.areaY(cone, { x: "t", y1: "coi", y2: top, fill: "var(--card)", fillOpacity: 0.6, curve: "step" }),
-    Plot.link(outline, { x1: "x1", x2: "x2", y1: "y1", y2: "y2", stroke: "black", strokeWidth: 1 }),
-    Plot.vector(arrows, { x: "x", y: "y", rotate: "rotate", length: 9, stroke: "black", strokeWidth: 1.2, anchor: "middle" }),
+    // cells overlap by a hair so that no seams show between them
+    Plot.rect(cells, { x1: "x1", x2: "x2", y1: "y1", y2: "y2", fill: "value", inset: -0.4 }),
+    Plot.areaY(cone, { x: "t", y1: "coi", y2: top, fill: "white", fillOpacity: 0.45, curve: "step" }),
+    Plot.link(outline, { x1: "x1", x2: "x2", y1: "y1", y2: "y2", stroke: "black", strokeWidth: 1.3 }),
+    Plot.vector(arrows, { x: "x", y: "y", rotate: "rotate", length: 11, stroke: "black", strokeWidth: 1.3, anchor: "middle" }),
   ];
+}
+
+// The colour scale with its values, as a figure's colour bar
+function ColourBar({ label }: { label: string }) {
+  const holder = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const bar = Plot.legend({ color: { type: "linear", domain: [0, 1], scheme: "viridis", label }, width: 260, ticks: 6, tickSize: 4, style: { fontFamily: "inherit", fontSize: "10.5px", background: "transparent", color: "currentColor" } });
+    holder.current?.replaceChildren(bar);
+  }, [label]);
+  return <div ref={holder} className="colour-bar" />;
 }
 
 // When, and at which periods, two variables move together, and which one leads
@@ -93,9 +107,14 @@ export default function CoherenceCard({ analysis, onChange, onRemove, variables,
   const chart: Plot.PlotOptions | null = found && {
     marginLeft: 48,
     x: { type: "utc", label: null, tickSize: 4, ticks: 8 },
-    y: { type: "log", domain: [found.periods[0], found.periods[found.periods.length - 1]], ticks: TICKS, tickFormat: (p: number) => `${p}`, label: "Period (months)", labelArrow: "none", reverse: true },
-    color: { domain: [0, 1], range: RAMP, interpolate: "rgb" },
-    marks: marks(found),
+    y: { type: "log", domain: [found.periods[0], found.periods[found.periods.length - 1]], axis: null, reverse: true },
+    color: { domain: [0, 1], scheme: "viridis" },
+    marks: [
+      ...marks(found),
+      // every octave labelled, none outside the plot: a log axis would leave some unlabelled
+      Plot.axisY(periodTicks(found), { tickFormat: () => "", tickSize: 4, label: "Period (months)", labelArrow: "none", labelAnchor: "top" }),
+      Plot.text(periodTicks(found), { y: (p: number) => p, text: (p: number) => String(p), frameAnchor: "left", dx: -7, textAnchor: "end", fill: "currentColor" }),
+    ],
   };
 
   return (
@@ -165,8 +184,7 @@ export default function CoherenceCard({ analysis, onChange, onRemove, variables,
         <>
           <PlotFrame title="Wavelet coherence" options={chart} height={280} />
           <div className="coherence-key">
-            <span className="ramp" style={{ background: `linear-gradient(to right, ${RAMP.join(", ")})` }} />
-            <span className="meta">0 → 1 coherence</span>
+            <ColourBar label="Coherence" />
             <span className="meta">
               Outlined: beyond red noise (95%). Pale ends: distorted by the record&apos;s edges. Arrows: → together, ← opposite,
               ↓ {name(analysis.response)} leads, ↑ {name(analysis.driver)} leads.

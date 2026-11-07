@@ -2389,7 +2389,7 @@ td {
 
 .chart-box svg {
   display: block;
-  color: var(--muted);
+  color: var(--ink);
 }
 
 .chart-box svg [data-mark="y-grid"] line,
@@ -2398,8 +2398,10 @@ td {
   stroke-opacity: 1;
 }
 
+/* figure text: the ink colour, slightly softened, as in a printed figure */
 .chart-box svg text {
-  fill: var(--muted);
+  fill: var(--ink);
+  fill-opacity: 0.82;
 }
 
 .chart-overlay {
@@ -3232,4 +3234,15 @@ input[type="checkbox"]:focus-visible {
   width: 120px;
   height: 8px;
   border: 1px solid var(--line);
+}
+
+.colour-bar svg {
+  display: block;
+  color: var(--ink);
+  overflow: visible;
+}
+
+.colour-bar text {
+  fill: var(--ink);
+  fill-opacity: 0.82;
 }
