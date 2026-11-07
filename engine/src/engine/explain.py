@@ -18,11 +18,21 @@ import pandas as pd
 from scipy.stats import weightedtau
 from sklearn.inspection import permutation_importance
 from sklearn.model_selection import TimeSeriesSplit
+from xgboost import DMatrix
 
+from engine.models import LABELS as MODEL_LABELS
 from engine.models import estimator
 
 CV = TimeSeriesSplit(n_splits=5)
-ORDER = ("XGBoost", "RandomForest", "Ridge")  # as the paper lists them
+ORDER = (
+    "XGBoost",
+    "RandomForest",
+    "Ridge",
+    "MLP",
+    "LSTM",
+    "GRU",
+    "TCN",
+)  # the paper's, then networks
 
 
 def family(feature: str) -> str:
@@ -154,6 +164,12 @@ class Explanation:
     family_range: dict[str, dict[str, list[float]]] = field(default_factory=dict)
     # error rise when a family is left out and the model refitted: model -> family -> share
     dropped: dict[str, dict[str, float]] = field(default_factory=dict)
+    # the model's own explanation (coefficients, TreeSHAP, impurity, gradient × input):
+    # model -> {"method", "importance": feature -> value, "tau": agreement with shuffling}
+    native: dict[str, dict] = field(default_factory=dict)
+    # month by month, how far each family moves the forecast when replaced by its mean:
+    # model -> list of {"date", family -> change}
+    timeline: dict[str, list[dict]] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return {
@@ -163,6 +179,8 @@ class Explanation:
             "seeds": self.seeds,
             "family_range": self.family_range,
             "dropped": self.dropped,
+            "native": self.native,
+            "timeline": self.timeline,
         }
 
 
@@ -188,6 +206,45 @@ def drop_family(name: str, params: dict, X: pd.DataFrame, y: pd.Series) -> dict[
     return out
 
 
+NATIVE = {
+    "Ridge": "standardised coefficients",
+    "XGBoost": "TreeSHAP",
+    "RandomForest": "impurity decrease",
+}
+
+
+def native(name: str, model, X: pd.DataFrame) -> tuple[str, pd.Series]:
+    """Each model's own account of its inputs, in its own terms: what a researcher would get
+    from the library without Magonia. Mean absolute size per input."""
+    if name == "Ridge":
+        ridge = model[-1]
+        return NATIVE[name], pd.Series(np.abs(ridge.coef_), index=X.columns)
+    if name == "XGBoost":
+        contributions = model.get_booster().predict(DMatrix(X), pred_contribs=True)[:, :-1]
+        return NATIVE[name], pd.Series(np.abs(contributions).mean(axis=0), index=X.columns)
+    if name == "RandomForest":
+        return NATIVE[name], pd.Series(model.feature_importances_, index=X.columns)
+    return "gradient × input", pd.Series(np.abs(model.gradients(X)).mean(axis=0), index=X.columns)
+
+
+def timeline(model, X: pd.DataFrame) -> list[dict]:
+    """For every month, how much the forecast moves when one family of inputs is set to its
+    average: positive when that family pushed the forecast up that month."""
+    families = pd.Series({c: family(c) for c in X.columns})
+    full = model.predict(X)
+    out = pd.DataFrame(index=X.index)
+    for name, columns in families.groupby(families).groups.items():
+        if name == "noise probe":
+            continue
+        flat = X.copy()
+        flat[list(columns)] = X[list(columns)].mean().to_numpy()
+        out[name] = full - model.predict(flat)
+    return [
+        {"date": f"{d:%Y-%m}", **{k: round(float(v), 5) for k, v in row.items()}}
+        for d, row in out.iterrows()
+    ]
+
+
 def explain(X: pd.DataFrame, y: pd.Series, params: dict[str, dict], seeds: int = 5) -> Explanation:
     """Permutation importance, family shares and agreement of the three models, on the
     training years only. Ridge fits the same every time, but its shuffles vary by seed."""
@@ -200,6 +257,17 @@ def explain(X: pd.DataFrame, y: pd.Series, params: dict[str, dict], seeds: int =
         ranges[name] = {k: [float(each.loc[k].min()), float(each.loc[k].max())] for k in each.index}
         dropped[name] = drop_family(name, params[name], X, y)
     importance = {m: pd.concat(r, axis=1).mean(axis=1).to_dict() for m, r in runs.items()}
+    own, months = {}, {}
+    for name in runs:
+        model = estimator(name, params[name]).fit(X, y)
+        method, values = native(name, model, X)
+        shuffled = pd.Series(importance[name])
+        own[name] = {
+            "method": method,
+            "importance": values.to_dict(),
+            "tau": tau(shuffled.clip(lower=0), values),
+        }
+        months[name] = timeline(model, X)
     return Explanation(
         importance,
         {m: f.to_dict() for m, f in families.items()},
@@ -207,10 +275,12 @@ def explain(X: pd.DataFrame, y: pd.Series, params: dict[str, dict], seeds: int =
         seeds,
         ranges,
         dropped,
+        own,
+        months,
     )
 
 
-LABELS = {"Ridge": "Ridge", "RandomForest": "Random Forest", "XGBoost": "XGBoost"}
+LABELS = MODEL_LABELS
 
 
 def describe(area: str, explained: Explanation) -> list[str]:
@@ -272,6 +342,30 @@ def describe(area: str, explained: Explanation) -> list[str]:
                 for k, v in ranked
             )
             + "."
+        )
+    for name in [n for n in ORDER if n in explained.native]:
+        own = explained.native[name]
+        verdict = (
+            "agrees with shuffling"
+            if own["tau"] >= 0.7
+            else "partly agrees with shuffling"
+            if own["tau"] >= 0.4
+            else "disagrees with shuffling"
+        )
+        details.append(
+            f"{area}: {LABELS[name]}'s own explanation ({own['method']}) {verdict} on which "
+            f"inputs matter (weighted τ {own['tau']:.2f})."
+        )
+    for name in [n for n in ORDER if n in explained.timeline]:
+        months = pd.DataFrame(explained.timeline[name]).set_index("date")
+        if months.empty:
+            continue
+        size = months.abs()
+        top = size.max().idxmax()
+        when = size[top].idxmax()
+        details.append(
+            f"{area}: month by month, {LABELS[name]}'s forecast is moved most by {top}, most of "
+            f"all in {when} ({months.loc[when, top]:+.3f})."
         )
     return lines + details
 

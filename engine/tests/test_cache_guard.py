@@ -13,8 +13,8 @@ import engine
 # The modules whose output is cached
 COMPUTING = ["areas", "catalogue", "explain", "models", "pipeline", "prepare", "series"]
 
-VERSION = "0.0.1"
-HASH = "13953a6a35fe03ce"
+VERSION = "0.0.2"
+HASH = "a193f83c5f61542d"
 
 
 def source_hash() -> str:
