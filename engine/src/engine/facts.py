@@ -570,6 +570,21 @@ class View:
                             lag_facts(card, response, drivers, analysis.get("deseasonalise", True))
                         )
                 continue
+            if analysis.get("kind") == "leakage":
+                from engine.leakage import LeakageError, audit
+
+                for area in areas:
+                    if s := self.find(area, analysis["response"]):
+                        card = f"{titled(analysis, f'Leakage audit {n}')}: {s.title}"
+                        try:
+                            found = audit(
+                                monthly_series(s), s.title, area, analysis.get("test_years", 3)
+                            )
+                        except LeakageError as exc:
+                            facts.append(Fact(card, str(exc)))
+                            continue
+                        facts += [Fact(card, line) for line in found.summary]
+                continue
             if analysis.get("kind") == "coherence":
                 from engine.coherence import CoherenceError, coherence
 

@@ -155,6 +155,31 @@ export type CoherenceResponse = {
 export type CoherenceBody = { response: SeriesOptions; driver: SeriesOptions; deseasonalise: boolean };
 export const coherenceOf = (body: CoherenceBody) => call<CoherenceResponse>("/coherence", send("POST", body));
 
+export type LeakageRow = {
+  model: string;
+  trend_whole: number;
+  trend_causal: number;
+  seasonal_whole: number;
+  seasonal_causal: number;
+  whole: number;
+  causal: number;
+  raw: number;
+};
+export type LeakageResponse = {
+  test: [string, string];
+  rows: LeakageRow[];
+  placebo: { whole: number; causal: number };
+  baselines: { persistence: number; climatology: number };
+  dates: string[];
+  observed: number[];
+  whole: number[];
+  causal: number[];
+  best: string;
+  summary: string[];
+};
+export type LeakageBody = { response: SeriesOptions; test_years: number };
+export const leakageOf = (body: LeakageBody) => call<LeakageResponse>("/leakage", send("POST", body));
+
 export type EarthEngineStatus = { connected: boolean; project: string | null; error: string | null };
 export const earthEngineStatus = () => call<EarthEngineStatus>("/earth-engine");
 export const setEarthEngineProject = (project: string) =>
@@ -584,7 +609,7 @@ export async function ask(
 // An analysis as a Jupyter notebook that reproduces it from the data it used (REP-01)
 export type NotebookBody = {
   title: string;
-  kind: "experiment" | "decomposition" | "trend" | "phenology" | "lags" | "correlation" | "scales" | "coherence";
+  kind: "experiment" | "decomposition" | "trend" | "phenology" | "lags" | "correlation" | "scales" | "coherence" | "leakage";
   options: Record<string, unknown>;
   series: SeriesOptions[];
 };

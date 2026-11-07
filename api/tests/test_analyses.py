@@ -503,3 +503,23 @@ def test_coherence_needs_three_years(client, store):
     }
     reply = client.post("/coherence", json=body)
     assert reply.status_code == 422 and "at least 36" in reply.json()["detail"]
+
+
+def test_a_leakage_audit_compares_both_decompositions_and_is_kept(client, store):
+    area_id = area(client)
+    green = [0.5 + 0.2 * math.sin(2 * math.pi * i / 12) + 0.01 * math.sin(i) for i in range(144)]
+    ndvi = cache_years(store, "ndvi", None, green)
+    body = {"response": {**ndvi, "area_id": area_id, "masking": "pixel"}, "test_years": 2}
+    found = client.post("/leakage", json=body).json()
+    assert {r["model"] for r in found["rows"]} == {"Ridge", "RandomForest", "XGBoost"}
+    assert len(found["dates"]) == 24 and "on white noise" in found["summary"][1]
+    assert client.post("/leakage", json=body).json() == found
+
+
+def test_a_leakage_audit_needs_eight_years(client, store):
+    area_id = area(client)
+    ndvi = cache_years(store, "ndvi", None, [0.5] * 60)
+    reply = client.post(
+        "/leakage", json={"response": {**ndvi, "area_id": area_id, "masking": "pixel"}}
+    )
+    assert reply.status_code == 422 and "needs 96" in reply.json()["detail"]
