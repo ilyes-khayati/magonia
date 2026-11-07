@@ -63,3 +63,24 @@ def test_a_cited_page_is_kept_only_if_a_passage_came_from_it():
     result = check("Lost NDVI [1, p. 6]; also [1 p.9] and [2, pp. 3-4].", papers, {1: {6}})
     assert result.text == "Lost NDVI [1, p. 6]; also [1] and [2]."
     assert result.pages_removed == ["[1, p. 9]", "[2, p. 3]"]
+
+
+def test_a_sentence_naming_a_paper_found_is_cited_by_its_number():
+    result = check(
+        "Sghaier et al., 2022 assessed drought in arid groves. As Crespo et al. (2025) found, "
+        "irrigation helps. Daiz showed it too. Smith et al. (2019) disagree. Drought lowers "
+        "NDVI [1].",
+        THREE,
+    )
+    assert result.text == (
+        "Sghaier et al., 2022 assessed drought in arid groves [1]. As Crespo et al. (2025) "
+        "found, irrigation helps [2]. Daiz showed it too [3]. Smith et al. (2019) disagree. "
+        "Drought lowers NDVI [1]."
+    )
+    assert result.cited == [1, 2, 3]
+
+
+def test_a_surname_shared_by_two_papers_needs_its_year():
+    two = [paper("Sghaier", 2022), paper("Sghaier", 2024)]
+    assert check("Sghaier et al. found a fall.", two).text == "Sghaier et al. found a fall."
+    assert check("Sghaier et al. (2024) found a fall.", two).text.endswith("fall [2].")
