@@ -255,3 +255,24 @@ export const RedoIcon = (p: IconProps) => (
     <path d="M20 9H10a6 6 0 000 12h3" />
   </Svg>
 );
+
+export const SettingsIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />
+    <rect x="14" y="5" width="4" height="4" />
+    <rect x="6" y="15" width="4" height="4" />
+  </Svg>
+);
+
+export const FitIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" />
+    <rect x="9" y="9" width="6" height="6" />
+  </Svg>
+);
+
+export const MoreIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M5 12h.01M12 12h.01M19 12h.01" strokeWidth={2.5} strokeLinecap="round" />
+  </Svg>
+);

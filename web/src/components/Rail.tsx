@@ -16,11 +16,14 @@ const ICONS = {
 type Props = {
   workspaceId: number | null;
   magon: { open: boolean; onToggle: () => void };
+  workspace: React.ReactNode; // the workspace menu, at the head
+  settings: React.ReactNode; // the settings menu, under Magon
 };
 
-// The pages of the workbench, and at the foot Magon, which opens beside whichever page is open
-// (⌘J or Ctrl+J from anywhere): a colleague at hand, not a page of its own
-export default function Rail({ workspaceId, magon }: Props) {
+// The workspace at the head, the pages of the workbench, and at the foot Magon, which opens
+// beside whichever page is open (⌘J or Ctrl+J from anywhere): a colleague at hand, not a page
+// of its own. Settings sit under it.
+export default function Rail({ workspaceId, magon, workspace, settings }: Props) {
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() === "j" && (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {
@@ -34,6 +37,7 @@ export default function Rail({ workspaceId, magon }: Props) {
 
   return (
     <nav className="rail" aria-label="Pages">
+      {workspace}
       {workspaceId !== null &&
         PAGES.filter((p) => p.key !== "assistant").map(({ key, label, title }) => {
           const Icon = ICONS[key];
@@ -55,6 +59,7 @@ export default function Rail({ workspaceId, magon }: Props) {
         <MagonIcon size={18} />
         <span>Magon</span>
       </button>
+      {settings}
     </nav>
   );
 }

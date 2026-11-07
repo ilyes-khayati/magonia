@@ -44,6 +44,8 @@ methods around it. Politely decline anything else.
 - Say how sure you are, and say when evidence is thin or studies disagree.
 - Be concise and plain. Researchers are busy.
 - Answer in the language the researcher writes in, even when the papers are in English.
+- Never name your tools or write code for them: say in words what you looked at.
+- End when the answer is complete, without offering more help.
 - Questions on methods, such as models, their settings or statistics, may be answered from \
 general knowledge: say it is general advice, and relate it to what Magonia lets them set."""
 
@@ -188,6 +190,39 @@ class ToolCall:
 
 
 TOOLS = {"search_papers", "read_series", "propose_analysis"}
+
+
+# What a small model adds that the researcher should never read: its tools named in a sentence
+# or a code block, and a closing offer of more help
+TOOL_NAMED = re.compile(r"`?\b(read_series|search_papers)\b`?")
+CODE = re.compile(r"```[a-z]*\n.*?```", re.DOTALL)
+CLOSING = re.compile(
+    r"\n+\s*(if you have any|feel free to|let me know if|i hope this helps|do you want me to|"
+    r"would you like me to)[^\n]*\s*$",
+    re.IGNORECASE,
+)
+
+
+def tidy(text: str) -> str:
+    """The answer without the machinery: code blocks and sentences that name a tool, and a
+    closing offer of more help."""
+    text = CODE.sub(lambda m: "" if TOOL_NAMED.search(m.group()) else m.group(), text)
+    lines = []
+    for line in text.split("\n"):
+        if TOOL_NAMED.search(line):
+            # keep the line's bullet and label, and those of its sentences that name no tool
+            head = re.match(r"\s*(?:[-*•]|\d+\.)?\s*(?:\*\*[^*]+\*\*\s*)?", line).group()
+            kept = [
+                s for s in re.split(r"(?<=[.!?])\s+", line[len(head) :]) if not TOOL_NAMED.search(s)
+            ]
+            if not kept:
+                continue
+            line = head + " ".join(kept)
+        lines.append(line)
+    text = "\n".join(lines)
+    while (closing := CLOSING.search(text)) and closing.start() > 0:
+        text = text[: closing.start()]
+    return re.sub(r"\n{3,}", "\n\n", text).strip()
 
 
 def written_calls(text: str) -> tuple[list[ToolCall], str]:
@@ -656,7 +691,7 @@ def answer(
             messages.append({"role": "tool", "content": given})
 
     _, said_text = written_calls("".join(said))  # a call it can no longer make is not shown
-    verdict = check(said_text, papers, pages)
+    verdict = check(tidy(said_text), papers, pages)
     event = {"type": "check", "text": verdict.text, **verdict.to_dict()}
     # numbers are checked when there was something to check them against
     if facts or papers or kind == "method":

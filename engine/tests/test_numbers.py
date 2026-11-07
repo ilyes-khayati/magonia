@@ -74,3 +74,7 @@ def test_digits_in_the_name_of_a_card_are_not_measurements():
     )
     found = check_numbers(answer, sources)
     assert [(n.text, n.status) for n in found] == [("63", "verified")]
+
+
+def test_a_year_is_not_marked_as_a_number():
+    assert statuses("In 2022 May was 0.86.") == [("0.86", "verified", "reading Corn NDVI 2022")]

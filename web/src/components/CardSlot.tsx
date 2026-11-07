@@ -28,6 +28,7 @@ export default function CardSlot(props: Props) {
     <div
       ref={slot}
       className="slot"
+      data-slot={id}
       data-wide={layout.wide ?? false}
       data-collapsed={layout.collapsed ?? false}
       data-over={over}

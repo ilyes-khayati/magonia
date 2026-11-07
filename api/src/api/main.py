@@ -508,12 +508,15 @@ def list_workspaces(store: StoreDep, deleted: bool = False) -> list[WorkspaceSum
 
 @app.get("/workspaces/{workspace_id}")
 def open_workspace(workspace_id: int, store: StoreDep) -> Workspace:
-    """Everything in a workspace, including finished results, without recomputing."""
+    """Everything in a workspace, including finished results, without recomputing. A series
+    asked for again is a new job; only the latest for each request is sent, or a workspace in
+    long use would send every run it ever made."""
     workspace = existing_workspace(store, workspace_id)
+    latest = {json.dumps(job["request"], sort_keys=True): job for job in store.jobs(workspace_id)}
     return Workspace(
         **workspace,
         areas=store.areas(workspace_id),
-        jobs=[job_view(store, job) for job in store.jobs(workspace_id)],
+        jobs=[job_view(store, job) for job in latest.values()],
     )
 
 

@@ -55,7 +55,7 @@ import ModelPage from "./components/ModelPage";
 import Rail from "./components/Rail";
 import Sidebar from "./components/Sidebar";
 import Toolbar from "./components/Toolbar";
-import TopBar from "./components/TopBar";
+import { SettingsMenu, WorkspaceMenu } from "./components/RailMenus";
 import UndoBar from "./components/UndoBar";
 import Reader from "./components/Reader";
 import { ReaderContext, whereToRead, type Readable } from "./reader";
@@ -171,7 +171,6 @@ export default function App() {
   const [panel, setPanel] = useState(panelSaved);
   const [earthEngine, setEarthEngine] = useState<EarthEngineStatus | null>(null);
   const [setupOpen, setSetupOpen] = useState(false);
-  const [focus, setFocus] = useState(false);
   const [undo, setUndo] = useState<Undo | null>(null);
   const [attached, setAttached] = useState<{ title: string; key: number } | null>(null);
   const [reading, setReading] = useState<Readable | null>(null);
@@ -776,7 +775,6 @@ export default function App() {
     { id: "layers", group: "Map", label: layersOpen ? "Hide layers" : "Show layers", hint: "L", run: () => openLayers(!layersOpen) },
     { id: "grid", group: "Map", label: grid ? "Hide the pixel grid" : "Outline the pixels over each area", hint: "G", run: () => setGrid(grid ? null : (layer?.variable ?? "ndvi")) },
     { id: "fit", group: "Map", label: "Zoom to the areas", hint: "Z", run: () => (page === "map" ? fit() : (toPage("map"), fit())) },
-    { id: "focus", group: "Map", label: focus ? "Show the panels" : "Focus the map", hint: "F", run: () => setFocus(!focus) },
     ...(layer ? [
       { id: "prev", group: "Month", label: "Previous month", hint: "[", run: () => setMonth(shiftMonth(chosenMonth, -1)) },
       { id: "next", group: "Month", label: "Next month", hint: "]", run: () => setMonth(shiftMonth(chosenMonth, 1)) },
@@ -812,7 +810,6 @@ export default function App() {
       l: () => openLayers(!layersOpen),
       g: () => setGrid(grid ? null : (layer?.variable ?? "ndvi")),
       z: fit,
-      f: () => page === "map" && setFocus(!focus),
       "[": () => layer && setMonth(shiftMonth(chosenMonth, -1)),
       "]": () => layer && setMonth(shiftMonth(chosenMonth, 1)),
     };
@@ -838,24 +835,28 @@ export default function App() {
     <ReaderContext.Provider value={read}>
     <TimeProvider month={month} onMonth={setMonth}>
     <div
-      className={`workbench page-${page}${focus && page === "map" ? " focus" : ""}${docked ? " docked" : ""}`}
+      className={`workbench page-${page}${docked ? " docked" : ""}`}
       style={{ "--panel-width": `${panel.width}px`, "--data-open": `${dataWidth}px` } as React.CSSProperties}
     >
-      <TopBar
-        theme={theme}
-        onTheme={() => setTheme(theme === "light" ? "dark" : "light")}
-        workspaces={workspaces}
+      <Rail
         workspaceId={workspaceId}
-        onOpen={(id) => navigate(pagePath(id, page))}
-        onNew={newWorkspace}
-        onRename={renameWorkspace}
-        onDelete={removeWorkspace}
-        onRestore={(id) => bringBack(id).catch(fail)}
-        onForget={forget}
-        earthEngine={earthEngine}
-        onEarthEngine={() => setSetupOpen(true)}
+        magon={magon}
+        workspace={
+          <WorkspaceMenu
+            workspaces={workspaces}
+            workspaceId={workspaceId}
+            onOpen={(id) => navigate(pagePath(id, page))}
+            onNew={newWorkspace}
+            onRename={renameWorkspace}
+            onDelete={removeWorkspace}
+            onRestore={(id) => bringBack(id).catch(fail)}
+            onForget={forget}
+          />
+        }
+        settings={
+          <SettingsMenu theme={theme} onTheme={setTheme} earthEngine={earthEngine} onEarthEngine={() => setSetupOpen(true)} />
+        }
       />
-      <Rail workspaceId={workspaceId} magon={magon} />
 
       {page === "data" && (
         <Sidebar>
@@ -900,8 +901,6 @@ export default function App() {
               setInspectVariable((v) => v ?? layer?.variable ?? "ndvi");
             }}
             inspected={inspected}
-            focus={focus}
-            onFocus={() => setFocus(!focus)}
             visible={page === "map"}
             layer={layer}
             month={layer ? chosenMonth : null}
@@ -962,6 +961,10 @@ export default function App() {
             areas={areas}
             colours={colours}
             hidden={hidden}
+            onZoom={(area) => {
+              const box = bounds([area.geometry]);
+              if (box) setTarget({ key: Date.now(), bounds: box });
+            }}
             onToggle={toggle}
             onRename={rename}
             onDelete={remove}
