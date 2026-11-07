@@ -4,7 +4,8 @@ import { MODEL_LABEL, type ModelName } from "../experiments";
 import { areaColour, type Theme } from "../theme";
 import Cautions from "./Cautions";
 import { num, oneArea } from "../format";
-import { TimeChart } from "../plot/Chart";
+import * as Plot from "@observablehq/plot";
+import { PlotFrame, TimeChart } from "../plot/Chart";
 import { dateOf } from "../plot/time";
 import type { AnalysisState } from "../useAnalysis";
 
@@ -280,6 +281,7 @@ function Explanations({ data }: { data: ExplanationResponse }) {
           </table>
         </div>
       )}
+      <LagMap data={data} models={models} />
       {data.timeline && Object.keys(data.timeline).length > 0 && <Timeline data={data} models={models.filter((m) => data.timeline?.[m])} />}
       <ul className="summary">
         {oneArea(data.summary).map((line) => (
@@ -375,6 +377,43 @@ function Timeline({ data, models }: { data: ExplanationResponse; models: string[
       <span className="meta">
         Each family set to its average and the forecast made again: above zero, that family pushed the forecast up that month.
       </span>
+    </>
+  );
+}
+
+// Which month of which input each model leans on: shuffling importance by lag, as a share of
+// the model's total, one row per input series
+function LagMap({ data, models }: { data: ExplanationResponse; models: string[] }) {
+  const [model, setModel] = useState(models[0]);
+  const importance = data.importance[model] ?? {};
+  const total = Object.values(importance).reduce((a, v) => a + Math.max(0, v), 0) || 1;
+  const cells = Object.entries(importance).flatMap(([feature, v]) => {
+    const m = /^(.*)_lag(\d+)$/.exec(feature);
+    return m ? [{ input: m[1], lag: Number(m[2]), share: Math.max(0, v) / total }] : [];
+  });
+  if (!cells.length) return null;
+  const options: Plot.PlotOptions = {
+    marginLeft: 110,
+    marginBottom: 40,
+    x: { type: "band", label: "Months earlier", labelAnchor: "center", labelArrow: "none", labelOffset: 34 },
+    y: { type: "band", label: null },
+    color: { scheme: "viridis", domain: [0, Math.max(...cells.map((c) => c.share))] },
+    marks: [
+      Plot.cell(cells, { x: "lag", y: "input", fill: "share", inset: 0.5 }),
+      Plot.text(cells, { x: "lag", y: "input", text: (c: { share: number }) => `${Math.round(100 * c.share)}%`, fill: (c: { share: number }) => (c.share > 0.25 ? "black" : "white"), fontSize: 10 }),
+    ],
+  };
+  return (
+    <>
+      <h4 className="results-head">Which month of which input it leans on</h4>
+      <div className="segmented small" role="group" aria-label="Model shown by lag">
+        {models.map((m) => (
+          <button key={m} aria-pressed={m === model} onClick={() => setModel(m)}>
+            {label(m)}
+          </button>
+        ))}
+      </div>
+      <PlotFrame title={`Importance by lag, ${label(model)}`} options={options} height={Math.max(120, 40 * new Set(cells.map((c) => c.input)).size + 60)} />
     </>
   );
 }
