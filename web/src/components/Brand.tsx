@@ -11,8 +11,10 @@ export function MagoniaMark({ size = 28, tone = "color", alive = false }: Props 
   const grid = gridFor(size);
   const n = grid.length,
     cell = 100 / n;
-  const gap = size / n >= 4 ? cell * 0.1 : 0;
   const ink = tone === "ink";
+  // halftone: each pixel a round dot, larger where the green is stronger, nudged off the grid
+  // by a fixed amount so the bird reads as printed rather than drawn on squares
+  const nudge = (i: number, j: number, k: number) => (((i * 73 + j * 151 + k * 37) % 17) / 17 - 0.5) * cell * 0.22;
   return (
     <svg
       width={size}
@@ -24,13 +26,12 @@ export function MagoniaMark({ size = 28, tone = "color", alive = false }: Props 
       {grid.map((row, j) =>
         [...row].map((d, i) =>
           d === "." ? null : (
-            <rect
+            <circle
               key={`${i}-${j}`}
-              className={`m${d}`}
-              x={i * cell + gap / 2}
-              y={j * cell + gap / 2}
-              width={cell - gap}
-              height={cell - gap}
+              className={`dot m${d}`}
+              cx={(i + 0.5) * cell + nudge(i, j, 1)}
+              cy={(j + 0.5) * cell + nudge(i, j, 2)}
+              r={cell * (0.3 + 0.07 * Number(d))}
               style={alive ? { animationDelay: `${((i + j) * 0.06).toFixed(2)}s` } : undefined}
             />
           ),

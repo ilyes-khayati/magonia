@@ -2197,12 +2197,12 @@ button:disabled {
 .magonia-mark .m4 { fill: var(--m4); }
 .magonia-mark .eye { fill: var(--m4); }
 
-.magonia-mark.ink rect,
+.magonia-mark.ink .dot,
 .magonia-mark.ink .eye {
   fill: currentColor;
 }
 
-.magonia-mark.alive rect {
+.magonia-mark.alive .dot {
   animation: mark-wave 1.6s ease-in-out infinite;
 }
 
@@ -2217,7 +2217,7 @@ button:disabled {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .magonia-mark.alive rect {
+  .magonia-mark.alive .dot {
     animation: none;
   }
 }
