@@ -11,7 +11,9 @@
   --line: #d6dbd4;
   --grid: #e4e8e2;
   --zero: #9aa39d;
-  --accent: #1f5f3a;
+  --accent: #177a43;
+  --accent-ink: #146637; /* green text, readable on a green tint */
+  --brand: linear-gradient(135deg, #6b3fa0, #1f9e89 55%, #5cc15a);
   --on-accent: #ffffff;
   --selected: #17201b;
   --on-selected: #ffffff;
@@ -45,7 +47,8 @@
   --line: #29302b;
   --grid: #222924;
   --zero: #5e6862;
-  --accent: #7bc796;
+  --accent: #6fd69a;
+  --accent-ink: #8ce3ae;
   --on-accent: #0b0e0c;
   --selected: #e6eae7;
   --on-selected: #0b0e0c;
@@ -123,25 +126,45 @@ button:disabled {
   position: relative;
 }
 
-/* The workspace's initials head the rail, like a file's icon; its menu opens beside the rail */
-.workspace-badge {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  margin: 0 auto 10px;
+/* Magonia's mark heads the rail, with the open workspace under it; a click opens its menu */
+.workspace-switch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  margin: 0 0 10px;
+  padding: 4px 2px 8px;
   border: none;
-  border-radius: 6px;
-  background: var(--accent);
-  color: var(--on-accent);
-  font-weight: 600;
-  font-size: 14px;
-  letter-spacing: 0.02em;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
 }
 
-.workspace-badge:hover,
-.workspace-badge[aria-expanded="true"] {
-  box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--accent);
+.workspace-current {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  max-width: 100%;
+  font-size: var(--text-xs);
+  line-height: 1.2;
+}
+
+.workspace-current > span {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-width: 66px;
+  text-align: center;
+  overflow-wrap: break-word;
+}
+
+.workspace-switch:hover,
+.workspace-switch[aria-expanded="true"] {
+  color: var(--ink);
 }
 
 .rail-pop {
@@ -309,8 +332,9 @@ button:disabled {
 }
 
 .rail-link[aria-current="page"] {
-  background: var(--selected);
-  color: var(--on-selected);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent-ink);
+  font-weight: 500;
 }
 
 .content {
@@ -804,7 +828,7 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  align-items: stretch;
+  align-items: flex-end;
   z-index: 2;
 }
 
@@ -2144,22 +2168,12 @@ button:disabled {
 
 .rail-link.magon {
   cursor: pointer;
-  color: var(--ink);
-  font-weight: 500;
-}
-
-.rail-link.magon:hover {
-  background: transparent;
-}
-
-.rail-link.magon:hover .magon-avatar,
-.rail-link.magon[aria-pressed="true"] .magon-avatar {
-  box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px #3f9a63;
 }
 
 .rail-link.magon[aria-pressed="true"] {
-  background: transparent;
-  box-shadow: none;
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--line);
 }
 
 /* Magon's face: the same greens in both themes, so it is recognised anywhere */
@@ -2168,7 +2182,7 @@ button:disabled {
   place-items: center;
   flex: none;
   border-radius: 50%;
-  background: radial-gradient(circle at 30% 25%, #5fb882, #1f5f3a 70%);
+  background: var(--brand);
   color: #ffffff;
   transition: box-shadow 0.15s;
 }
@@ -2700,8 +2714,8 @@ kbd {
 }
 
 .map-buttons button {
-  min-width: 32px;
-  height: 32px;
+  min-width: 30px;
+  height: 30px;
   border: none;
   background: transparent;
   padding: 0 8px;
@@ -3177,7 +3191,7 @@ input[type="checkbox"] {
   margin: 0;
   flex: none;
   border: 1.5px solid var(--muted);
-  border-radius: 0;
+  border-radius: 3px;
   background: var(--card);
   display: inline-grid;
   place-content: center;
@@ -3312,15 +3326,14 @@ input[type="checkbox"]:focus-visible {
 }
 
 .primary {
-  border: 1px solid var(--ink);
-  background: var(--ink);
-  color: var(--card);
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
 }
 
 .primary:hover:not(:disabled) {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--on-accent);
+  background: color-mix(in srgb, var(--accent) 85%, var(--ink));
+  border-color: color-mix(in srgb, var(--accent) 85%, var(--ink));
 }
 
 .button {
@@ -3452,7 +3465,7 @@ textarea.input {
 
 .segmented button[aria-pressed="true"] {
   color: var(--ink);
-  border-bottom-color: var(--ink);
+  border-bottom-color: var(--accent);
 }
 
 .page-head .segmented button {
@@ -3668,4 +3681,10 @@ textarea.input {
 
 .theme-swatch.system {
   background: linear-gradient(135deg, #eceeea 0 50%, #0b0e0c 50%);
+}
+
+input[type="checkbox"],
+input[type="radio"],
+input[type="range"] {
+  accent-color: var(--accent);
 }
