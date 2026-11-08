@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { deletedWorkspaces, type WorkspaceSummary } from "../api";
-import { PlusIcon } from "./Icons";
+import { BrandMark, PlusIcon } from "./Icons";
 
 type Props = {
   workspaces: WorkspaceSummary[];
@@ -29,12 +29,6 @@ function useDismiss(open: boolean, box: React.RefObject<HTMLDivElement | null>, 
   }, [open, box, close]);
 }
 
-// "Jendouba orchard" → "JO", "Workspace 4" → "W4"
-function initials(name: string): string {
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  if (!words.length) return "·";
-  return (words.length === 1 ? words[0].slice(0, 2) : words[0][0] + words[1][0]).toUpperCase();
-}
 
 // "3 days ago", for when something was deleted
 function ago(stamp: string): string {
@@ -115,13 +109,16 @@ export function WorkspaceMenu(props: Props) {
   return (
     <div className="workspace-menu" ref={box}>
       <button
-        className="workspace-badge"
+        className="workspace-switch"
         aria-expanded={open}
         aria-label={`Workspace: ${current?.name ?? "…"}`}
-        title={`${current?.name ?? ""} · switch, rename or add a workspace`}
+        title="Switch, rename or add a workspace"
         onClick={() => (open ? done() : setOpen(true))}
       >
-        {initials(current?.name ?? "")}
+        <BrandMark size={30} />
+        <span className="workspace-current">
+          <span>{current?.name ?? "…"}</span>
+        </span>
       </button>
       {open && (
         <div className="floating workspaces rail-pop" role="group" aria-label="Workspaces">

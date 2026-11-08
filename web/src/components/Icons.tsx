@@ -258,9 +258,12 @@ export const RedoIcon = (p: IconProps) => (
 
 export const SettingsIcon = (p: IconProps) => (
   <Svg {...p}>
-    <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />
-    <rect x="14" y="5" width="4" height="4" />
-    <rect x="6" y="15" width="4" height="4" />
+    <circle cx="12" cy="12" r="3" />
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
+    />
   </Svg>
 );
 
@@ -277,7 +280,45 @@ export const MoreIcon = (p: IconProps) => (
   </Svg>
 );
 
-// Magon's face: its mark on a round field, the same wherever Magon speaks
+// Magonia's colours, from purple to green, as in its viridis-like maps
+const BRAND = ["#6b3fa0", "#1f9e89", "#5cc15a"];
+
+// Magonia's mark: a landscape line on the brand gradient
+export const BrandMark = ({ size = 28 }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
+    <defs>
+      <linearGradient id="brand-fill" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stopColor={BRAND[0]} />
+        <stop offset="0.55" stopColor={BRAND[1]} />
+        <stop offset="1" stopColor={BRAND[2]} />
+      </linearGradient>
+    </defs>
+    <rect width="32" height="32" rx="7" fill="url(#brand-fill)" />
+    <path d="M6 21.5 L12.5 14.5 L17 19 L20.5 15.5 L26 21.5" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+// Magon's mark drawn in the brand gradient, for the rail
+export const MagonGradientIcon = ({ size = 18 }: IconProps) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="url(#magon-stroke)" strokeWidth={1.9} strokeLinecap="square" aria-hidden="true">
+    <defs>
+      <linearGradient id="magon-stroke" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stopColor={BRAND[0]} />
+        <stop offset="1" stopColor={BRAND[2]} />
+      </linearGradient>
+    </defs>
+    <path d="M4.5 10a5.5 5.5 0 0 1 11 0" />
+    <path d="M4.5 10c-.4 1.2.1 2.3 1.1 2.6M15.5 10c.4 1.2-.1 2.3-1.1 2.6" />
+    <path d="M5.8 12.4c.5 4.2 2 6.8 4.2 8.6 2.2-1.8 3.7-4.4 4.2-8.6" />
+    <path d="M7.5 12.8c1-.8 1.8-.8 2.5 0 .7-.8 1.5-.8 2.5 0" />
+    <path d="M7.4 8.9l1.7.5M12.6 8.9l-1.7.5" />
+    <path d="M19.5 21c0-4 .2-7 1-10" />
+    <path d="M19.8 15.5c-1.6-.4-2.4-1.6-2.3-3 1.5.2 2.4 1.3 2.3 3z" />
+    <path d="M20.3 12.5c.3-1.5 1.4-2.3 2.6-2.2-.2 1.4-1.2 2.3-2.6 2.2z" />
+  </svg>
+);
+
+// Magon's face beside its answers: its mark on the brand gradient
 export const MagonAvatar = ({ size = 28 }: IconProps) => (
   <span className="magon-avatar" style={{ width: size, height: size }} aria-hidden="true">
     <MagonIcon size={Math.round(size * 0.64)} />
