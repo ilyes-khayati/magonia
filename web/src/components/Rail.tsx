@@ -1,28 +1,28 @@
 import { useEffect } from "react";
 import { NavLink } from "react-router";
 import { PAGES, pagePath } from "../pages";
-import { AnalysisIcon, BookIcon, ChartIcon, MagonGradientIcon, MagonIcon, MapIcon, ModelIcon, PinIcon } from "./Icons";
+import { MagonMark } from "./Brand";
+import { AnalysisIcon, BoardIcon, BookIcon, ChartIcon, MapIcon, ModelIcon } from "./Icons";
 
-const ICONS = {
+const ICONS: Record<Exclude<(typeof PAGES)[number]["key"], "assistant">, (p: { size?: number }) => React.ReactNode> = {
   map: MapIcon,
   data: ChartIcon,
   analyses: AnalysisIcon,
   model: ModelIcon,
-  board: PinIcon,
+  board: BoardIcon,
   library: BookIcon,
-  assistant: MagonIcon,
 };
 
 type Props = {
   workspaceId: number | null;
-  magon: { open: boolean; onToggle: () => void };
+  magon: { open: boolean; thinking?: boolean; onToggle: () => void };
   workspace: React.ReactNode; // the workspace menu, at the head
   settings: React.ReactNode; // the settings menu, under Magon
 };
 
-// The workspace at the head, the pages of the workbench, and at the foot Magon, which opens
-// beside whichever page is open (⌘J or Ctrl+J from anywhere): a colleague at hand, not a page
-// of its own. Settings sit under it.
+// An activity bar, as in a code editor: the workspace at the head, one icon per page, and at the
+// foot Magon, which opens beside whichever page is open (⌘J or Ctrl+J from anywhere): a
+// colleague at hand, not a page of its own. Settings sit under it. Names show on hover.
 export default function Rail({ workspaceId, magon, workspace, settings }: Props) {
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
@@ -39,12 +39,12 @@ export default function Rail({ workspaceId, magon, workspace, settings }: Props)
     <nav className="rail" aria-label="Pages">
       {workspace}
       {workspaceId !== null &&
-        PAGES.filter((p) => p.key !== "assistant").map(({ key, label, title }) => {
+        PAGES.map(({ key, label, title }) => {
+          if (key === "assistant") return null;
           const Icon = ICONS[key];
           return (
-            <NavLink key={key} to={pagePath(workspaceId, key)} className="rail-link" title={title}>
-              <Icon size={18} />
-              <span>{label}</span>
+            <NavLink key={key} to={pagePath(workspaceId, key)} className="rail-link" aria-label={label} title={`${label}: ${title}`}>
+              <Icon size={22} />
             </NavLink>
           );
         })}
@@ -56,8 +56,7 @@ export default function Rail({ workspaceId, magon, workspace, settings }: Props)
         title={magon.open ? "Close Magon (⌘J)" : "Ask Magon, the research assistant (⌘J)"}
         onClick={magon.onToggle}
       >
-        <MagonGradientIcon size={20} />
-        <span>Magon</span>
+        <MagonMark size={26} thinking={magon.thinking} />
       </button>
       {settings}
     </nav>

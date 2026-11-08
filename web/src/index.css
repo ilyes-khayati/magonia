@@ -11,9 +11,8 @@
   --line: #d6dbd4;
   --grid: #e4e8e2;
   --zero: #9aa39d;
-  --accent: #177a43;
-  --accent-ink: #146637; /* green text, readable on a green tint */
-  --brand: linear-gradient(135deg, #6b3fa0, #1f9e89 55%, #5cc15a);
+  --accent: #3b6d1e; /* moss, from the mark */
+  --accent-ink: #31591a; /* green text, readable on a green tint */
   --on-accent: #ffffff;
   --selected: #17201b;
   --on-selected: #ffffff;
@@ -47,8 +46,8 @@
   --line: #29302b;
   --grid: #222924;
   --zero: #5e6862;
-  --accent: #6fd69a;
-  --accent-ink: #8ce3ae;
+  --accent: #b5e061; /* lime, from the mark */
+  --accent-ink: #c4ea6a;
   --on-accent: #0b0e0c;
   --selected: #e6eae7;
   --on-selected: #0b0e0c;
@@ -99,7 +98,7 @@ button:disabled {
   height: 100vh;
   display: grid;
   grid-template-rows: minmax(0, 1fr);
-  grid-template-columns: 76px var(--data-width) minmax(0, 1fr) var(--dock-width);
+  grid-template-columns: 56px var(--data-width) minmax(0, 1fr) var(--dock-width);
   grid-template-areas: "rail data content dock";
   overflow: hidden;
 }
@@ -113,7 +112,7 @@ button:disabled {
 }
 
 .workbench.page-assistant {
-  grid-template-columns: 76px 0 0 minmax(0, 1fr);
+  grid-template-columns: 56px 0 0 minmax(0, 1fr);
 }
 
 /* Hidden, not removed: the map and the conversation keep their state */
@@ -126,40 +125,18 @@ button:disabled {
   position: relative;
 }
 
-/* Magonia's mark heads the rail, with the open workspace under it; a click opens its menu */
+/* Magonia's mark heads the rail; a click opens the workspace menu, and hovering names the workspace */
 .workspace-switch {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  margin: 0 0 10px;
-  padding: 4px 2px 8px;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  margin: 0 0 8px;
+  padding: 2px 0 10px;
   border: none;
   border-bottom: 1px solid var(--line);
   border-radius: 0;
   background: transparent;
   color: var(--muted);
-}
-
-.workspace-current {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  max-width: 100%;
-  font-size: var(--text-xs);
-  line-height: 1.2;
-}
-
-.workspace-current > span {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  max-width: 66px;
-  text-align: center;
-  overflow-wrap: break-word;
 }
 
 .workspace-switch:hover,
@@ -307,34 +284,42 @@ button:disabled {
   border-right: 1px solid var(--line);
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 14px 8px;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 0 12px;
 }
 
+/* An activity bar: icons only, the open page marked by a bar on the left edge */
 .rail-link {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 9px 4px;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 46px;
+  padding: 0;
   border: none;
-  border-radius: 2px;
+  border-radius: 0;
   background: transparent;
   color: var(--muted);
-  font-size: 11px;
   text-decoration: none;
 }
 
 .rail-link:hover {
-  background: var(--ground);
   color: var(--ink);
 }
 
 .rail-link[aria-current="page"] {
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
-  color: var(--accent-ink);
-  font-weight: 500;
+  color: var(--ink);
+}
+
+.rail-link[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 9px;
+  bottom: 9px;
+  width: 2px;
+  background: var(--accent);
 }
 
 .content {
@@ -2170,21 +2155,51 @@ button:disabled {
   cursor: pointer;
 }
 
-.rail-link.magon[aria-pressed="true"] {
-  background: var(--card);
-  color: var(--ink);
-  box-shadow: inset 0 0 0 1px var(--line);
+.rail-link.magon[aria-pressed="true"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 9px;
+  bottom: 9px;
+  width: 2px;
+  background: var(--accent);
 }
 
-/* Magon's face: the same greens in both themes, so it is recognised anywhere */
-.magon-avatar {
-  display: inline-grid;
-  place-items: center;
+/* Magon's mark: the same greens in both themes, so it is recognised anywhere. While it thinks,
+   light passes over its cells, corner to corner. */
+.magon-mark {
   flex: none;
-  border-radius: 50%;
-  background: var(--brand);
-  color: #ffffff;
-  transition: box-shadow 0.15s;
+  display: block;
+}
+
+.magon-mark .glint {
+  fill: #ffffff;
+  opacity: 0;
+  animation: magon-glint 1.4s ease-in-out infinite;
+}
+
+@keyframes magon-glint {
+  40% {
+    opacity: 0.55;
+  }
+}
+
+/* The loader: the mark, alive */
+.growing {
+  flex: none;
+  display: block;
+}
+
+.working {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .magon-mark .glint {
+    animation: none;
+  }
 }
 
 .card-head > div.magon-title {

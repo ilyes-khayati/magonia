@@ -1,7 +1,8 @@
 import { useRef, useState } from "react";
 import type { CardLayout } from "../cards";
 import { saveChartImage } from "../chartImage";
-import { ChevronIcon, CopyIcon, GripIcon, ImageIcon, MagonIcon, NotebookIcon, PinIcon, WidthIcon } from "./Icons";
+import { MagonMark } from "./Brand";
+import { ChevronIcon, CopyIcon, GripIcon, ImageIcon, NotebookIcon, PinIcon, WidthIcon } from "./Icons";
 
 type Props = {
   id: string;
@@ -52,7 +53,7 @@ export default function CardSlot(props: Props) {
             title="Ask Magon about this"
             onClick={() => onAsk(slot.current?.querySelector(".card h3")?.textContent ?? label)}
           >
-            <MagonIcon size={14} />
+            <MagonMark size={14} tone="ink" />
           </button>
         )}
         <button
