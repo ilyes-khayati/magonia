@@ -377,8 +377,8 @@ export default function AssistantCard(props: Props) {
                   <MagonMark size={22} thinking={last} />
                   <span className="message-name">Magon</span>
                 </div>
-                {turn.status && <span className="thinking">{turn.status}</span>}
-                {!turn.status && !turn.content && last && <span className="thinking">Thinking…</span>}
+                {turn.status && <span className="thinking shimmer">{turn.status}</span>}
+                {!turn.status && !turn.content && last && <span className="thinking shimmer">Thinking…</span>}
                 {turn.content && (
                   <div>
                     <AnswerText

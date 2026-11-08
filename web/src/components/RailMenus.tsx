@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { deletedWorkspaces, type WorkspaceSummary } from "../api";
-import { MagoniaMark } from "./Brand";
+import { MagoniaMark, Wordmark } from "./Brand";
 import { PlusIcon } from "./Icons";
 
 type Props = {
@@ -117,6 +117,7 @@ export function WorkspaceMenu(props: Props) {
         onClick={() => (open ? done() : setOpen(true))}
       >
         <MagoniaMark size={40} />
+        <Wordmark className="wordmark rail-wordmark" />
       </button>
       {open && (
         <div className="floating workspaces rail-pop" role="group" aria-label="Workspaces">

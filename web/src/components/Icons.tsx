@@ -96,29 +96,82 @@ export const SendIcon = (p: IconProps) => (
   </Svg>
 );
 
+// The pages' icons, as in a code editor's activity bar: round, soft strokes, each with one dot of
+// the mark. When a page opens, its strokes draw themselves in and the dot fills with the accent.
+function PageSvg({ size = 22, children }: IconProps & { children: React.ReactNode }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="page-icon"
+    >
+      {children}
+    </svg>
+  );
+}
+
 export const MapIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M3 6.5l6-2.5 6 2.5 6-2.5v13l-6 2.5-6-2.5-6 2.5z" />
-    <path d="M9 4v13.5M15 6.5V20" />
-    <rect x="10.5" y="10" width="3" height="3" fill="currentColor" stroke="none" />
-  </Svg>
+  <PageSvg {...p}>
+    <path className="draw" pathLength={1} d="M3.5 6.8 9 4.5l6 2.3 5.5-2.3v12.7L15 19.5l-6-2.3-5.5 2.3z" />
+    <path className="draw" pathLength={1} d="M9 4.5v12.7M15 6.8v12.7" />
+    <circle className="dot" cx="12" cy="11.5" r="1.6" fill="currentColor" stroke="none" />
+  </PageSvg>
 );
 
 export const ChartIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M3 20h18" />
-    <path d="M3 16l4-5 4 3 5-6" />
-    <rect x="17" y="5" width="3.5" height="3.5" fill="currentColor" stroke="none" />
-  </Svg>
+  <PageSvg {...p}>
+    <path className="draw" pathLength={1} d="M3.5 19.5h17" />
+    <path className="draw" pathLength={1} d="M3.5 15.5c1.5-1.8 2.6-4.5 4.4-4.5s2.4 2.6 4 2.6 2.7-4.2 4.6-5.6" />
+    <circle className="dot" cx="18.6" cy="6.6" r="1.9" fill="currentColor" stroke="none" />
+  </PageSvg>
 );
 
 export const AnalysisIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M3 6.5c2-2 4 2 6 0s4-2 6 0 4 2 6 0" />
-    <path d="M3 13.5l14-2.3" />
-    <rect x="17.5" y="9.5" width="3" height="3" fill="currentColor" stroke="none" />
-    <path d="M3 18.5c1.5-1 3 1 4.5 0s3-1 4.5 0 3 1 4.5 0 3-1 4.5 0" />
-  </Svg>
+  <PageSvg {...p}>
+    <path className="draw" pathLength={1} d="M3.5 6.5c2-2 4 2 6 0s4-2 6 0 3 1.6 5 .2" />
+    <path className="draw" pathLength={1} d="M3.5 13.5 16 11.4" />
+    <circle className="dot" cx="18.6" cy="11" r="1.7" fill="currentColor" stroke="none" />
+    <path className="draw" pathLength={1} d="M3.5 18.5c1.5-1 3 1 4.5 0s3-1 4.5 0 3 1 4.5 0 3-1 4 0" />
+  </PageSvg>
+);
+
+// A small neural network: three inputs, two hidden units, one output
+export const ModelIcon = (p: IconProps) => (
+  <PageSvg {...p}>
+    <path className="draw" pathLength={1} d="M6 6l5 2.4M6 6l5 8.6M6 12l5-3.4M6 12l5 3M6 18l5-9.2M6 18l5-2.6M13.6 8.8l4.4 2.6M13.6 15.2l4.4-2.6" strokeWidth={1.1} />
+    <circle className="draw" pathLength={1} cx="4.5" cy="6" r="1.7" />
+    <circle className="draw" pathLength={1} cx="4.5" cy="12" r="1.7" />
+    <circle className="draw" pathLength={1} cx="4.5" cy="18" r="1.7" />
+    <circle className="draw" pathLength={1} cx="12.3" cy="8.6" r="1.8" />
+    <circle className="draw" pathLength={1} cx="12.3" cy="15.4" r="1.8" />
+    <circle className="dot" cx="19.8" cy="12" r="2.3" fill="currentColor" stroke="none" />
+  </PageSvg>
+);
+
+export const BoardIcon = (p: IconProps) => (
+  <PageSvg {...p}>
+    <rect className="draw" pathLength={1} x="3.5" y="3.5" width="7.5" height="9.5" rx="2" />
+    <rect className="draw" pathLength={1} x="13" y="3.5" width="7.5" height="5.5" rx="2" />
+    <rect className="draw" pathLength={1} x="13" y="11" width="7.5" height="9.5" rx="2" />
+    <rect className="draw" pathLength={1} x="3.5" y="15" width="7.5" height="5.5" rx="2" />
+    <circle className="dot" cx="16.75" cy="15.75" r="1.5" fill="currentColor" stroke="none" />
+  </PageSvg>
+);
+
+export const BookIcon = (p: IconProps) => (
+  <PageSvg {...p}>
+    <rect className="draw" pathLength={1} x="3.5" y="4" width="4" height="16" rx="1.2" />
+    <rect className="draw" pathLength={1} x="9.5" y="4" width="4" height="16" rx="1.2" />
+    <path className="draw" pathLength={1} d="M15.6 5.6 18.9 4.7l3.3 14.5-3.3.9z" />
+    <circle className="dot" cx="5.5" cy="7.5" r="1.1" fill="currentColor" stroke="none" />
+  </PageSvg>
 );
 
 export const ChevronIcon = (p: IconProps) => (
@@ -130,18 +183,6 @@ export const ChevronIcon = (p: IconProps) => (
 export const ShrinkIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" />
-  </Svg>
-);
-
-export const ModelIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M4.5 6l8 3M4.5 6l8 9M4.5 12l8-3M4.5 12l8 3M4.5 18l8-9M4.5 18l8-3M12.5 9l7 3M12.5 15l7-3" strokeWidth={1.1} />
-    <rect x="3" y="4.5" width="3" height="3" fill="currentColor" stroke="none" />
-    <rect x="3" y="10.5" width="3" height="3" fill="currentColor" stroke="none" />
-    <rect x="3" y="16.5" width="3" height="3" fill="currentColor" stroke="none" />
-    <rect x="11" y="7.5" width="3" height="3" fill="currentColor" stroke="none" />
-    <rect x="11" y="13.5" width="3" height="3" fill="currentColor" stroke="none" />
-    <rect x="18" y="10" width="4" height="4" fill="currentColor" stroke="none" />
   </Svg>
 );
 
@@ -180,21 +221,6 @@ export const NotebookIcon = (p: IconProps) => (
 export const PinIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M9 3h6l-1 6 3 3H7l3-3zM12 12v9" />
-  </Svg>
-);
-
-export const BookIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M4 4h3.5v16H4zM9.5 4H13v16H9.5z" />
-    <path d="M15.2 5.2l3.3-.9 3.6 14.8-3.3.9z" />
-    <rect x="4.75" y="6.5" width="2" height="2" fill="currentColor" stroke="none" />
-  </Svg>
-);
-
-export const BoardIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M3 3h8v10H3zM13 3h8v6h-8zM13 11h8v10h-8zM3 15h8v6H3z" />
-    <rect x="15.5" y="13.5" width="3" height="3" fill="currentColor" stroke="none" />
   </Svg>
 );
 
