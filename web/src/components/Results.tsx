@@ -5,7 +5,7 @@ import type {
   StabilityResponse,
 } from "../api";
 import { MODEL_LABEL, type ModelName } from "../experiments";
-import { areaColour, type Theme } from "../theme";
+import { areaColour, modelColour, type Theme } from "../theme";
 import Cautions from "./Cautions";
 import { Growing } from "./Brand";
 import { num, oneArea } from "../format";
@@ -72,10 +72,10 @@ export default function Results({
       width: 2,
       points: at.map((date, i) => ({ date, value: found.observed[i] })),
     },
-    ...ranked.map((m, i) => ({
+    ...ranked.map((m) => ({
       id: m.name,
       name: label(m.name),
-      colour: areaColour(theme, i + 1),
+      colour: modelColour(theme, m.name),
       width: 1.2,
       points: at.map((date, j) => ({ date, value: m.predictions[j] })),
     })),
@@ -109,12 +109,12 @@ export default function Results({
             </tr>
           </thead>
           <tbody>
-            {ranked.map((m, i) => (
+            {ranked.map((m) => (
               <tr key={m.name}>
                 <th scope="row">
                   <span
                     className="dot"
-                    style={{ background: areaColour(theme, i + 1) }}
+                    style={{ background: modelColour(theme, m.name) }}
                   />{" "}
                   {label(m.name)}
                 </th>
@@ -543,7 +543,7 @@ function Effects({
   const shown = models.filter((m) =>
     Object.values(data.effects ?? {}).some((curves) => curves[m]),
   );
-  const colour = (m: string) => areaColour(theme, shown.indexOf(m) + 1);
+  const colour = (m: string) => modelColour(theme, m);
   const chart = (
     input: string,
     curves: Record<string, { x: number; effect: number }[]>,
