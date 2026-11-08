@@ -41,9 +41,10 @@ export const GRIDS: Record<number, string[]> = {
   ],
 };
 
-// The grid for a mark drawn this many pixels wide: about four screen pixels per cell at least
+// The grid for a mark drawn this many pixels wide: the finest that keeps cells about three screen
+// pixels wide, so the maze reads as a maze rather than as blocks
 export function gridFor(size: number): string[] {
-  return size >= 64 ? GRIDS[14] : size >= 30 ? GRIDS[10] : size >= 20 ? GRIDS[7] : GRIDS[5];
+  return size >= 36 ? GRIDS[14] : size >= 24 ? GRIDS[10] : size >= 20 ? GRIDS[7] : GRIDS[5];
 }
 
 export type Sim = {

@@ -12,6 +12,7 @@ describe("the mark's pattern", () => {
   it("uses a coarser grid for a smaller mark", () => {
     expect(gridFor(16)).toHaveLength(5);
     expect(gridFor(30)).toHaveLength(10);
+    expect(gridFor(40)).toHaveLength(14);
     expect(gridFor(180)).toHaveLength(14);
   });
 

@@ -56,7 +56,7 @@ export default function Rail({ workspaceId, magon, workspace, settings }: Props)
         title={magon.open ? "Close Magon (⌘J)" : "Ask Magon, the research assistant (⌘J)"}
         onClick={magon.onToggle}
       >
-        <MagonMark size={26} thinking={magon.thinking} />
+        <MagonMark size={30} thinking={magon.thinking} />
       </button>
       {settings}
     </nav>

@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef } from "react";
-import { GROUND, LEVELS, clear, gridFor, makeSim, pixels, seed, step } from "../turing";
+import { GRIDS, GROUND, LEVELS, clear, gridFor, makeSim, pixels, seed, step } from "../turing";
 
 type Props = { size?: number };
 
@@ -45,68 +45,72 @@ export function MagoniaMark({ size = 28 }: Props) {
   );
 }
 
-// Magon is the smallest piece of the pattern: one living spot, three pixels across, brightest at
-// its heart. While it thinks, light passes over it, cell by cell.
-const SPOT = ["131", "343", "131"];
+// Magon is the thinking part of Magonia: a brain seen from above, its two halves filled with the
+// same grown maze, which on a brain reads as its folds: two greens, so the outline holds on light
+// and dark grounds alike. While it thinks, light runs over it.
+const BRAIN = [
+  "...XXX.XXX...",
+  ".XXXXX.XXXXX.",
+  ".XXXXX.XXXXX.",
+  "XXXXXX.XXXXXX",
+  "XXXXXX.XXXXXX",
+  "XXXXXX.XXXXXX",
+  "XXXXXX.XXXXXX",
+  ".XXXXX.XXXXX.",
+  ".XXXXX.XXXXX.",
+  "..XXXX.XXXX..",
+  "...XX...XX...",
+];
+const SMALL_BRAIN = [".XX.XX.", "XXX.XXX", "XXX.XXX", "XXX.XXX", "XXX.XXX", ".XX.XX."];
 
-export function MagonMark({ size = 24, thinking = false, tone = "tile" }: Props & { thinking?: boolean; tone?: "tile" | "ink" }) {
-  const id = useId();
+export function MagonMark({ size = 24, thinking = false, tone = "color" }: Props & { thinking?: boolean; tone?: "color" | "ink" }) {
+  const mask = size >= 28 ? BRAIN : SMALL_BRAIN;
+  const folds = size >= 28 ? GRIDS[14] : GRIDS[7];
+  const cols = mask[0].length,
+    rows = mask.length;
+  const cell = 100 / cols,
+    top = (100 - rows * cell) / 2;
+  const gap = size / cols >= 3 ? cell * 0.1 : 0;
   const ink = tone === "ink";
-  const pad = ink ? 4 : 18,
-    cell = (100 - 2 * pad) / 3,
-    gap = cell * (ink ? 0.16 : 0.12);
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 100 100"
-      aria-hidden="true"
-      className={`magon-mark${thinking ? " thinking" : ""}`}
-    >
-      {!ink && (
-        <>
-          <defs>
-            <clipPath id={`${id}c`}>
-              <rect width="100" height="100" rx="22.5" />
-            </clipPath>
-          </defs>
-          <rect width="100" height="100" rx="22.5" fill={GROUND} />
-        </>
+    <svg width={size} height={size} viewBox="0 0 100 100" aria-hidden="true" className={`magon-mark${thinking ? " thinking" : ""}`}>
+      {mask.map((row, j) =>
+        [...row].map((c, i) => {
+          if (c !== "X") return null;
+          const fold = +folds[j % folds.length][i % folds.length] >= 3;
+          const x = i * cell + gap / 2,
+            y = top + j * cell + gap / 2,
+            w = cell - gap;
+          return (
+            <g key={`${i}-${j}`}>
+              <rect
+                x={x}
+                y={y}
+                width={w}
+                height={w}
+                rx={w * 0.15}
+                fill={ink ? "currentColor" : fold ? "var(--brain-fold)" : "var(--brain)"}
+                opacity={ink ? (fold ? 0.55 : 1) : 1}
+              />
+              {thinking && (
+                <rect className="glint" x={x} y={y} width={w} height={w} rx={w * 0.15} style={{ animationDelay: `${(i + j) * 0.06}s` }} />
+              )}
+            </g>
+          );
+        }),
       )}
-      <g clipPath={ink ? undefined : `url(#${id}c)`}>
-        {SPOT.map((row, j) =>
-          [...row].map((d, i) => {
-            const x = pad + i * cell + gap / 2,
-              y = pad + j * cell + gap / 2,
-              w = cell - gap;
-            return (
-              <g key={`${i}-${j}`}>
-                <rect
-                  x={x}
-                  y={y}
-                  width={w}
-                  height={w}
-                  rx={w * 0.18}
-                  fill={ink ? "currentColor" : LEVELS[+d]}
-                  opacity={ink ? [0.3, 0.45, 0.6, 0.8, 1][+d] : 1}
-                />
-                {thinking && (
-                  <rect
-                    className="glint"
-                    x={x}
-                    y={y}
-                    width={w}
-                    height={w}
-                    rx={w * 0.18}
-                    style={{ animationDelay: `${(i + j) * 0.14}s` }}
-                  />
-                )}
-              </g>
-            );
-          }),
-        )}
-      </g>
     </svg>
+  );
+}
+
+// Shown while Magonia opens a workspace: the mark grows, with the name beside it
+export function Opening() {
+  return (
+    <div className="opening" aria-hidden="true">
+      <Growing size={160} />
+      <div className="wordmark">magonia</div>
+      <div className="meta">Opening your workspace…</div>
+    </div>
   );
 }
 
@@ -118,13 +122,13 @@ export function Growing({ size = 20 }: Props) {
     const el = canvas.current;
     const ctx = el?.getContext("2d");
     if (!el || !ctx) return;
-    const cells = size >= 48 ? 16 : size >= 24 ? 10 : 6;
+    const cells = size >= 120 ? 24 : size >= 48 ? 16 : size >= 24 ? 10 : 6;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     el.width = Math.round(size * dpr);
     el.height = Math.round(size * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const sim = makeSim(Math.max(24, cells * 4), Math.floor(Math.random() * 1e6) + 1);
-    step(sim, 700);
+    step(sim, 2400); // past the first spots, to the maze
     const unit = size / cells,
       gap = unit >= 4 ? unit * 0.1 : 0,
       r = size * 0.225;

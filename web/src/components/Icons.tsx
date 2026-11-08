@@ -100,20 +100,23 @@ export const MapIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M3 6.5l6-2.5 6 2.5 6-2.5v13l-6 2.5-6-2.5-6 2.5z" />
     <path d="M9 4v13.5M15 6.5V20" />
+    <rect x="10.5" y="10" width="3" height="3" fill="currentColor" stroke="none" />
   </Svg>
 );
 
 export const ChartIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M3 20h18" />
-    <path d="M4 15l4-5 4 3 4-7 4 4" />
+    <path d="M3 16l4-5 4 3 5-6" />
+    <rect x="17" y="5" width="3.5" height="3.5" fill="currentColor" stroke="none" />
   </Svg>
 );
 
 export const AnalysisIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M3 6.5c2-2 4 2 6 0s4-2 6 0 4 2 6 0" />
-    <path d="M3 13.5l18-3" />
+    <path d="M3 13.5l14-2.3" />
+    <rect x="17.5" y="9.5" width="3" height="3" fill="currentColor" stroke="none" />
     <path d="M3 18.5c1.5-1 3 1 4.5 0s3-1 4.5 0 3 1 4.5 0 3-1 4.5 0" />
   </Svg>
 );
@@ -132,9 +135,13 @@ export const ShrinkIcon = (p: IconProps) => (
 
 export const ModelIcon = (p: IconProps) => (
   <Svg {...p}>
-    <path d="M3 17l4-4 3 2 4-5" />
-    <path d="M14 10l3-2 4 1" strokeDasharray="2 2" />
-    <path d="M14 4v16" opacity="0.5" />
+    <path d="M4.5 6l8 3M4.5 6l8 9M4.5 12l8-3M4.5 12l8 3M4.5 18l8-9M4.5 18l8-3M12.5 9l7 3M12.5 15l7-3" strokeWidth={1.1} />
+    <rect x="3" y="4.5" width="3" height="3" fill="currentColor" stroke="none" />
+    <rect x="3" y="10.5" width="3" height="3" fill="currentColor" stroke="none" />
+    <rect x="3" y="16.5" width="3" height="3" fill="currentColor" stroke="none" />
+    <rect x="11" y="7.5" width="3" height="3" fill="currentColor" stroke="none" />
+    <rect x="11" y="13.5" width="3" height="3" fill="currentColor" stroke="none" />
+    <rect x="18" y="10" width="4" height="4" fill="currentColor" stroke="none" />
   </Svg>
 );
 
@@ -180,12 +187,14 @@ export const BookIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M4 4h3.5v16H4zM9.5 4H13v16H9.5z" />
     <path d="M15.2 5.2l3.3-.9 3.6 14.8-3.3.9z" />
+    <rect x="4.75" y="6.5" width="2" height="2" fill="currentColor" stroke="none" />
   </Svg>
 );
 
 export const BoardIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M3 3h8v10H3zM13 3h8v6h-8zM13 11h8v10h-8zM3 15h8v6H3z" />
+    <rect x="15.5" y="13.5" width="3" height="3" fill="currentColor" stroke="none" />
   </Svg>
 );
 

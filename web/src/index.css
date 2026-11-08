@@ -3,21 +3,22 @@
 /* Colour tokens. Light is the default; data-theme="dark" on <html> switches. */
 :root {
   color-scheme: light;
-  --ground: #eceeea;
-  --panel: #f8f9f6;
-  --card: #ffffff;
-  --ink: #17201b;
-  --muted: #56605a;
-  --line: #d6dbd4;
-  --grid: #e4e8e2;
-  --zero: #9aa39d;
-  --accent: #3b6d1e; /* moss, from the mark */
-  --accent-ink: #31591a; /* green text, readable on a green tint */
+  /* The colours of fields seen from above: paper, moss, olive, sage, lichen, straw, soil, river */
+  --ground: #ecebe4;
+  --panel: #f4f3ee;
+  --card: #fbfaf6;
+  --ink: #1b2216;
+  --muted: #585d50;
+  --line: #d9d7cc;
+  --grid: #e6e4da;
+  --zero: #a3a194;
+  --accent: #4f6b2c; /* olive */
+  --accent-ink: #3e5622; /* olive text, readable on an olive tint */
   --on-accent: #ffffff;
-  --selected: #17201b;
+  --selected: #1b2216;
   --on-selected: #ffffff;
-  --danger: #b3261e;
-  --warning: #8a5a00;
+  --danger: #a33a1e;
+  --warning: #85621a;
   --shadow: 0 1px 2px rgb(0 0 0 / 10%), 0 2px 8px rgb(0 0 0 / 8%);
   --mono: "IBM Plex Mono", ui-monospace, monospace;
   /* One size for every control, one corner, and a short type scale */
@@ -38,21 +39,21 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --ground: #0b0e0c;
-  --panel: #111513;
-  --card: #171c19;
-  --ink: #e6eae7;
-  --muted: #9aa39e;
-  --line: #29302b;
-  --grid: #222924;
-  --zero: #5e6862;
-  --accent: #b5e061; /* lime, from the mark */
-  --accent-ink: #c4ea6a;
-  --on-accent: #0b0e0c;
-  --selected: #e6eae7;
-  --on-selected: #0b0e0c;
-  --danger: #ff8a80;
-  --warning: #f2c46d;
+  --ground: #0d120b;
+  --panel: #121810;
+  --card: #181f16;
+  --ink: #e9eadf;
+  --muted: #a3a797;
+  --line: #2b3326;
+  --grid: #222a1e;
+  --zero: #5f6656;
+  --accent: #cdd696; /* lichen */
+  --accent-ink: #dce3ad;
+  --on-accent: #10160d;
+  --selected: #e9eadf;
+  --on-selected: #10160d;
+  --danger: #f09a7c;
+  --warning: #e0c26a;
 }
 
 body {
@@ -2168,8 +2169,15 @@ button:disabled {
 /* Magon's mark: the same greens in both themes, so it is recognised anywhere. While it thinks,
    light passes over its cells, corner to corner. */
 .magon-mark {
+  --brain: #2f5420;
+  --brain-fold: #8fbd3e;
   flex: none;
   display: block;
+}
+
+:root[data-theme="dark"] .magon-mark {
+  --brain: #8fbd3e;
+  --brain-fold: #2f5420;
 }
 
 .magon-mark .glint {
@@ -3687,19 +3695,38 @@ textarea.input {
 }
 
 .theme-swatch.light {
-  background: linear-gradient(90deg, #f8f9f6 0 22%, #eceeea 22%);
+  background: linear-gradient(90deg, #f4f3ee 0 22%, #ecebe4 22%);
 }
 
 .theme-swatch.dark {
-  background: linear-gradient(90deg, #111513 0 22%, #0b0e0c 22%);
+  background: linear-gradient(90deg, #121810 0 22%, #0d120b 22%);
 }
 
 .theme-swatch.system {
-  background: linear-gradient(135deg, #eceeea 0 50%, #0b0e0c 50%);
+  background: linear-gradient(135deg, #ecebe4 0 50%, #0d120b 50%);
 }
 
 input[type="checkbox"],
 input[type="radio"],
 input[type="range"] {
   accent-color: var(--accent);
+}
+
+/* Opening: the mark grows while the workspace is fetched */
+.opening {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 22px;
+  background: var(--ground);
+}
+
+.opening .wordmark {
+  font-size: 44px;
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 1;
 }

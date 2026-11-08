@@ -116,7 +116,7 @@ export function WorkspaceMenu(props: Props) {
         title={`${current?.name ?? "Workspace"}: switch, rename or add a workspace`}
         onClick={() => (open ? done() : setOpen(true))}
       >
-        <MagoniaMark size={30} />
+        <MagoniaMark size={40} />
       </button>
       {open && (
         <div className="floating workspaces rail-pop" role="group" aria-label="Workspaces">
