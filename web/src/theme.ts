@@ -13,6 +13,11 @@ const PALETTE: Record<Theme, string[]> = {
 export const areaColour = (theme: Theme, index: number) =>
   PALETTE[theme][index % PALETTE[theme].length];
 
+// Each model keeps one colour on every chart, whatever its rank: the trees in straw and river,
+// Ridge in heather, set apart from both
+const MODEL_SLOT: Record<string, number> = { XGBoost: 1, RandomForest: 2, Ridge: 4, MLP: 5, LSTM: 3, GRU: 0 };
+export const modelColour = (theme: Theme, model: string) => areaColour(theme, MODEL_SLOT[model] ?? 3);
+
 export function initialTheme(): ThemeChoice {
   try {
     const saved = localStorage.getItem("magonia-theme");

@@ -65,7 +65,7 @@ function maps(found: PurityResponse, area: Area): Plot.PlotOptions {
     marks: [
       Plot.geo(cells, { fill: (f: GeoJSON.Feature) => (f.properties as PurityPixel).share, stroke: "var(--card)", strokeWidth: 0.4 }),
       Plot.geo(cells.features.filter((f) => (f.properties as PurityPixel).inside), { fill: "none", stroke: "currentColor", strokeWidth: 0.8 }),
-      Plot.geo(forDrawing(area.geometry), { fill: "none", stroke: "black", strokeWidth: 2.2 }),
+      Plot.geo(forDrawing(area.geometry), { fill: "none", stroke: "var(--ink)", strokeWidth: 2.2 }),
       Plot.tip(
         found.pixels,
         Plot.pointer({
