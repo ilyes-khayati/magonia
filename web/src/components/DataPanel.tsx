@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Area, Masking, Resolution, Variable, VariableKey } from "../api";
 import { parseMonth, speiScale, type Settings } from "../settings";
+import { Growing } from "./Brand";
 import { InfoIcon } from "./Icons";
 import LearnPanel from "./LearnPanel";
 import { groups } from "../variables";
@@ -151,7 +152,7 @@ export default function DataPanel({ catalogue, areas, settings, onChange, progre
         </div>
       )}
       <p className="status top-status" role="status" aria-live="polite">
-        <span className="dot" data-busy={progress.done + progress.failed < progress.total} />
+        {progress.done + progress.failed < progress.total ? <Growing size={16} /> : <span className="dot" />}
         {progress.total === 0
           ? "Nothing to load yet"
           : progress.done + progress.failed < progress.total

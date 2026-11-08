@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { deletedWorkspaces, type WorkspaceSummary } from "../api";
-import { BrandMark, PlusIcon } from "./Icons";
+import { MagoniaMark, Wordmark } from "./Brand";
+import { PlusIcon } from "./Icons";
 
 type Props = {
   workspaces: WorkspaceSummary[];
@@ -112,13 +113,11 @@ export function WorkspaceMenu(props: Props) {
         className="workspace-switch"
         aria-expanded={open}
         aria-label={`Workspace: ${current?.name ?? "…"}`}
-        title="Switch, rename or add a workspace"
+        title={`${current?.name ?? "Workspace"}: switch, rename or add a workspace`}
         onClick={() => (open ? done() : setOpen(true))}
       >
-        <BrandMark size={30} />
-        <span className="workspace-current">
-          <span>{current?.name ?? "…"}</span>
-        </span>
+        <MagoniaMark size={40} />
+        <Wordmark className="wordmark rail-wordmark" />
       </button>
       {open && (
         <div className="floating workspaces rail-pop" role="group" aria-label="Workspaces">

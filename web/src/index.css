@@ -3,22 +3,22 @@
 /* Colour tokens. Light is the default; data-theme="dark" on <html> switches. */
 :root {
   color-scheme: light;
-  --ground: #eceeea;
-  --panel: #f8f9f6;
-  --card: #ffffff;
-  --ink: #17201b;
-  --muted: #56605a;
-  --line: #d6dbd4;
-  --grid: #e4e8e2;
-  --zero: #9aa39d;
-  --accent: #177a43;
-  --accent-ink: #146637; /* green text, readable on a green tint */
-  --brand: linear-gradient(135deg, #6b3fa0, #1f9e89 55%, #5cc15a);
+  /* The colours of fields seen from above: paper, moss, olive, sage, lichen, straw, soil, river */
+  --ground: #ecebe4;
+  --panel: #f4f3ee;
+  --card: #fbfaf6;
+  --ink: #1b2216;
+  --muted: #585d50;
+  --line: #d9d7cc;
+  --grid: #e6e4da;
+  --zero: #a3a194;
+  --accent: #4f6b2c; /* olive */
+  --accent-ink: #3e5622; /* olive text, readable on an olive tint */
   --on-accent: #ffffff;
-  --selected: #17201b;
+  --selected: #1b2216;
   --on-selected: #ffffff;
-  --danger: #b3261e;
-  --warning: #8a5a00;
+  --danger: #a33a1e;
+  --warning: #85621a;
   --shadow: 0 1px 2px rgb(0 0 0 / 10%), 0 2px 8px rgb(0 0 0 / 8%);
   --mono: "IBM Plex Mono", ui-monospace, monospace;
   /* One size for every control, one corner, and a short type scale */
@@ -39,21 +39,21 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --ground: #0b0e0c;
-  --panel: #111513;
-  --card: #171c19;
-  --ink: #e6eae7;
-  --muted: #9aa39e;
-  --line: #29302b;
-  --grid: #222924;
-  --zero: #5e6862;
-  --accent: #6fd69a;
-  --accent-ink: #8ce3ae;
-  --on-accent: #0b0e0c;
-  --selected: #e6eae7;
-  --on-selected: #0b0e0c;
-  --danger: #ff8a80;
-  --warning: #f2c46d;
+  --ground: #0d120b;
+  --panel: #121810;
+  --card: #181f16;
+  --ink: #e9eadf;
+  --muted: #a3a797;
+  --line: #2b3326;
+  --grid: #222a1e;
+  --zero: #5f6656;
+  --accent: #cdd696; /* lichen */
+  --accent-ink: #dce3ad;
+  --on-accent: #10160d;
+  --selected: #e9eadf;
+  --on-selected: #10160d;
+  --danger: #f09a7c;
+  --warning: #e0c26a;
 }
 
 body {
@@ -99,7 +99,7 @@ button:disabled {
   height: 100vh;
   display: grid;
   grid-template-rows: minmax(0, 1fr);
-  grid-template-columns: 76px var(--data-width) minmax(0, 1fr) var(--dock-width);
+  grid-template-columns: 56px var(--data-width) minmax(0, 1fr) var(--dock-width);
   grid-template-areas: "rail data content dock";
   overflow: hidden;
 }
@@ -113,7 +113,7 @@ button:disabled {
 }
 
 .workbench.page-assistant {
-  grid-template-columns: 76px 0 0 minmax(0, 1fr);
+  grid-template-columns: 56px 0 0 minmax(0, 1fr);
 }
 
 /* Hidden, not removed: the map and the conversation keep their state */
@@ -126,40 +126,19 @@ button:disabled {
   position: relative;
 }
 
-/* Magonia's mark heads the rail, with the open workspace under it; a click opens its menu */
+/* Magonia's mark heads the rail; a click opens the workspace menu, and hovering names the workspace */
 .workspace-switch {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  margin: 0 0 10px;
-  padding: 4px 2px 8px;
+  display: grid;
+  place-items: center;
+  gap: 7px;
+  width: 56px;
+  margin: 0 0 8px;
+  padding: 2px 0 10px;
   border: none;
   border-bottom: 1px solid var(--line);
   border-radius: 0;
   background: transparent;
   color: var(--muted);
-}
-
-.workspace-current {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  max-width: 100%;
-  font-size: var(--text-xs);
-  line-height: 1.2;
-}
-
-.workspace-current > span {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  max-width: 66px;
-  text-align: center;
-  overflow-wrap: break-word;
 }
 
 .workspace-switch:hover,
@@ -307,34 +286,42 @@ button:disabled {
   border-right: 1px solid var(--line);
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 14px 8px;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 0 12px;
 }
 
+/* An activity bar: icons only, the open page marked by a bar on the left edge */
 .rail-link {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 9px 4px;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 46px;
+  padding: 0;
   border: none;
-  border-radius: 2px;
+  border-radius: 0;
   background: transparent;
   color: var(--muted);
-  font-size: 11px;
   text-decoration: none;
 }
 
 .rail-link:hover {
-  background: var(--ground);
   color: var(--ink);
 }
 
 .rail-link[aria-current="page"] {
-  background: color-mix(in srgb, var(--accent) 14%, transparent);
-  color: var(--accent-ink);
-  font-weight: 500;
+  color: var(--ink);
+}
+
+.rail-link[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 9px;
+  bottom: 9px;
+  width: 2px;
+  background: var(--accent);
 }
 
 .content {
@@ -2170,21 +2157,180 @@ button:disabled {
   cursor: pointer;
 }
 
-.rail-link.magon[aria-pressed="true"] {
-  background: var(--card);
-  color: var(--ink);
-  box-shadow: inset 0 0 0 1px var(--line);
+.rail-link.magon[aria-pressed="true"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 9px;
+  bottom: 9px;
+  width: 2px;
+  background: var(--accent);
 }
 
-/* Magon's face: the same greens in both themes, so it is recognised anywhere */
-.magon-avatar {
-  display: inline-grid;
-  place-items: center;
+/* Magon's orb: the same greens in both themes, so it is recognised anywhere */
+.magon-mark {
   flex: none;
-  border-radius: 50%;
-  background: var(--brand);
-  color: #ffffff;
-  transition: box-shadow 0.15s;
+  display: block;
+}
+
+/* Magonia's stork: four densities of green from the theme, the eye one plain dot. In "ink" it
+   takes the text colour, for black and white. Alive, a wave of light runs through its pixels. */
+.magonia-mark {
+  flex: none;
+  display: block;
+  --m1: #8fbd3e;
+  --m2: #4f6b2c;
+  --m3: #2f5420;
+  --m4: #1b2216;
+}
+
+:root[data-theme="dark"] .magonia-mark {
+  --m1: #2f5420;
+  --m2: #6e9f2e;
+  --m3: #a9cf5a;
+  --m4: #d6f08e;
+}
+
+.magonia-mark .m1 { fill: var(--m1); }
+.magonia-mark .m2 { fill: var(--m2); }
+.magonia-mark .m3 { fill: var(--m3); }
+.magonia-mark .m4 { fill: var(--m4); }
+.magonia-mark .eye { fill: var(--m4); }
+
+.magonia-mark.ink rect,
+.magonia-mark.ink .eye {
+  fill: currentColor;
+}
+
+.magonia-mark.alive rect {
+  animation: mark-wave 1.6s ease-in-out infinite;
+}
+
+@keyframes mark-wave {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  45% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .magonia-mark.alive rect {
+    animation: none;
+  }
+}
+
+.working {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* The step Magon or Magonia is on: a light passing over the words */
+.shimmer {
+  background: linear-gradient(90deg, var(--muted) 0 40%, var(--accent) 50%, var(--muted) 60% 100%);
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 2.2s linear infinite;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 120% 0;
+  }
+  to {
+    background-position: -20% 0;
+  }
+}
+
+/* The wordmark: lowercase, tight, the dot of the i a pixel of the mark */
+.wordmark {
+  font-weight: 600;
+  letter-spacing: -0.05em;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.wordmark-i {
+  position: relative;
+  display: inline-block;
+}
+
+.wordmark-i::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0.05em;
+  width: 0.15em;
+  height: 0.15em;
+  transform: translateX(-50%);
+  background: #6e9f2e;
+}
+
+:root[data-theme="dark"] .wordmark-i::after {
+  background: #c4ea6a;
+}
+
+.rail-wordmark {
+  font-size: 11.5px;
+  line-height: 1;
+}
+
+/* The pages' icons come alive when opened: strokes draw in and the dot fills */
+.page-icon .dot {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.2s;
+}
+
+.rail-link:hover .page-icon .dot {
+  transform: scale(1.3);
+}
+
+.rail-link[aria-current="page"] .page-icon .dot {
+  fill: var(--accent);
+  animation: dot-pop 0.45s ease-out;
+}
+
+.rail-link[aria-current="page"] .page-icon .draw {
+  stroke-dasharray: 1;
+  animation: draw-in 0.6s ease-out;
+}
+
+@keyframes draw-in {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes dot-pop {
+  0% {
+    transform: scale(0.3);
+  }
+  60% {
+    transform: scale(1.4);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shimmer,
+  .rail-link[aria-current="page"] .page-icon .dot,
+  .rail-link[aria-current="page"] .page-icon .draw {
+    animation: none;
+  }
+  .shimmer {
+    color: var(--muted);
+  }
 }
 
 .card-head > div.magon-title {
@@ -3672,19 +3818,52 @@ textarea.input {
 }
 
 .theme-swatch.light {
-  background: linear-gradient(90deg, #f8f9f6 0 22%, #eceeea 22%);
+  background: linear-gradient(90deg, #f4f3ee 0 22%, #ecebe4 22%);
 }
 
 .theme-swatch.dark {
-  background: linear-gradient(90deg, #111513 0 22%, #0b0e0c 22%);
+  background: linear-gradient(90deg, #121810 0 22%, #0d120b 22%);
 }
 
 .theme-swatch.system {
-  background: linear-gradient(135deg, #eceeea 0 50%, #0b0e0c 50%);
+  background: linear-gradient(135deg, #ecebe4 0 50%, #0d120b 50%);
 }
 
 input[type="checkbox"],
 input[type="radio"],
 input[type="range"] {
   accent-color: var(--accent);
+}
+
+/* Opening: the stork comes alive while the workspace is fetched */
+.opening {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 22px;
+  background: var(--ground);
+}
+
+/* The lockup: the name set under the stork's bill, its m just below the beak */
+.opening .lockup {
+  position: relative;
+  width: 520px;
+  height: 230px;
+}
+
+.opening .lockup .magonia-mark {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.opening .lockup .wordmark {
+  position: absolute;
+  left: 92px;
+  top: 112px;
+  font-size: 88px;
+  line-height: 1;
 }

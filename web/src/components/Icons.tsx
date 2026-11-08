@@ -96,28 +96,82 @@ export const SendIcon = (p: IconProps) => (
   </Svg>
 );
 
+// The pages' icons, as in a code editor's activity bar: round, soft strokes, each with one dot of
+// the mark. When a page opens, its strokes draw themselves in and the dot fills with the accent.
+function PageSvg({ size = 22, children }: IconProps & { children: React.ReactNode }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className="page-icon"
+    >
+      {children}
+    </svg>
+  );
+}
+
 export const MapIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z" />
-    <path d="M9 4v14M15 6v14" />
-  </Svg>
+  <PageSvg {...p}>
+    <path className="draw" pathLength={1} d="M3.5 6.8 9 4.5l6 2.3 5.5-2.3v12.7L15 19.5l-6-2.3-5.5 2.3z" />
+    <path className="draw" pathLength={1} d="M9 4.5v12.7M15 6.8v12.7" />
+    <circle className="dot" cx="12" cy="11.5" r="1.6" fill="currentColor" stroke="none" />
+  </PageSvg>
 );
 
 export const ChartIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M4 4v16h16" />
-    <path d="M7 15l4-5 3 3 5-7" />
-  </Svg>
+  <PageSvg {...p}>
+    <path className="draw" pathLength={1} d="M3.5 19.5h17" />
+    <path className="draw" pathLength={1} d="M3.5 15.5c1.5-1.8 2.6-4.5 4.4-4.5s2.4 2.6 4 2.6 2.7-4.2 4.6-5.6" />
+    <circle className="dot" cx="18.6" cy="6.6" r="1.9" fill="currentColor" stroke="none" />
+  </PageSvg>
 );
 
 export const AnalysisIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <circle cx="7" cy="17" r="2" />
-    <circle cx="12" cy="9" r="2" />
-    <circle cx="18" cy="13" r="2" />
-    <circle cx="16" cy="5" r="1.5" />
-    <path d="M4 20l16-16" strokeDasharray="2 3" />
-  </Svg>
+  <PageSvg {...p}>
+    <path className="draw" pathLength={1} d="M3.5 6.5c2-2 4 2 6 0s4-2 6 0 3 1.6 5 .2" />
+    <path className="draw" pathLength={1} d="M3.5 13.5 16 11.4" />
+    <circle className="dot" cx="18.6" cy="11" r="1.7" fill="currentColor" stroke="none" />
+    <path className="draw" pathLength={1} d="M3.5 18.5c1.5-1 3 1 4.5 0s3-1 4.5 0 3 1 4.5 0 3-1 4 0" />
+  </PageSvg>
+);
+
+// A small neural network: three inputs, two hidden units, one output
+export const ModelIcon = (p: IconProps) => (
+  <PageSvg {...p}>
+    <path className="draw" pathLength={1} d="M6 6l5 2.4M6 6l5 8.6M6 12l5-3.4M6 12l5 3M6 18l5-9.2M6 18l5-2.6M13.6 8.8l4.4 2.6M13.6 15.2l4.4-2.6" strokeWidth={1.1} />
+    <circle className="draw" pathLength={1} cx="4.5" cy="6" r="1.7" />
+    <circle className="draw" pathLength={1} cx="4.5" cy="12" r="1.7" />
+    <circle className="draw" pathLength={1} cx="4.5" cy="18" r="1.7" />
+    <circle className="draw" pathLength={1} cx="12.3" cy="8.6" r="1.8" />
+    <circle className="draw" pathLength={1} cx="12.3" cy="15.4" r="1.8" />
+    <circle className="dot" cx="19.8" cy="12" r="2.3" fill="currentColor" stroke="none" />
+  </PageSvg>
+);
+
+export const BoardIcon = (p: IconProps) => (
+  <PageSvg {...p}>
+    <rect className="draw" pathLength={1} x="3.5" y="3.5" width="7.5" height="9.5" rx="2" />
+    <rect className="draw" pathLength={1} x="13" y="3.5" width="7.5" height="5.5" rx="2" />
+    <rect className="draw" pathLength={1} x="13" y="11" width="7.5" height="9.5" rx="2" />
+    <rect className="draw" pathLength={1} x="3.5" y="15" width="7.5" height="5.5" rx="2" />
+    <circle className="dot" cx="16.75" cy="15.75" r="1.5" fill="currentColor" stroke="none" />
+  </PageSvg>
+);
+
+export const BookIcon = (p: IconProps) => (
+  <PageSvg {...p}>
+    <rect className="draw" pathLength={1} x="3.5" y="4" width="4" height="16" rx="1.2" />
+    <rect className="draw" pathLength={1} x="9.5" y="4" width="4" height="16" rx="1.2" />
+    <path className="draw" pathLength={1} d="M15.6 5.6 18.9 4.7l3.3 14.5-3.3.9z" />
+    <circle className="dot" cx="5.5" cy="7.5" r="1.1" fill="currentColor" stroke="none" />
+  </PageSvg>
 );
 
 export const ChevronIcon = (p: IconProps) => (
@@ -129,15 +183,6 @@ export const ChevronIcon = (p: IconProps) => (
 export const ShrinkIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" />
-  </Svg>
-);
-
-export const ModelIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <circle cx="5" cy="6" r="2" />
-    <circle cx="5" cy="18" r="2" />
-    <circle cx="19" cy="12" r="2" />
-    <path d="M7 6.8l10 4.4M7 17.2l10-4.4" />
   </Svg>
 );
 
@@ -179,32 +224,10 @@ export const PinIcon = (p: IconProps) => (
   </Svg>
 );
 
-export const BookIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z" />
-    <path d="M4 19V5M8 7h7M8 11h5" />
-  </Svg>
-);
-
 export const CopyIcon = (p: IconProps) => (
   <Svg {...p}>
     <rect x="8" y="8" width="12" height="12" rx="2" />
     <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
-  </Svg>
-);
-
-// Magon: an old bearded man with a seedling, after Magon of Carthage, the agronomist; not a chat
-// bubble, so the assistant does not read as a chatbot
-export const MagonIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M4.5 10a5.5 5.5 0 0 1 11 0" />
-    <path d="M4.5 10c-.4 1.2.1 2.3 1.1 2.6M15.5 10c.4 1.2-.1 2.3-1.1 2.6" />
-    <path d="M5.8 12.4c.5 4.2 2 6.8 4.2 8.6 2.2-1.8 3.7-4.4 4.2-8.6" />
-    <path d="M7.5 12.8c1-.8 1.8-.8 2.5 0 .7-.8 1.5-.8 2.5 0" />
-    <path d="M7.4 8.9l1.7.5M12.6 8.9l-1.7.5" />
-    <path d="M19.5 21c0-4 .2-7 1-10" />
-    <path d="M19.8 15.5c-1.6-.4-2.4-1.6-2.3-3 1.5.2 2.4 1.3 2.3 3z" />
-    <path d="M20.3 12.5c.3-1.5 1.4-2.3 2.6-2.2-.2 1.4-1.2 2.3-2.6 2.2z" />
   </Svg>
 );
 
@@ -278,49 +301,4 @@ export const MoreIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M5 12h.01M12 12h.01M19 12h.01" strokeWidth={2.5} strokeLinecap="round" />
   </Svg>
-);
-
-// Magonia's colours, from purple to green, as in its viridis-like maps
-const BRAND = ["#6b3fa0", "#1f9e89", "#5cc15a"];
-
-// Magonia's mark: a landscape line on the brand gradient
-export const BrandMark = ({ size = 28 }: IconProps) => (
-  <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
-    <defs>
-      <linearGradient id="brand-fill" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stopColor={BRAND[0]} />
-        <stop offset="0.55" stopColor={BRAND[1]} />
-        <stop offset="1" stopColor={BRAND[2]} />
-      </linearGradient>
-    </defs>
-    <rect width="32" height="32" rx="7" fill="url(#brand-fill)" />
-    <path d="M6 21.5 L12.5 14.5 L17 19 L20.5 15.5 L26 21.5" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-
-// Magon's mark drawn in the brand gradient, for the rail
-export const MagonGradientIcon = ({ size = 18 }: IconProps) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="url(#magon-stroke)" strokeWidth={1.9} strokeLinecap="square" aria-hidden="true">
-    <defs>
-      <linearGradient id="magon-stroke" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stopColor={BRAND[0]} />
-        <stop offset="1" stopColor={BRAND[2]} />
-      </linearGradient>
-    </defs>
-    <path d="M4.5 10a5.5 5.5 0 0 1 11 0" />
-    <path d="M4.5 10c-.4 1.2.1 2.3 1.1 2.6M15.5 10c.4 1.2-.1 2.3-1.1 2.6" />
-    <path d="M5.8 12.4c.5 4.2 2 6.8 4.2 8.6 2.2-1.8 3.7-4.4 4.2-8.6" />
-    <path d="M7.5 12.8c1-.8 1.8-.8 2.5 0 .7-.8 1.5-.8 2.5 0" />
-    <path d="M7.4 8.9l1.7.5M12.6 8.9l-1.7.5" />
-    <path d="M19.5 21c0-4 .2-7 1-10" />
-    <path d="M19.8 15.5c-1.6-.4-2.4-1.6-2.3-3 1.5.2 2.4 1.3 2.3 3z" />
-    <path d="M20.3 12.5c.3-1.5 1.4-2.3 2.6-2.2-.2 1.4-1.2 2.3-2.6 2.2z" />
-  </svg>
-);
-
-// Magon's face beside its answers: its mark on the brand gradient
-export const MagonAvatar = ({ size = 28 }: IconProps) => (
-  <span className="magon-avatar" style={{ width: size, height: size }} aria-hidden="true">
-    <MagonIcon size={Math.round(size * 0.64)} />
-  </span>
 );

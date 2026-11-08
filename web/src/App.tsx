@@ -53,6 +53,7 @@ import { TimeProvider } from "./plot/TimeProvider";
 import LibraryPage from "./components/LibraryPage";
 import ModelPage from "./components/ModelPage";
 import Rail from "./components/Rail";
+import { Opening } from "./components/Brand";
 import Sidebar from "./components/Sidebar";
 import Toolbar from "./components/Toolbar";
 import { WorkspaceMenu } from "./components/RailMenus";
@@ -851,6 +852,7 @@ export default function App() {
       className={`workbench page-${page}${docked ? " docked" : ""}`}
       style={{ "--panel-width": `${panel.width}px`, "--data-open": `${dataWidth}px` } as React.CSSProperties}
     >
+      {workspaceId === null && !message?.error && <Opening />}
       <Rail
         workspaceId={workspaceId}
         magon={magon}

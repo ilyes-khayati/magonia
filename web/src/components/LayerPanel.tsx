@@ -2,6 +2,7 @@ import type { Tiles, Variable, VariableKey } from "../api";
 import { num } from "../format";
 import { groups } from "../variables";
 import type { Layer } from "./MapView";
+import { Growing } from "./Brand";
 import { CloseIcon } from "./Icons";
 import { shiftMonth, ticks } from "../months";
 
@@ -113,7 +114,8 @@ export default function LayerPanel(props: Props) {
             ) : props.error ? (
               <p className="error-text">{props.error}</p>
             ) : (
-              <p className="meta" role="status">
+              <p className="meta working" role="status">
+                {props.loading && <Growing size={16} />}
                 {props.loading ? `Drawing ${variable?.name} for ${month} on Earth Engine…` : ""}
               </p>
             )}

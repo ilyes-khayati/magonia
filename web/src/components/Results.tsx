@@ -7,6 +7,7 @@ import type {
 import { MODEL_LABEL, type ModelName } from "../experiments";
 import { areaColour, type Theme } from "../theme";
 import Cautions from "./Cautions";
+import { Growing } from "./Brand";
 import { num, oneArea } from "../format";
 import * as Plot from "@observablehq/plot";
 import { PlotFrame, TimeChart } from "../plot/Chart";
@@ -43,7 +44,8 @@ export default function Results({
   const theme = (document.documentElement.dataset.theme as Theme) ?? "light";
   if (!fit || fit.status === "loading")
     return (
-      <p className="placeholder" role="status">
+      <p className="placeholder working" role="status">
+        <Growing size={40} />
         Tuning the models on the training years, then refitting with 20 seeds
         and over earlier windows. This takes up to a minute.
       </p>

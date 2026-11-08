@@ -55,8 +55,7 @@ export default function SettingsMenu(props: Props) {
         title="Settings"
         onClick={() => setOpen(true)}
       >
-        <SettingsIcon size={18} />
-        <span>Settings</span>
+        <SettingsIcon size={22} />
         {earthEngine !== null && !connected && (
           <span className="attention" aria-hidden="true" />
         )}
