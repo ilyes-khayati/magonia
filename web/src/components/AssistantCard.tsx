@@ -16,7 +16,8 @@ import {
 } from "../api";
 import { applyEvent, conversationTitle, fromSaved, type Turn } from "../chat";
 import { AnswerText, Sources } from "./Answer";
-import { ChevronIcon, CloseIcon, MagonAvatar, PlusIcon, SendIcon } from "./Icons";
+import { MagonMark } from "./Brand";
+import { ChevronIcon, CloseIcon, PlusIcon, SendIcon } from "./Icons";
 
 // The conversation open in each workspace is this browser's own convenience
 const OPEN = (workspaceId: number) => `magonia-conversation-${workspaceId}`;
@@ -338,7 +339,7 @@ export default function AssistantCard(props: Props) {
     <section className="card assistant" aria-label="Magon">
       <div className="card-head">
         <div className="magon-title">
-          <MagonAvatar size={30} />
+          <MagonMark size={30} thinking={busy} />
           <div>
             <h3>Magon</h3>
             <span className="meta">{model ? `Research assistant · ${model.replace(" (Ollama)", "")}` : "Research assistant"}</span>
@@ -373,11 +374,11 @@ export default function AssistantCard(props: Props) {
             ) : (
               <div key={i} className="turn assistant">
                 <div className="message-head">
-                  <MagonAvatar size={22} />
+                  <MagonMark size={22} thinking={last} />
                   <span className="message-name">Magon</span>
                 </div>
-                {turn.status && <span className="thinking">{turn.status}</span>}
-                {!turn.status && !turn.content && last && <span className="thinking">Thinking…</span>}
+                {turn.status && <span className="thinking shimmer">{turn.status}</span>}
+                {!turn.status && !turn.content && last && <span className="thinking shimmer">Thinking…</span>}
                 {turn.content && (
                   <div>
                     <AnswerText
