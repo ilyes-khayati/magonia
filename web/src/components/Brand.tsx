@@ -1,32 +1,42 @@
 import { useEffect, useRef } from "react";
-import { GROUND, LEVELS, clear, gridFor, inDisc, makeSim, pixels, seed, step } from "../turing";
+import { EYE, GROUND, LEVELS, gridFor } from "../mark";
 
 type Props = { size?: number };
 
-// Magonia's mark: a field seen from orbit, round but organic and with no outline, filled with the Turing maze that dryland
-// vegetation grows into, measured in satellite pixels and five greens. Drawn rather than
-// imported, so it stays sharp at every size.
-export function MagoniaMark({ size = 28 }: Props) {
+// Magonia's mark: a stork's head and bill in satellite pixels, loose at the edges, with one plain
+// dot for its eye. The greens come from the theme (see .magonia-mark in index.css), so the stork
+// holds on light and dark; "ink" draws it in the text colour, for black-and-white uses. When
+// "alive", a wave runs through its pixels: that is the loader.
+export function MagoniaMark({ size = 28, tone = "color", alive = false }: Props & { tone?: "color" | "ink"; alive?: boolean }) {
   const grid = gridFor(size);
   const n = grid.length,
     cell = 100 / n;
   const gap = size / n >= 4 ? cell * 0.1 : 0;
+  const ink = tone === "ink";
   return (
-    <svg width={size} height={size} viewBox="0 0 100 100" aria-hidden="true" className="magonia-mark">
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 100 100"
+      aria-hidden="true"
+      className={`magonia-mark${ink ? " ink" : ""}${alive ? " alive" : ""}`}
+    >
       {grid.map((row, j) =>
         [...row].map((d, i) =>
           d === "." ? null : (
             <rect
               key={`${i}-${j}`}
+              className={`m${d}`}
               x={i * cell + gap / 2}
               y={j * cell + gap / 2}
               width={cell - gap}
               height={cell - gap}
-              fill={LEVELS[+d]}
+              style={alive ? { animationDelay: `${((i + j) * 0.06).toFixed(2)}s` } : undefined}
             />
           ),
         ),
       )}
+      <circle className="eye" cx={EYE[0] * 100} cy={EYE[1] * 100} r={Math.max(EYE[2] * 100, cell * 0.55)} />
     </svg>
   );
 }
@@ -135,76 +145,20 @@ export function Wordmark({ className = "wordmark" }: { className?: string }) {
   );
 }
 
-// Shown while Magonia opens a workspace: the mark grows, with the name under it
+// Shown while Magonia opens a workspace: the stork, alive, with the name set under its bill
 export function Opening() {
   return (
     <div className="opening" aria-hidden="true">
-      <Growing size={160} />
-      <Wordmark />
+      <div className="lockup">
+        <MagoniaMark size={220} alive />
+        <Wordmark />
+      </div>
       <div className="meta shimmer">Opening your workspace…</div>
     </div>
   );
 }
 
-// The loader: Magonia's mark come alive. A fresh maze grows, is cleared in one place and grows
-// back, for as long as the work lasts.
+// The loader: the mark come alive, a wave running through its pixels for as long as the work lasts
 export function Growing({ size = 20 }: Props) {
-  return <Live size={size} speed={3} />;
-}
-
-// The mark grown live on a canvas. With reduced motion it is drawn once and stays still.
-function Live({ size, speed }: { size: number; speed: number }) {
-  const canvas = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    const el = canvas.current;
-    const ctx = el?.getContext("2d");
-    if (!el || !ctx) return;
-    const cells = size >= 120 ? 26 : size >= 48 ? 16 : size >= 28 ? 11 : 8;
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    el.width = Math.round(size * dpr);
-    el.height = Math.round(size * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const sim = makeSim(Math.max(32, cells * 4), Math.floor(Math.random() * 1e6) + 1);
-    step(sim, 2400); // past the first spots, to the maze
-    const unit = size / cells,
-      gap = unit >= 4 ? unit * 0.1 : 0;
-    const shape = Array.from({ length: cells * cells }, (_, k) => inDisc(((k % cells) + 0.5) / cells, (Math.floor(k / cells) + 0.5) / cells));
-    const draw = () => {
-      const levels = pixels(sim, cells);
-      ctx.clearRect(0, 0, size, size);
-      levels.forEach((l, k) => {
-        if (!shape[k]) return;
-        ctx.fillStyle = LEVELS[l];
-        ctx.fillRect((k % cells) * unit + gap / 2, Math.floor(k / cells) * unit + gap / 2, unit - gap, unit - gap);
-      });
-    };
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
-      draw();
-      return;
-    }
-    let frame = 0,
-      raf = 0;
-    const tick = () => {
-      step(sim, speed);
-      if (++frame % 240 === 0) {
-        const cx = Math.floor(sim.random() * sim.n),
-          cy = Math.floor(sim.random() * sim.n);
-        clear(sim, cx, cy, Math.round(sim.n / 5));
-        seed(sim, cx, cy, 2);
-      }
-      if (frame % 2 === 0) draw();
-      raf = requestAnimationFrame(tick);
-    };
-    draw();
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [size, speed]);
-  return (
-    <canvas
-      ref={canvas}
-      className="growing"
-      style={{ width: size, height: size }}
-      aria-hidden="true"
-    />
-  );
+  return <MagoniaMark size={size} alive />;
 }

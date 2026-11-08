@@ -2173,10 +2173,53 @@ button:disabled {
   display: block;
 }
 
-/* The loader: the mark, alive */
-.growing {
+/* Magonia's stork: four densities of green from the theme, the eye one plain dot. In "ink" it
+   takes the text colour, for black and white. Alive, a wave of light runs through its pixels. */
+.magonia-mark {
   flex: none;
   display: block;
+  --m1: #8fbd3e;
+  --m2: #4f6b2c;
+  --m3: #2f5420;
+  --m4: #1b2216;
+}
+
+:root[data-theme="dark"] .magonia-mark {
+  --m1: #2f5420;
+  --m2: #6e9f2e;
+  --m3: #a9cf5a;
+  --m4: #d6f08e;
+}
+
+.magonia-mark .m1 { fill: var(--m1); }
+.magonia-mark .m2 { fill: var(--m2); }
+.magonia-mark .m3 { fill: var(--m3); }
+.magonia-mark .m4 { fill: var(--m4); }
+.magonia-mark .eye { fill: var(--m4); }
+
+.magonia-mark.ink rect,
+.magonia-mark.ink .eye {
+  fill: currentColor;
+}
+
+.magonia-mark.alive rect {
+  animation: mark-wave 1.6s ease-in-out infinite;
+}
+
+@keyframes mark-wave {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  45% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .magonia-mark.alive rect {
+    animation: none;
+  }
 }
 
 .working {
@@ -3792,7 +3835,7 @@ input[type="range"] {
   accent-color: var(--accent);
 }
 
-/* Opening: the mark grows while the workspace is fetched */
+/* Opening: the stork comes alive while the workspace is fetched */
 .opening {
   position: fixed;
   inset: 0;
@@ -3804,7 +3847,23 @@ input[type="range"] {
   background: var(--ground);
 }
 
-.opening .wordmark {
-  font-size: 46px;
+/* The lockup: the name set under the stork's bill, its m just below the beak */
+.opening .lockup {
+  position: relative;
+  width: 520px;
+  height: 230px;
+}
+
+.opening .lockup .magonia-mark {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.opening .lockup .wordmark {
+  position: absolute;
+  left: 92px;
+  top: 112px;
+  font-size: 88px;
   line-height: 1;
 }
