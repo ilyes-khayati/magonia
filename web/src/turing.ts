@@ -1,50 +1,96 @@
 // Magonia's mark is a Turing pattern, the maze that dryland vegetation grows into, measured on a
-// pixel grid as a satellite would. The pattern is grown once by the Gray–Scott equations and kept
-// as fixed grids for the still mark; the loader grows a fresh one while Magonia works.
+// pixel grid as a satellite would, inside a round field. The pattern is grown once by the
+// Gray–Scott equations and kept as fixed grids for the still marks; the loaders grow a fresh one
+// while Magonia or Magon works.
 
 // Five levels of green, from bare ground to dense canopy, on a near-black ground
 export const LEVELS = ["#132a16", "#2f5420", "#6e9f2e", "#c4ea6a", "#ecfbbf"];
 export const GROUND = "#07100a";
 
-// The still mark, grown and frozen: one digit per pixel, by level. A finer grid for larger sizes,
-// so the maze keeps the same weight from the favicon to the app icon.
-export const GRIDS: Record<number, string[]> = {
-  5: ["02431", "24310", "43102", "31024", "10243"],
-  7: ["2341034", "4443014", "0134300", "0003421", "4310343", "3430143", "1240042"],
-  10: [
-    "2234200343",
-    "4444300144",
-    "3334420013",
-    "0113442000",
-    "0001344200",
-    "1100134421",
-    "4431013444",
-    "3443001343",
-    "1244100342",
-    "1134100342",
+// The mark, grown once and frozen: one digit per pixel, by level, "." outside the field. The field
+// is round but not perfect, like real land, and has no outline: its edge is the pixels themselves.
+// A finer grid for larger sizes, so the maze keeps its weight from the favicon to the app icon.
+export const DISC: Record<number, string[]> = {
+  26: [
+    "..........................",
+    ".......344002430..........",
+    ".....10143003420000.......",
+    "....4300000134100014......",
+    "....34311234443200243.....",
+    "...0134444442344323420....",
+    "...02443321000244443003...",
+    "...44410000000002331014...",
+    "...441001233321000000243..",
+    "..4200024444444200124444..",
+    "..10001443223444334443124.",
+    "..00234420000024444310000.",
+    ".0144444310000034310001110",
+    ".0343113443100034100144443",
+    ".0342000344410244001443344",
+    ".0143000013443442004430024",
+    ".0044332001344430034410014",
+    ".014344430002310014410003.",
+    ".024212443100000134200034.",
+    "..4420014441012334310034..",
+    "...44200134334444442134...",
+    "....44300034443211444.....",
+    ".....44100242000001.......",
+    "......430144100111........",
+    "........33430034..........",
+    "..........................",
   ],
-  14: [
-    "31002343000144",
-    "10024443211344",
-    "00344334433442",
-    "01443113444430",
-    "01442001233200",
-    "00344100000000",
-    "10134410000123",
-    "41014431113444",
-    "43001443344434",
-    "44200234443212",
-    "34300134321001",
-    "34300244100001",
-    "44200243000013",
-    "43000343000034",
+  16: [
+    ".....024........",
+    "...410243004....",
+    "..34300310142...",
+    "..434200123430..",
+    "..003434444344..",
+    "..0034443200244.",
+    ".02442000000012.",
+    ".344200123331000",
+    ".431002444444300",
+    ".200024311124434",
+    ".003444200000343",
+    ".03432343100034.",
+    "..441014442004..",
+    "...410002442....",
+    "....3320014.....",
+    "......43........",
+  ],
+  11: [
+    "...400.....",
+    "..3400441..",
+    ".24420120..",
+    ".433420113.",
+    ".1003444443",
+    ".0014433200",
+    "01344100000",
+    ".4431013444",
+    ".410004444.",
+    "..012342...",
+    "....44.....",
+  ],
+  8: [
+    "..440...",
+    ".034003.",
+    ".234301.",
+    ".4334200",
+    "21003444",
+    "00014433",
+    ".134410.",
+    "..441...",
   ],
 };
 
-// The grid for a mark drawn this many pixels wide: the finest that keeps cells about three screen
-// pixels wide, so the maze reads as a maze rather than as blocks
+// The grid for a mark drawn this many pixels wide: cells stay about three screen pixels or more
 export function gridFor(size: number): string[] {
-  return size >= 36 ? GRIDS[14] : size >= 24 ? GRIDS[10] : size >= 20 ? GRIDS[7] : GRIDS[5];
+  return DISC[size >= 120 ? 26 : size >= 48 ? 16 : size >= 28 ? 11 : 8];
+}
+
+// Whether a point of the unit square falls inside the field, for the live mark
+export function inDisc(x: number, y: number): boolean {
+  const a = Math.atan2(y - 0.5, x - 0.5);
+  return Math.hypot(x - 0.5, y - 0.5) < 0.47 * (1 + 0.05 * Math.sin(3 * a + 1) + 0.035 * Math.sin(5 * a));
 }
 
 export type Sim = {
