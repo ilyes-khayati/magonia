@@ -707,6 +707,7 @@ export type MagonSettings = {
   temperature: number | null;
   detail: "concise" | "detailed";
   papers_per_search: number;
+  search: "keyword" | "hybrid";
 };
 
 export const magonSettings = () =>

@@ -1069,6 +1069,8 @@ class MagonSettings(BaseModel):
     temperature: float | None = Field(None, ge=0, le=1.5)
     detail: Literal["concise", "detailed"] = "concise"
     papers_per_search: int = Field(6, ge=3, le=10)
+    # keyword: OpenAlex on the words; hybrid: on the words and on meaning, merged
+    search: Literal["keyword", "hybrid"] = "keyword"
 
 
 @app.get("/assistant/settings")
@@ -1418,6 +1420,7 @@ def chat(
         library=library.scoped(workspace_id),  # this workspace's files only
         instructions=instructions,
         papers_per_search=chosen.papers_per_search,
+        search_mode=chosen.search,
         detail=chosen.detail,
     )
     # fail with a clear status before streaming starts, if the model cannot be reached: the

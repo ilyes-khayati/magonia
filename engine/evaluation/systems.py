@@ -229,6 +229,7 @@ def run_magonia(
             view=view if case.workspace else None,
             library=library,
             instructions=case.instructions,
+            search_mode=os.environ.get("MAGONIA_SEARCH", "keyword"),
         ):
             kind = event["type"]
             if kind == "text" and first is None:

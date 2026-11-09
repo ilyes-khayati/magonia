@@ -105,3 +105,40 @@ def test_an_opening_that_only_announces_the_answer_is_dropped():
         [paper],
     )
     assert found.text == "Olive NDVI falls in drought [1]."
+
+
+def test_a_search_by_meaning_asks_openalex_for_it(openalex):
+    search_papers("how does olive greenness respond to drought", semantic=True)
+    assert "search.semantic=how+does+olive" in openalex[0]
+    assert "per_page=6" in openalex[0]
+
+
+def paper(pid):
+    return literature.Paper(pid, pid.upper(), [], 2020, None, None, None, None, 0, [])
+
+
+def test_hybrid_merges_both_searches_without_repeats(monkeypatch):
+    by_words = [paper("a"), paper("b")]
+    by_meaning = [paper("b"), paper("c")]
+    asked = []
+
+    def fake(query, limit=6, from_year=None, semantic=False):
+        asked.append(semantic)
+        return list(by_meaning if semantic else by_words)
+
+    monkeypatch.setattr(literature, "search_papers", fake)
+    monkeypatch.setattr("engine.rank.rank", lambda q, papers, keep, embed: papers)
+    found = literature.find_papers("olive drought", "Does olive NDVI follow drought?", hybrid=True)
+    assert [p.id for p in found] == ["a", "b", "c"] and asked == [False, True]
+    assert [p.id for p in literature.find_papers("olive", "q")] == ["a", "b"]
+
+
+def test_a_failed_search_by_meaning_keeps_the_keyword_results(monkeypatch):
+    def fake(query, limit=6, from_year=None, semantic=False):
+        if semantic:
+            raise literature.LiteratureError("limit")
+        return [paper("a")]
+
+    monkeypatch.setattr(literature, "search_papers", fake)
+    monkeypatch.setattr("engine.rank.rank", lambda q, papers, keep, embed: papers)
+    assert [p.id for p in literature.find_papers("olive", "q", hybrid=True)] == ["a"]

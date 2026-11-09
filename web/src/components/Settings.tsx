@@ -356,6 +356,24 @@ function MagonSection() {
         </p>
       </div>
 
+      <div className="setting-row">
+        <label className="field">
+          Searching the literature
+          <select
+            className="select"
+            value={form.search}
+            onChange={(e) => set({ search: e.target.value as MagonSettings["search"] })}
+          >
+            <option value="keyword">By words (default)</option>
+            <option value="hybrid">By words and by meaning</option>
+          </select>
+        </label>
+        <p className="settings-help">
+          Searching by meaning also finds papers that say the same thing in other words. It uses
+          more of the daily search allowance.
+        </p>
+      </div>
+
       <details className="setting-row advanced">
         <summary>Model server</summary>
         <label className="field">
