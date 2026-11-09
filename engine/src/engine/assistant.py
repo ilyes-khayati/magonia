@@ -11,6 +11,7 @@ from urllib.request import Request, urlopen
 
 from dotenv import load_dotenv
 
+from engine import interface
 from engine.awareness import earlier_papers, files_asked_about, restated, wants_literature
 from engine.awareness import listing as library_listing
 from engine.catalogue import CATALOGUE
@@ -75,20 +76,7 @@ when the researcher has some open. You cannot see the map or the charts as pictu
 you cannot run analyses yourself: you can propose one, which the researcher adds with a click."""
 
 # What the interface really has, so that Magon points to it instead of inventing buttons
-APP = """What Magonia has (name only these pages and analyses; there are no other buttons):
-- Map: draw or import areas, and see layers. Data: the period, monthly or seasonal steps, \
-cloud masking, gap filling and the SPEI scale; a chart per variable, with its average year \
-and anomalies.
-- Analyses, each added with "Add analysis": Correlation and lag; Trend and season (wavelet); \
-Long-term trend (Sen slope, Mann-Kendall); Season dates (start, peak, end); Memory and lags; \
-Drought scale and lag; Wavelet coherence; Wavelet leakage audit; Pixel purity.
-- Model: forecast experiments (Ridge, Random Forest, XGBoost, and the networks MLP, LSTM, GRU, \
-TCN), what each model leans on, and whether that holds across training years.
-- Board: pinned cards and notes. Library: the researcher's PDFs and standing instructions.
-- To point the researcher somewhere, name the page and the analysis exactly as above, for \
-example "Analyses, Add analysis, Season dates". Never describe a button or feature not listed \
-here. When they ask you to run or add one of these, you may propose it: they see a card to \
-add it with one click."""
+APP = interface.described()
 
 MODEL_SETTINGS = f"""- On the Model page the researcher chooses the models (Ridge, Random Forest, XGBoost), the \
 lags, the test years, the calendar and the rolling evaluation. A model given no settings is \
@@ -746,6 +734,8 @@ def answer(
     # numbers are checked when there was something to check them against
     if facts or papers or kind == "method":
         event["numbers"] = [n.to_dict() for n in check_numbers(verdict.text, sources)]
+    # every page, button or analysis it names must be one the interface has
+    event["app"] = [m.to_dict() for m in interface.check_app(verdict.text)]
     if verdict.cited:
         # does each cited statement say what its papers say?
         yield {"type": "verifying"}

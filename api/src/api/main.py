@@ -1479,6 +1479,8 @@ def chat(
                 }
                 if "numbers" in verdict:
                     details["numbers"] = verdict["numbers"]
+                if verdict.get("app"):
+                    details["app"] = verdict["app"]
                 if "support" in verdict:
                     details["support"] = verdict["support"]
                     details["faithfulness"] = verdict["faithfulness"]

@@ -567,6 +567,9 @@ export type CheckedNumber = {
   source: string | null;
 };
 
+// A page, button or analysis the answer names, and whether the interface has it
+export type AppMention = { start: number; end: number; text: string; kind: string; status: "known" | "unknown" };
+
 // A closer look the assistant took at the researcher's data
 export type Read = { area: string; variable: string; year: number | null };
 
@@ -577,6 +580,7 @@ export type AnswerDetails = {
   cards?: string[]; // the charts and analyses it was given facts about
   reads?: Read[];
   numbers?: CheckedNumber[];
+  app?: AppMention[]; // pages, buttons and analyses it named
   proposals?: Proposal[];
   route?: Route;
   passages?: PassageCard[];
@@ -646,6 +650,7 @@ export type ChatEvent =
       type: "check";
       text: string;
       numbers?: CheckedNumber[];
+      app?: AppMention[];
       support?: SupportCheck[];
       faithfulness?: number | null;
     } & CitationCheck)
