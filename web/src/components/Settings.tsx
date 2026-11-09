@@ -374,6 +374,26 @@ function MagonSection() {
         </p>
       </div>
 
+      <div className="setting-row">
+        <label className="field">
+          Checking sentences against papers
+          <select
+            className="select"
+            value={form.verifier}
+            onChange={(e) => set({ verifier: e.target.value as MagonSettings["verifier"] })}
+          >
+            <option value="model">The chat model (default)</option>
+            <option value="nli">Inference model (DeBERTa NLI)</option>
+            <option value="minicheck-roberta">MiniCheck RoBERTa</option>
+            <option value="minicheck-deberta">MiniCheck DeBERTa</option>
+          </select>
+        </label>
+        <p className="settings-help">
+          A separate model trained only to tell whether a passage supports a sentence, instead of
+          asking the model that wrote the answer. Runs on this computer; needs the verify extra.
+        </p>
+      </div>
+
       <details className="setting-row advanced">
         <summary>Model server</summary>
         <label className="field">

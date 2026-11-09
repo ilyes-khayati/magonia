@@ -713,6 +713,7 @@ export type MagonSettings = {
   detail: "concise" | "detailed";
   papers_per_search: number;
   search: "keyword" | "hybrid";
+  verifier: "model" | "nli" | "minicheck-roberta" | "minicheck-deberta";
 };
 
 export const magonSettings = () =>

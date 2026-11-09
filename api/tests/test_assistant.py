@@ -372,6 +372,19 @@ def test_magon_settings_are_saved_and_choose_the_model(client, monkeypatch):
 
     assert client.put("/assistant/settings", json={"papers_per_search": 50}).status_code == 422
     assert client.put("/assistant/settings", json={"model_url": "not a url"}).status_code == 422
+    assert client.put("/assistant/settings", json={"verifier": "oracle"}).status_code == 422
+
+
+def test_the_chosen_verifier_checks_the_answer(client, monkeypatch, library):
+    asked = []
+    monkeypatch.setattr(main, "judge_for", lambda name: asked.append(name))
+    main.app.dependency_overrides[main.get_provider] = lambda: Scripted("Fine.")
+    assert client.get("/assistant/settings").json()["verifier"] == "model"
+    client.put("/assistant/settings", json={"verifier": "nli"})
+    wid = workspace(client)
+    conversation = client.post(f"/workspaces/{wid}/conversations").json()["id"]
+    client.post(f"/conversations/{conversation}/chat", json={"content": "What is NDVI?"})
+    assert asked == ["nli"]
 
 
 def test_an_unreachable_model_server_lists_no_models(client):
