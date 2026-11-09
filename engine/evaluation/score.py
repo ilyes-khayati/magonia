@@ -305,14 +305,19 @@ class Pool:
         return [(float(scores[i]), self.chunks[i]) for i in best]
 
 
+def evidence(pool: Pool, claim: str, embed) -> list[str]:
+    """The passages a statement is judged against: the closest ones that are on its subject."""
+    return [t for s, t in pool.closest(claim, embed) if s >= OFF_TOPIC]
+
+
 def pool_support(cache: Cache, pool: Pool, claim: str, embed, judge) -> str:
     """supported, partly, unsupported or off-topic: what the literature found says of it."""
 
     def look() -> str:
-        near = [(s, t) for s, t in pool.closest(claim, embed) if s >= OFF_TOPIC]
+        near = evidence(pool, claim, embed)
         if not near:
             return "off-topic"
-        verdicts = [judge(claim, text) for _, text in near]
+        verdicts = [judge(claim, text) for text in near]
         if "yes" in verdicts:
             return "supported"
         return "partly" if "partly" in verdicts else "unsupported"
@@ -431,8 +436,14 @@ def main() -> None:
         if r["case"] in pools:
             claims = sentences(text)
             pool = pools[r["case"]]
+            # the passages are kept with each verdict, so people can judge the same evidence
             out["statements"] = [
-                {"claim": c, "pool": pool_support(cache, pool, c, embed, judge)} for c in claims
+                {
+                    "claim": c,
+                    "pool": pool_support(cache, pool, c, embed, judge),
+                    "evidence": evidence(pool, c, embed),
+                }
+                for c in claims
             ]
             support = check.get("support") or []
             out["own_support"] = [s["status"] for s in support]
