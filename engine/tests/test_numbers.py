@@ -22,7 +22,7 @@ def test_numbers_copied_from_the_facts_are_verified_and_linked():
 
 
 def test_a_number_may_be_rounded_but_not_made_more_precise():
-    assert statuses("May was 0.86.") == [("0.86", "verified", "reading Corn NDVI 2022")]
+    assert statuses("In 2022, May was 0.86.") == [("0.86", "verified", "reading Corn NDVI 2022")]
     # 0.9 rounds both 0.89 and 0.863; the closer one is taken as its source
     assert statuses("Around 0.9.") == [("0.9", "verified", "NDVI chart")]
     assert statuses("It peaked at 0.890.") == [("0.890", "unverified", None)]
@@ -78,3 +78,46 @@ def test_digits_in_the_name_of_a_card_are_not_measurements():
 
 def test_a_year_is_not_marked_as_a_number():
     assert statuses("In 2022 May was 0.86.") == [("0.86", "verified", "reading Corn NDVI 2022")]
+
+
+AVERAGE_AND_A_YEAR = [
+    (
+        "NDVI chart",
+        "Orchard, NDVI: in an average year it peaks in Mar (0.70) and is lowest in Jul (0.27).",
+    ),
+    (
+        "reading Orchard NDVI 2002",
+        "Orchard, NDVI, monthly means in 2002: Jun 0.24, Jul 0.23, Aug 0.25.",
+    ),
+    (
+        "LST chart",
+        "Orchard, Land surface temperature (day): in an average year it peaks in Jul (0.23).",
+    ),
+]
+
+
+def test_a_number_must_be_found_where_its_sentence_points():
+    # the true low of the average year is 0.27; 0.23 is July of 2002, a year the answer never names
+    answer = "NDVI goes as low as 0.23 in July."
+    assert statuses(answer, AVERAGE_AND_A_YEAR) == [
+        ("0.23", "elsewhere", "reading Orchard NDVI 2002")
+    ]
+    assert statuses("NDVI is lowest in July, at 0.27.", AVERAGE_AND_A_YEAR) == [
+        ("0.27", "verified", "NDVI chart")
+    ]
+    # the year named in the question counts
+    asked = [("your question", "How low did NDVI go in 2002?"), *AVERAGE_AND_A_YEAR]
+    assert statuses("It went as low as 0.23 in July.", asked) == [
+        ("0.23", "verified", "reading Orchard NDVI 2002")
+    ]
+
+
+def test_a_number_of_another_variable_or_month_does_not_count():
+    # 0.23 is also an LST value in the sources: an NDVI sentence cannot borrow it
+    assert statuses("In an average year NDVI is 0.23 in July.", AVERAGE_AND_A_YEAR[::2]) == [
+        ("0.23", "elsewhere", "LST chart")
+    ]
+    # the right value, but given for another month than the sentence names
+    assert statuses("NDVI is lowest in August, at 0.27.", AVERAGE_AND_A_YEAR) == [
+        ("0.27", "elsewhere", "NDVI chart")
+    ]

@@ -15,6 +15,7 @@ const READ: Record<ReadStatus, string> = {
 
 const FLAG = {
   sign: "found only with the opposite sign",
+  elsewhere: "found, but for another year, month or variable than the sentence says",
   unverified: "not found in what Magon was given",
 };
 
@@ -27,7 +28,7 @@ function Num({ n }: { n: CheckedNumber }) {
       </span>
     );
   }
-  const why = n.status === "sign" ? `${FLAG.sign} (${n.source})` : FLAG.unverified;
+  const why = n.status === "unverified" ? FLAG.unverified : `${FLAG[n.status]} (${n.source})`;
   return (
     <mark className="num flagged" title={`Check this number: ${why}`}>
       {n.text}
@@ -348,7 +349,7 @@ export function Sources({ turn, anchor, onPinPassage }: { turn: Turn; anchor: st
       {flagged.length > 0 && (
         <p className="removed">
           {flagged.length === 1 ? "1 number was" : `${flagged.length} numbers were`} not confirmed:{" "}
-          {flagged.map((n) => `${n.text} (${FLAG[n.status as "sign" | "unverified"]})`).join(", ")}.
+          {flagged.map((n) => `${n.text} (${FLAG[n.status as keyof typeof FLAG]})`).join(", ")}.
         </p>
       )}
       {check && check.unverified.length > 0 && (

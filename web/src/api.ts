@@ -563,7 +563,7 @@ export type CheckedNumber = {
   start: number;
   end: number;
   text: string;
-  status: "verified" | "sign" | "unverified";
+  status: "verified" | "sign" | "elsewhere" | "unverified";
   source: string | null;
 };
 
