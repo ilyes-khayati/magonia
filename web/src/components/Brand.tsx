@@ -1,42 +1,35 @@
 import { useEffect, useRef } from "react";
-import { EYE, GROUND, LEVELS, gridFor } from "../mark";
+import { GROUND, LEVELS, SEED_EYE, SEEDS } from "../mark";
 
 type Props = { size?: number };
 
-// Magonia's mark: a stork's head and bill in satellite pixels, loose at the edges, with one plain
-// dot for its eye. The greens come from the theme (see .magonia-mark in index.css), so the stork
+// Magonia's mark: a stork's head and bill in loose seeds of green, smaller toward the edges, with
+// one plain dot for its eye. The greens come from the theme (see .magonia-mark in index.css), so the stork
 // holds on light and dark; "ink" draws it in the text colour, for black-and-white uses. When
 // "alive", a wave runs through its pixels: that is the loader.
 export function MagoniaMark({ size = 28, tone = "color", alive = false }: Props & { tone?: "color" | "ink"; alive?: boolean }) {
-  const grid = gridFor(size);
-  const n = grid.length,
-    cell = 100 / n;
-  const gap = size / n >= 4 ? cell * 0.1 : 0;
   const ink = tone === "ink";
+  // the seeds in three greens; at small sizes the smallest drop out, as they would blur
+  const green = (t: number) => (t < 0.25 ? 2 : t < 0.55 ? 3 : 4);
   return (
     <svg
       width={size}
       height={size}
-      viewBox="0 0 100 100"
+      viewBox="9 13 78 78"
       aria-hidden="true"
       className={`magonia-mark${ink ? " ink" : ""}${alive ? " alive" : ""}`}
     >
-      {grid.map((row, j) =>
-        [...row].map((d, i) =>
-          d === "." ? null : (
-            <rect
-              key={`${i}-${j}`}
-              className={`m${d}`}
-              x={i * cell + gap / 2}
-              y={j * cell + gap / 2}
-              width={cell - gap}
-              height={cell - gap}
-              style={alive ? { animationDelay: `${((i + j) * 0.06).toFixed(2)}s` } : undefined}
-            />
-          ),
-        ),
-      )}
-      <circle className="eye" cx={EYE[0] * 100} cy={EYE[1] * 100} r={Math.max(EYE[2] * 100, cell * 0.55)} />
+      {SEEDS.filter(([, , r]) => size >= 40 || r >= 0.9).map(([x, y, r, t]) => (
+        <circle
+          key={`${x}-${y}`}
+          className={`dot m${green(t)}`}
+          cx={x}
+          cy={y}
+          r={Math.max(r, 50 / size)}
+          style={alive ? { animationDelay: `${((x + y) * 0.012).toFixed(2)}s` } : undefined}
+        />
+      ))}
+      <circle className="eye" cx={SEED_EYE[0]} cy={SEED_EYE[1]} r={SEED_EYE[2]} />
     </svg>
   );
 }

@@ -37,8 +37,17 @@ CANDIDATES = 2  # passages asked about per claim, closest first
 
 # A sentence ends at . ! or ? followed by a space, or at a line break
 SENTENCE = re.compile(r"[^\n]+?(?:[.!?](?=\s|$)|(?=\n)|$)")
-# Dots that do not end a sentence: in citations such as [1, p. 6], and in abbreviations
-NOT_AN_END = re.compile(r"\[[^\]]*\]|\bet al\.|\be\.g\.|\bi\.e\.|\bFig\.|\bcf\.", re.IGNORECASE)
+# Dots that do not end a sentence: in citations such as [1, p. 6], and in abbreviations,
+# and a genus shortened to its initial, as in "N. vitifusiforme"
+NOT_AN_END = re.compile(
+    r"\[[^\]]*\]|\bet al\.|\be\.g\.|\bi\.e\.|\bFig\.|\bcf\.|(?-i:\b[A-Z]\.(?= [a-z]))",
+    re.IGNORECASE,
+)
+
+# A reference rather than a claim: "Smith et al., 2020.", "Smith and Jones (2019)."
+AUTHOR_YEAR = re.compile(
+    r"^[A-Z][\w'’-]+(?: et al\.?| (?:and|&) [A-Z][\w'’-]+)?,? \(?\d{4}[a-z]?\)?[.,]?$"
+)
 
 Judge = Callable[[str, str], str]  # (claim, passage) → "yes", "partly" or "no"
 
@@ -91,7 +100,11 @@ def statements(answer: str) -> list[tuple[int, int, str, list[int]]]:
         claim = " ".join(GROUP.sub("", sentence).split()).strip(" -*#:")
         claim = re.sub(r"\*\*", "", claim)
         heading = not claim.endswith((".", "!", "?")) and len(claim.split()) <= 10
-        if cites and not heading and len(words(claim)) >= 3:
+        # a paper's authors and year, or its title set in italics, name it and claim nothing
+        reference = bool(AUTHOR_YEAR.match(claim)) or GROUP.sub("", sentence).lstrip(
+            " -#"
+        ).startswith("*")
+        if cites and not heading and not reference and len(words(claim)) >= 3:
             start = match.start() + len(sentence) - len(sentence.lstrip())
             found.append((start, match.end(), claim, list(dict.fromkeys(cites))))
     return found

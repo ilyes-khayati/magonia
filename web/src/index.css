@@ -2197,12 +2197,12 @@ button:disabled {
 .magonia-mark .m4 { fill: var(--m4); }
 .magonia-mark .eye { fill: var(--m4); }
 
-.magonia-mark.ink rect,
+.magonia-mark.ink .dot,
 .magonia-mark.ink .eye {
   fill: currentColor;
 }
 
-.magonia-mark.alive rect {
+.magonia-mark.alive .dot {
   animation: mark-wave 1.6s ease-in-out infinite;
 }
 
@@ -2217,7 +2217,7 @@ button:disabled {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .magonia-mark.alive rect {
+  .magonia-mark.alive .dot {
     animation: none;
   }
 }
@@ -2594,16 +2594,23 @@ td {
   stroke-opacity: 1;
 }
 
-/* figure text: the ink colour, slightly softened, as in a printed figure */
-.chart-box svg text {
+/* figure text: the ink colour, slightly softened, as in a printed figure. Text given its own
+   colour or faintness keeps it, such as black on a pale cell or a value faded inside chance. */
+.chart-box svg text:not([fill]) {
   fill: var(--ink);
+}
+
+.chart-box svg text:not([fill-opacity]) {
   fill-opacity: 0.82;
 }
 
-/* text drawn as data keeps the fill its mark gives it, such as white on a dark cell */
-.chart-box svg g[data-mark="text"] text {
+/* text drawn as data takes the fill its mark gives it */
+.chart-box svg g[data-mark="text"] text:not([fill]) {
   fill: inherit;
-  fill-opacity: 1;
+}
+
+.chart-box svg g[data-mark="text"] text:not([fill-opacity]) {
+  fill-opacity: inherit;
 }
 
 .chart-overlay {

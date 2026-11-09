@@ -68,15 +68,16 @@ export default function ScalesCard({ analysis, onChange, onRemove, variables, ti
     color: { type: "diverging", scheme: "RdBu", domain: [-limit, limit] },
     marks: [
       Plot.cell(cells, { x: "lag", y: "scale", fill: "r", inset: 0.5 }),
-      Plot.text(cells, {
-        x: "lag",
-        y: "scale",
-        text: (c: Cell) => num(c.r, 2),
-        fill: (c: Cell) => (Math.abs(c.r) > limit * 0.6 ? "white" : "black"),
-        fontSize: 10,
-        // a value inside the band of chance is shown faint
-        fillOpacity: (c: Cell) => (Math.abs(c.r) < c.band ? 0.45 : 1),
-      }),
+      // white on the dark ends of the scale, black on the pale middle, and faint inside the band
+      // of chance; constant fills, as a fill channel would be read through the colour scale
+      ...[true, false].flatMap((dark) =>
+        [true, false].map((faint) =>
+          Plot.text(
+            cells.filter((c) => (Math.abs(c.r) > limit * 0.6) === dark && (Math.abs(c.r) < c.band) === faint),
+            { x: "lag", y: "scale", text: (c: Cell) => num(c.r, 2), fill: dark ? "white" : "black", fillOpacity: faint ? 0.45 : 1, fontSize: 10 },
+          ),
+        ),
+      ),
       ...(best ? [Plot.cell([best], { x: "lag", y: "scale", stroke: "currentColor", strokeWidth: 2, fill: "none", inset: 0.5 })] : []),
       Plot.tip(cells, Plot.pointer({ x: "lag", y: "scale", title: (c: Cell) => `SPEI-${c.scale}, ${c.lag} month${c.lag === 1 ? "" : "s"} earlier\nr = ${num(c.r, 2)} (n = ${c.n}, chance ±${num(c.band, 2)})` })),
     ],
