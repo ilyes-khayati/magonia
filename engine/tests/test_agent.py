@@ -452,3 +452,10 @@ def test_detailed_answers_and_papers_per_search_follow_the_settings():
     list(answer(Recorder("Hi."), question, detail="detailed"))
     assert "Be concise" in systems[0] and "thorough" not in systems[0]
     assert "Be concise" not in systems[1] and "thorough" in systems[1]
+
+
+def test_the_answer_says_where_its_time_went():
+    model = Scripted("NDVI measures greenness.")
+    events = list(answer(model, [{"role": "user", "content": "What is NDVI?"}]))
+    timings = events[-1]["timings"]
+    assert "model" in timings and timings["total"] >= timings["model"] >= 0

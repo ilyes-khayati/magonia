@@ -157,6 +157,22 @@ def main() -> None:
     out += ["", "## Time and length (medians)", ""]
     out.append(table(["System", "Literature", "Data", "Conversation", "Words"], rows))
 
+    # Where the time of a literature answer goes, stage by stage
+    stages = ["model", "search", "reading", "checks", "support", "total"]
+    rows = []
+    for s in systems:
+        spent = [
+            r.get("timings") or {} for r in by[s] if r["kind"] == "research" and not r["error"]
+        ]
+        if any(spent):
+            rows.append(
+                [s]
+                + [f"{statistics.median([x.get(st, 0.0) for x in spent]):.1f} s" for st in stages]
+            )
+    if rows:
+        out += ["", "## Where a literature answer's time goes (medians)", ""]
+        out.append(table(["System", *stages], rows))
+
     # Stability: does a system do the same thing each time it is asked?
     rows = []
     for s in systems:

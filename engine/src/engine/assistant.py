@@ -3,6 +3,8 @@
 import json
 import os
 import re
+import time
+from collections import defaultdict
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -410,6 +412,22 @@ def for_the_model(papers: list[Paper], first: int) -> str:
     return "\n\n".join(lines)
 
 
+class Clock:
+    """Seconds spent in each stage of an answer, so the time of a slow one can be read."""
+
+    def __init__(self):
+        self.started = time.monotonic()
+        self.spent: dict[str, float] = defaultdict(float)
+
+    def add(self, stage: str, since: float) -> None:
+        self.spent[stage] += time.monotonic() - since
+
+    def report(self) -> dict[str, float]:
+        out = {stage: round(s, 2) for stage, s in self.spent.items()}
+        out["total"] = round(time.monotonic() - self.started, 2)
+        return out
+
+
 def answer(
     provider: Provider,
     conversation: list[Message],
@@ -431,6 +449,7 @@ def answer(
     streamed answer: citations checked against the papers found and, when there was a
     workspace or papers, every number checked against what the model was given.
     """
+    clock = Clock()
     text = str(conversation[-1]["content"])
     topic = text  # what the papers are ranked against; a follow-up adds the earlier question
     if search is None:
@@ -607,12 +626,14 @@ def answer(
         if forced and tools and tools[0] is SEARCH_TOOL:
             calls, forced = forced, []
         else:
+            since = time.monotonic()
             for piece in provider.stream(messages, tools or None):
                 if isinstance(piece, ToolCall):
                     calls.append(piece)
                 else:
                     said.append(piece)
                     yield {"type": "text", "text": piece}
+            clock.add("model", since)
         offered = {t["function"]["name"] for t in tools}
         if not calls:
             written, _ = written_calls("".join(said[begun:]))
@@ -685,12 +706,15 @@ def answer(
                 )
                 continue
             yield {"type": "search", "query": query}
+            since = time.monotonic()
             try:
                 found = search(query)
             except LiteratureError as exc:
+                clock.add("search", since)
                 yield {"type": "search_failed", "query": query, "error": str(exc)}
                 messages.append({"role": "tool", "content": f"The search failed: {exc}"})
                 continue
+            clock.add("search", since)
             first = len(papers) + 1
             papers.extend(found)
             for i, p in enumerate(found):
@@ -712,9 +736,11 @@ def answer(
             if library is not None and any(p.pdf_url for p in found):
                 # the full text of the open-access papers, and its passages that answer
                 yield {"type": "reading", "count": sum(1 for p in found if p.pdf_url)}
+                since = time.monotonic()
                 status = library.add_all(found)
                 numbered = {first + i: p for i, p in enumerate(found)}
                 chosen = library.best(text, numbered)
+                clock.add("reading", since)
                 for f in chosen:
                     pages.setdefault(f.n, set()).add(f.page)
                     evidence[f.n].append((f"[{f.n}, p. {f.page}]", f.text))
@@ -729,6 +755,7 @@ def answer(
             messages.append({"role": "tool", "content": given})
 
     _, said_text = written_calls("".join(said))  # a call it can no longer make is not shown
+    since = time.monotonic()
     verdict = check(tidy(said_text), papers, pages)
     event = {"type": "check", "text": verdict.text, **verdict.to_dict()}
     # numbers are checked when there was something to check them against
@@ -736,11 +763,16 @@ def answer(
         event["numbers"] = [n.to_dict() for n in check_numbers(verdict.text, sources)]
     # every page, button or analysis it names must be one the interface has
     event["app"] = [m.to_dict() for m in interface.check_app(verdict.text)]
+    clock.add("checks", since)
     if verdict.cited:
         # does each cited statement say what its papers say?
         yield {"type": "verifying"}
         embed = getattr(provider, "embed", None)
+        since = time.monotonic()
         found = check_support(verdict.text, evidence, embed=embed, judge=judge)
+        clock.add("support", since)
         event["support"] = [s.to_dict() for s in found]
         event["faithfulness"] = faithfulness(found)
+    # where the time went: the model, searching, reading papers, checking, judging support
+    event["timings"] = clock.report()
     yield event
