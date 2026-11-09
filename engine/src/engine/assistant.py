@@ -72,7 +72,23 @@ PDFs on the Library page. You are told which files are in their library; when a 
 about one of them, or speaks to one, its passages are given to you.
 - You can see the areas, variables and analyses open in Magonia, as facts computed by code, \
 when the researcher has some open. You cannot see the map or the charts as pictures, and \
-you cannot run new analyses yet."""
+you cannot run analyses yourself: you can propose one, which the researcher adds with a click."""
+
+# What the interface really has, so that Magon points to it instead of inventing buttons
+APP = """What Magonia has (name only these pages and analyses; there are no other buttons):
+- Map: draw or import areas, and see layers. Data: the period, monthly or seasonal steps, \
+cloud masking, gap filling and the SPEI scale; a chart per variable, with its average year \
+and anomalies.
+- Analyses, each added with "Add analysis": Correlation and lag; Trend and season (wavelet); \
+Long-term trend (Sen slope, Mann-Kendall); Season dates (start, peak, end); Memory and lags; \
+Drought scale and lag; Wavelet coherence; Wavelet leakage audit; Pixel purity.
+- Model: forecast experiments (Ridge, Random Forest, XGBoost, and the networks MLP, LSTM, GRU, \
+TCN), what each model leans on, and whether that holds across training years.
+- Board: pinned cards and notes. Library: the researcher's PDFs and standing instructions.
+- To point the researcher somewhere, name the page and the analysis exactly as above, for \
+example "Analyses, Add analysis, Season dates". Never describe a button or feature not listed \
+here. When they ask you to run or add one of these, you may propose it: they see a card to \
+add it with one click."""
 
 MODEL_SETTINGS = f"""- On the Model page the researcher chooses the models (Ridge, Random Forest, XGBoost), the \
 lags, the test years, the calendar and the rolling evaluation. A model given no settings is \
@@ -80,12 +96,12 @@ tuned automatically on the training years; one given settings uses those, and th
 defaults for the rest. The settings they can give: {SETTINGS}."""
 
 # Everything, for a general question; each kind of question gets only what it needs
-RULES = f"{CORE}\n\n{LITERATURE}\n\n{ABOUT}\n{MODEL_SETTINGS}"
+RULES = f"{CORE}\n\n{LITERATURE}\n\n{ABOUT}\n{MODEL_SETTINGS}\n\n{APP}"
 RULES_FOR = {
-    "chat": f"{CORE}\n\n{ABOUT}",
+    "chat": f"{CORE}\n\n{ABOUT}\n\n{APP}",
     "research": f"{CORE}\n\n{LITERATURE}\n\n{ABOUT}",
-    "method": f"{CORE}\n\n{ABOUT}\n{MODEL_SETTINGS}",
-    "data": f"{CORE}\n\n{ABOUT}\n{MODEL_SETTINGS}",
+    "method": f"{CORE}\n\n{ABOUT}\n{MODEL_SETTINGS}\n\n{APP}",
+    "data": f"{CORE}\n\n{ABOUT}\n{MODEL_SETTINGS}\n\n{APP}",
     "general": RULES,
 }
 # Earlier messages sent with a question: enough to follow the thread, too few for a small
@@ -104,7 +120,12 @@ RUN = re.compile(
     r".{0,20}\b(forecast|predict|decompose|split|separate|break (it |them )?down|detrend|"
     r"deseasonali[sz]e|correlate|do an?)\b"
     r"|^\s*(forecast|predict|decompose|split|separate|break down|detrend|deseasonali[sz]e|"
-    r"correlate)\b",
+    r"correlate)\b"
+    # "let's start with seasonal patterns", "yes, go with the trend", "give me buttons"
+    r"|\b(let'?s|start with|go with|begin with|proceed|go ahead|i'?d like|i want|yes)\b"
+    r".{0,40}\b(season\w*|trends?|correlat\w*|lags?|memory|phenolog\w*|analys[ie]s|"
+    r"coherence|experiments?|forecasts?|decompos\w*)\b"
+    r"|\bbuttons?\b",
     re.IGNORECASE,
 )
 NOT_RUN = re.compile(

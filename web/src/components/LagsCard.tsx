@@ -182,7 +182,7 @@ export default function LagsCard(props: Props) {
       ) : (
         <>
           <span className="meta">
-            Memory: {name(analysis.response)} against itself, 1 to 24 months earlier (dark bars stand out from chance)
+            Memory: {name(analysis.response)} against itself, 1 to 24 months earlier (highlighted bars stand out from chance)
           </span>
           <PlotFrame title="Memory" options={memoryChart} height={150} />
 

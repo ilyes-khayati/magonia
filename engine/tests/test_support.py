@@ -135,3 +135,17 @@ def test_a_heading_passes_its_citation_to_the_points_under_it():
         ("NDVI of rainfed olive groves fell during the 2012 drought.", [1]),
         ("Irrigated groves kept their NDVI through the summer.", [1]),
     ]
+
+
+def test_a_reference_names_a_paper_and_is_not_a_claim():
+    # the authors and year, and the title in italics, came back as "not supported"
+    text = (
+        "[1] Mahfoudhi et al., 1998. *Viruses and virus diseases of grapevine in Tunisia.* "
+        "EPPO Bulletin. They found that most of the vines tested were infected.\n\n"
+        "[2] Mahfoudhi and Dhouibi, 2009. *Survey of mealybugs in Tunisian vineyards.* "
+        "African Entomology. Two species were found, with N. australe on old vines."
+    )
+    assert [claim for _, _, claim, _ in statements(text)] == [
+        "They found that most of the vines tested were infected.",
+        "Two species were found, with N. australe on old vines.",
+    ]
