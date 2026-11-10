@@ -12,6 +12,7 @@ import engine
 import pandas as pd
 from engine import assistant, facts, guardrails, layers, notebook
 from engine.areas import AreaError, make_area
+from engine.board import Pinned
 from engine.catalogue import CATALOGUE, get_variable
 from engine.coherence import CoherenceError, coherence
 from engine.decompose import DecompositionError, decompose
@@ -204,7 +205,7 @@ class View(BaseModel):
     analyses: list[dict] = []  # as the interface saves them
     series: list[SeriesRequest] = []  # every series shown or used, each with its area_id
     display: str | None = None  # how the Data page shows the series, if changed
-    board: list[dict] = []  # what the researcher pinned: title and text
+    board: list[dict] = []  # what the researcher pinned: title, text, trust and date
     focus: str | None = Field(None, max_length=200)  # the card asked about, by its title
 
 
@@ -1228,16 +1229,24 @@ def workspace_view(store: Store, workspace_id: int, view: View) -> facts.View:
         )
     if loading:
         context.append("Still loading, so not described: " + ", ".join(loading) + ".")
-    # what the researcher pinned comes first: they chose it
-    pinned = [
-        facts.Fact(f"Board: {str(b.get('title', ''))[:80]}", str(b.get("text", ""))[:1500])
-        for b in view.board[:20]
-        if b.get("text")
-    ]
-    extra = pinned + forecast_facts(store, view, areas)
+    # the board is given to Magon as evidence it can cite (pinned_items), not as facts here
+    extra = forecast_facts(store, view, areas)
     return facts.View(
         context, series, view.charts, view.analyses, view.resolution, extra, focus=view.focus
     )
+
+
+def pinned_items(board: list[dict]) -> list[Pinned]:
+    """The board as Magon's memory; an item sent without a trust level is the researcher's."""
+    return [
+        Pinned(
+            str(b.get("title", ""))[:80],
+            str(b.get("text", "")),
+            str(b.get("trust", "note")),
+            str(b.get("pinned", "")),
+        )
+        for b in board
+    ]
 
 
 def series_warnings(store: Store, request: SeriesRequest | None) -> list[str]:
@@ -1429,6 +1438,7 @@ def chat(
         detail=chosen.detail,
         judge=judge_for(chosen.verifier),
         withdraw_unsupported=chosen.claims == "withdraw",
+        board=pinned_items(body.view.board) if body.view else [],
     )
     # fail with a clear status before streaming starts, if the model cannot be reached: the
     # route and view events come before the model is asked anything
@@ -1444,6 +1454,7 @@ def chat(
 
     def stream() -> Iterator[str]:
         said, searches, papers, verdict, cards, reads, proposals = [], [], [], None, [], [], []
+        board_given: list[dict] = []
         passages, read = [], {}
         route = None
         try:
@@ -1467,6 +1478,8 @@ def chat(
                         proposals.append(event["proposal"])
                     case "route":
                         route = {k: event[k] for k in ("kind", "source")}
+                    case "board":
+                        board_given = event["items"]
                     case "passages":
                         passages.extend(event["passages"])
                         read.update(event["read"])
@@ -1478,6 +1491,8 @@ def chat(
             details = {"searches": searches, "papers": papers, "cards": cards, "reads": reads}
             if proposals:
                 details["proposals"] = proposals
+            if board_given:
+                details["board"] = board_given  # the pinned items it was given, [B1]…
             if route:
                 details["route"] = route
             if passages or read:
@@ -1496,6 +1511,8 @@ def chat(
                 if "support" in verdict:
                     details["support"] = verdict["support"]
                     details["faithfulness"] = verdict["faithfulness"]
+                if verdict.get("board_cited"):
+                    details["board_cited"] = verdict["board_cited"]
                 if verdict.get("withdrawn"):
                     details["withdrawn"] = verdict["withdrawn"]
             text = verdict["text"] if verdict else "".join(said)

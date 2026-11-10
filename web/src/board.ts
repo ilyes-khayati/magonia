@@ -1,5 +1,5 @@
 import type { Analysis } from "./analyses";
-import type { AnswerDetails, VariableKey } from "./api";
+import type { AnswerDetails, BoardTrust, VariableKey } from "./api";
 import type { CardLayout } from "./cards";
 import type { Experiment } from "./experiments";
 
@@ -57,7 +57,20 @@ export function sectionOf(board: BoardItem[], index: number): string | null {
 
 // What Magonia is told about the board: each pinned item in a line or two, with its section
 // and what the researcher highlighted in it
-export function boardForMagonia(board: BoardItem[]): { title: string; text: string }[] {
+// How far Magon may trust an item: an answer whose checks failed is never its evidence
+export function trustOf(b: BoardItem): BoardTrust {
+  if (b.kind === "note") return "note";
+  if (b.kind === "passage") return "passage";
+  if (b.kind !== "answer") return "computed";
+  const d = b.answer?.details;
+  const failed =
+    (d?.support ?? []).some((s) => s.status === "unsupported") ||
+    (d?.numbers ?? []).some((n) => n.status !== "verified") ||
+    (d?.app ?? []).some((m) => m.status === "unknown");
+  return failed ? "failed" : "checked";
+}
+
+export function boardForMagonia(board: BoardItem[]): { title: string; text: string; trust: BoardTrust; pinned: string }[] {
   const label = { note: "Note", passage: "Passage" } as Record<string, string>;
   return board.flatMap((b, i) => {
     if (b.kind === "section") return [];
@@ -74,6 +87,8 @@ export function boardForMagonia(board: BoardItem[]): { title: string; text: stri
           .filter(Boolean)
           .join(" ")
           .slice(0, 1500),
+        trust: trustOf(b),
+        pinned: b.pinned,
       },
     ];
   });
