@@ -440,6 +440,7 @@ def answer(
     instructions: str = "",
     papers_per_search: int = 6,
     detail: str = "concise",
+    search_mode: str = "keyword",
 ) -> Iterator[dict]:
     """Answer the last message of the conversation, using tools when the model asks.
 
@@ -456,6 +457,8 @@ def answer(
         embed = getattr(provider, "embed", None)
 
         def search(query: str) -> list[Paper]:
+            if search_mode == "hybrid":
+                return find_papers(query, topic, keep=papers_per_search, embed=embed, hybrid=True)
             return find_papers(query, topic, keep=papers_per_search, embed=embed)
 
     areas = list(dict.fromkeys(s.area for s in view.series)) if view is not None else []

@@ -95,10 +95,17 @@ def to_paper(work: dict) -> Paper:
     )
 
 
-def search_papers(query: str, limit: int = 6, from_year: int | None = None) -> list[Paper]:
-    """The works that best match the query, by OpenAlex relevance."""
+def search_papers(
+    query: str, limit: int = 6, from_year: int | None = None, semantic: bool = False
+) -> list[Paper]:
+    """The works that best match the query, by OpenAlex relevance: on the words of their title
+    and abstract, or, semantic, on meaning (OpenAlex embeds titles, abstracts and venues;
+    at most 50 results and one request a second)."""
     load_dotenv()
-    params = {"search": query, "per_page": limit, "select": FIELDS}
+    if semantic:
+        params = {"search.semantic": query[:2000], "per_page": min(limit, 50), "select": FIELDS}
+    else:
+        params = {"search": query, "per_page": limit, "select": FIELDS}
     if from_year:
         params["filter"] = f"publication_year:>{from_year - 1}"
     # Without a key, OpenAlex gives a small free budget a day, shared by everyone on the same
@@ -130,6 +137,8 @@ def search_papers(query: str, limit: int = 6, from_year: int | None = None) -> l
 
 # How many works to fetch before ranking; more finds better papers but takes longer
 CANDIDATES = 30
+# and, searching by meaning too, how many more
+SEMANTIC_CANDIDATES = 20
 
 
 # Words a search engine matches on but that say nothing about the topic
@@ -147,11 +156,26 @@ def keywords(question: str, most: int = 8) -> str:
     return " ".join(list(dict.fromkeys(kept))[:most])
 
 
-def find_papers(query: str, question: str, keep: int = 6, embed=None) -> list[Paper]:
+def find_papers(
+    query: str, question: str, keep: int = 6, embed=None, hybrid: bool = False
+) -> list[Paper]:
     """Candidates for the model's query, ranked against the question. A second search on the
     question's own words was measured and dropped: it found no more relevant papers, brought
-    off-topic ones to trap questions, and used the daily search budget twice as fast."""
+    off-topic ones to trap questions, and used the daily search budget twice as fast.
+
+    Hybrid adds a search by meaning on the question itself, which finds papers that say the
+    same thing in other words; keywords still catch exact terms (SPEI-6, a site's name). The
+    two lists are merged before ranking. It is off by default until measured: a search by
+    meaning always returns something, so it must be shown not to bring papers to trap
+    questions."""
     from engine.rank import rank
 
     candidates = search_papers(query, limit=CANDIDATES)
+    if hybrid:
+        try:
+            more = search_papers(question or query, limit=SEMANTIC_CANDIDATES, semantic=True)
+        except LiteratureError:  # the keyword results still stand
+            more = []
+        seen = {p.id for p in candidates}
+        candidates += [p for p in more if p.id not in seen]
     return rank(question or query, candidates, keep, embed)
