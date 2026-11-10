@@ -412,6 +412,7 @@ def main() -> None:
         if r.get("error"):
             return out
         out["seconds"] = r["seconds"]
+        out["timings"] = (r.get("check") or {}).get("timings", {})
         out["first_word"] = r["first_word"]
         out["words"] = len(text.split())
         out["checks"] = expectations(r, case)
