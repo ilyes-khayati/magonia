@@ -474,15 +474,19 @@ requires-dist = [
     { name = "earthengine-api", specifier = ">=1.0" },
     { name = "numpy", specifier = ">=2.0" },
     { name = "pandas", specifier = ">=2.2" },
+    { name = "protobuf", marker = "extra == 'verify'", specifier = ">=5" },
     { name = "pypdf", specifier = ">=6.21.4" },
     { name = "pyproj", specifier = ">=3.8.0" },
     { name = "python-dotenv", specifier = ">=1.2.4" },
     { name = "pywavelets", specifier = ">=1.6" },
     { name = "scikit-learn", specifier = ">=1.5" },
+    { name = "sentencepiece", marker = "extra == 'verify'", specifier = ">=0.2" },
     { name = "shapely", specifier = ">=2.2.0" },
     { name = "torch", specifier = ">=2.6", index = "https://download.pytorch.org/whl/cpu" },
+    { name = "transformers", marker = "extra == 'verify'", specifier = ">=4.46" },
     { name = "xgboost", specifier = ">=2.1" },
 ]
+provides-extras = ["verify"]
 
 [package.metadata.requires-dev]
 dev = [

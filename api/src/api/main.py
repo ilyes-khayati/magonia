@@ -30,6 +30,7 @@ from engine.purity import PurityError, purity
 from engine.purity import sample as sample_pixels
 from engine.series import Masking, band_name
 from engine.trend import trend
+from engine.verify import judge_for
 from fastapi import Depends, FastAPI, HTTPException, Query, Response, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
@@ -1071,6 +1072,8 @@ class MagonSettings(BaseModel):
     papers_per_search: int = Field(6, ge=3, le=10)
     # keyword: OpenAlex on the words; hybrid: on the words and on meaning, merged
     search: Literal["keyword", "hybrid"] = "keyword"
+    # who checks that a cited passage supports a sentence: the chat model, or a verifier
+    verifier: Literal["model", "nli", "minicheck-roberta", "minicheck-deberta"] = "model"
 
 
 @app.get("/assistant/settings")
@@ -1422,6 +1425,7 @@ def chat(
         papers_per_search=chosen.papers_per_search,
         search_mode=chosen.search,
         detail=chosen.detail,
+        judge=judge_for(chosen.verifier),
     )
     # fail with a clear status before streaming starts, if the model cannot be reached: the
     # route and view events come before the model is asked anything
