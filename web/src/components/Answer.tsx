@@ -233,6 +233,23 @@ function Statement({ s }: { s: SupportCheck }) {
   );
 }
 
+// What the fact check took out of the answer, with the passage each statement was checked against
+function Withdrawn({ withdrawn }: { withdrawn: SupportCheck[] }) {
+  return (
+    <details className="support">
+      <summary className="meta">
+        Withdrawn from the answer: {withdrawn.length} {withdrawn.length === 1 ? "statement" : "statements"} the
+        cited papers did not support
+      </summary>
+      <ul className="statements">
+        {withdrawn.map((s, k) => (
+          <Statement key={k} s={s} />
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 // Fact check: whether each cited statement says what its papers say
 function Support({ support }: { support: SupportCheck[] }) {
   const ok = support.filter((s) => s.status === "supported").length;
@@ -328,6 +345,7 @@ export function Sources({ turn, anchor, onPinPassage }: { turn: Turn; anchor: st
         </details>
       )}
       {turn.details.support && turn.details.support.length > 0 && <Support support={turn.details.support} />}
+      {turn.details.withdrawn && turn.details.withdrawn.length > 0 && <Withdrawn withdrawn={turn.details.withdrawn} />}
       {check && check.removed.length > 0 && (
         <p className="removed">
           Removed {check.removed.length === 1 ? "a citation" : `${check.removed.length} citations`} (

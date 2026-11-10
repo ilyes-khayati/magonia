@@ -2,7 +2,7 @@ from engine.assistant import Scripted, ToolCall, answer
 from engine.fulltext import Passage
 from engine.library import Library
 from engine.literature import Paper
-from engine.support import check_support, faithfulness, judge_with, statements
+from engine.support import Statement, check_support, faithfulness, judge_with, statements, withdraw
 
 PASSAGE = "Vineyards and olive groves respond to long SPEI timescales during summer months."
 EVIDENCE = {1: [("[1, p. 18]", PASSAGE)], 2: [("[2] abstract", "Wheat yields in Canada.")]}
@@ -149,3 +149,37 @@ def test_a_reference_names_a_paper_and_is_not_a_claim():
         "They found that most of the vines tested were infected.",
         "Two species were found, with N. australe on old vines.",
     ]
+
+
+def stated(text, sentence, status):
+    start = text.index(sentence)
+    return Statement(start, start + len(sentence), sentence, [1], status, "a passage", "[1]")
+
+
+def test_withdraw_removes_unsupported_statements_and_says_so():
+    text = "Olive NDVI peaks in March [1]. It doubles in drought [1]. LST lowers it [2]."
+    found = [stated(text, "Olive NDVI peaks in March [1].", "supported"),
+             stated(text, "It doubles in drought [1].", "unsupported"),
+             stated(text, "LST lowers it [2].", "unclear")]
+    new, kept, gone = withdraw(text, found)
+    assert new.startswith("Olive NDVI peaks in March [1]. LST lowers it [2].")
+    assert "1 statement was withdrawn" in new
+    assert [g.claim for g in gone] == ["It doubles in drought [1]."]
+    for s in kept:  # positions follow the new text
+        assert new[s.start : s.end] == s.claim
+
+
+def test_withdraw_takes_a_bullet_line_with_its_sentence():
+    text = "Findings:\n- NDVI falls in summer [1].\n- NDVI triples in July [2].\n- LST matters [1]."
+    found = [stated(text, "NDVI falls in summer [1].", "supported"),
+             stated(text, "NDVI triples in July [2].", "unsupported"),
+             stated(text, "LST matters [1].", "supported")]
+    new, kept, _ = withdraw(text, found)
+    assert new.split("\n\n")[0] == "Findings:\n- NDVI falls in summer [1].\n- LST matters [1]."
+    assert all(new[s.start : s.end] == s.claim for s in kept)
+
+
+def test_withdraw_leaves_an_answer_without_unsupported_statements_alone():
+    text = "NDVI peaks in March [1]."
+    found = [stated(text, "NDVI peaks in March [1].", "unclear")]
+    assert withdraw(text, found) == (text, found, [])

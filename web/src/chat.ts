@@ -65,6 +65,7 @@ export function applyEvent(turn: Turn, event: ChatEvent): Turn {
           app: event.app,
           support: event.support,
           faithfulness: event.faithfulness,
+          withdrawn: event.withdrawn,
         },
       };
     case "error":

@@ -21,7 +21,7 @@ Faithfulness is the share of cited statements that are supported.
 
 import re
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from engine.citations import GROUP, numbers
 from engine.rank import Embed, cosine, words
@@ -200,6 +200,56 @@ def check_support(
                 elif "partly" not in verdicts:
                     statement.status = "unsupported"
     return result
+
+
+BULLET = re.compile(r"^\s*(?:[-*•]|\d+[.)])?\s*$")  # what is left of a line once its sentence is gone
+
+
+def withdraw(answer: str, found: list[Statement]) -> tuple[str, list[Statement], list[Statement]]:
+    """The answer without the statements its papers do not support.
+
+    Returns the new text, the statements kept (their positions moved to the new text) and
+    the statements withdrawn. A line left empty, or holding only its bullet, goes with its
+    sentence. When something is withdrawn, the answer says so at its end, so the reader
+    knows the evidence for it was not found; the withdrawn sentences are listed with the
+    passage each was checked against.
+    """
+    gone = [s for s in found if s.status == "unsupported"]
+    if not gone:
+        return answer, found, []
+    cuts = []
+    for s in gone:
+        start, end = s.start, s.end
+        line_start = answer.rfind("\n", 0, start) + 1
+        line_end = answer.find("\n", end)
+        line_end = len(answer) if line_end == -1 else line_end
+        rest = answer[line_start:start] + answer[end:line_end]
+        if BULLET.match(rest):  # the sentence was the whole line: remove the line
+            start, end = line_start, min(line_end + 1, len(answer))
+        elif answer[end : end + 1] == " ":  # the space before the next sentence
+            end += 1
+        cuts.append((start, end))
+    cuts.sort()
+    text, kept, last = [], [], 0
+    for start, end in cuts:
+        start = max(start, last)
+        text.append(answer[last:start])
+        last = max(last, end)
+    text.append(answer[last:])
+
+    def moved(pos: int) -> int:
+        return pos - sum(min(end, pos) - start for start, end in cuts if start < pos)
+
+    for s in found:
+        if s.status != "unsupported":
+            kept.append(replace(s, start=moved(s.start), end=moved(s.end)))
+    new = "".join(text).rstrip()
+    n = len(gone)
+    new += (
+        f"\n\n*{n} {'statement was' if n == 1 else 'statements were'} withdrawn: "
+        f"the passages of the papers cited did not support {'it' if n == 1 else 'them'}.*"
+    )
+    return new, kept, gone
 
 
 def faithfulness(found: list[Statement]) -> float | None:

@@ -1073,6 +1073,8 @@ class MagonSettings(BaseModel):
     # keyword: OpenAlex on the words; hybrid: on the words and on meaning, merged
     search: Literal["keyword", "hybrid"] = "keyword"
     # who checks that a cited passage supports a sentence: the chat model, or a verifier
+    # withdraw: a statement its papers do not support leaves the answer; mark: it stays, flagged
+    claims: Literal["withdraw", "mark"] = "withdraw"
     verifier: Literal["model", "nli", "minicheck-roberta", "minicheck-deberta"] = "model"
 
 
@@ -1426,6 +1428,7 @@ def chat(
         search_mode=chosen.search,
         detail=chosen.detail,
         judge=judge_for(chosen.verifier),
+        withdraw_unsupported=chosen.claims == "withdraw",
     )
     # fail with a clear status before streaming starts, if the model cannot be reached: the
     # route and view events come before the model is asked anything
@@ -1493,6 +1496,8 @@ def chat(
                 if "support" in verdict:
                     details["support"] = verdict["support"]
                     details["faithfulness"] = verdict["faithfulness"]
+                if verdict.get("withdrawn"):
+                    details["withdrawn"] = verdict["withdrawn"]
             text = verdict["text"] if verdict else "".join(said)
             store.add_message(conversation_id, "assistant", text, details)
 

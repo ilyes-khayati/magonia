@@ -587,6 +587,7 @@ export type AnswerDetails = {
   read?: Record<string, ReadStatus>; // by paper number
   support?: SupportCheck[];
   faithfulness?: number | null; // the share of cited statements that are supported
+  withdrawn?: SupportCheck[]; // statements taken out because their papers did not support them
 };
 
 // What kind of question code took it for, and so what the answer was allowed to draw on
@@ -653,6 +654,7 @@ export type ChatEvent =
       app?: AppMention[];
       support?: SupportCheck[];
       faithfulness?: number | null;
+      withdrawn?: SupportCheck[];
     } & CitationCheck)
   | { type: "verifying" }
   | { type: "error"; message: string }
@@ -713,6 +715,7 @@ export type MagonSettings = {
   detail: "concise" | "detailed";
   papers_per_search: number;
   search: "keyword" | "hybrid";
+  claims: "withdraw" | "mark";
   verifier: "model" | "nli" | "minicheck-roberta" | "minicheck-deberta";
 };
 

@@ -31,8 +31,8 @@ class Library:
         return self.results.pop(0) if self.results else []
 
 
-def ask(provider, question, search):
-    return list(answer(provider, [{"role": "user", "content": question}], search=search))
+def ask(provider, question, search, **settings):
+    return list(answer(provider, [{"role": "user", "content": question}], search=search, **settings))
 
 
 def test_model_searches_then_answers_with_checked_citations():
@@ -60,7 +60,8 @@ def test_invented_reference_never_reaches_the_researcher():
         ToolCall("search_papers", {"query": "olive"}),
         "Olive NDVI lags drought by two months [1], as also shown in [5].",
     )
-    events = ask(model, "Lag of olive NDVI?", Library([paper("Crespo", 2025)]))
+    # the support check is off: this is about the invented reference alone
+    events = ask(model, "Lag of olive NDVI?", Library([paper("Crespo", 2025)]), withdraw_unsupported=False)
 
     final = events[-1]
     assert final["removed"] == [5]
@@ -459,3 +460,17 @@ def test_the_answer_says_where_its_time_went():
     events = list(answer(model, [{"role": "user", "content": "What is NDVI?"}]))
     timings = events[-1]["timings"]
     assert "model" in timings and timings["total"] >= timings["model"] >= 0
+
+
+def test_statement_its_paper_does_not_support_is_withdrawn():
+    model = Scripted(
+        ToolCall("search_papers", {"query": "olive"}),
+        "Olive NDVI lags drought by two months [1].",
+    )
+    events = ask(model, "Lag of olive NDVI?", Library([paper("Crespo", 2025)]))
+
+    final = events[-1]
+    assert "lags drought" not in final["text"]
+    assert "1 statement was withdrawn" in final["text"]
+    assert [w["status"] for w in final["withdrawn"]] == ["unsupported"]
+    assert final["faithfulness"] == 0.0  # of what the model wrote, before withdrawal
