@@ -62,6 +62,7 @@ export function applyEvent(turn: Turn, event: ChatEvent): Turn {
             pages_removed: event.pages_removed,
           },
           numbers: event.numbers,
+          app: event.app,
           support: event.support,
           faithfulness: event.faithfulness,
         },

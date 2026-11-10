@@ -269,6 +269,7 @@ export function Sources({ turn, anchor, onPinPassage }: { turn: Turn; anchor: st
   const numbers = turn.details.numbers ?? [];
   const verified = numbers.filter((n) => n.status === "verified");
   const flagged = numbers.filter((n) => n.status !== "verified");
+  const unknown = (turn.details.app ?? []).filter((m) => m.status === "unknown");
   const source = cards.length ? "" : (turn.details.route?.source ?? "");
   const cited = check ? check.cited.flatMap((n) => papers.filter((p) => p.n === n)) : [];
   const others = papers.filter((p) => !cited.includes(p));
@@ -285,7 +286,7 @@ export function Sources({ turn, anchor, onPinPassage }: { turn: Turn; anchor: st
     />
   );
   const fullText = Object.values(read).filter((r) => r === "read").length;
-  if (!papers.length && !check?.removed.length && !check?.unverified.length && !cards.length && !numbers.length && !source)
+  if (!papers.length && !check?.removed.length && !check?.unverified.length && !cards.length && !numbers.length && !unknown.length && !source)
     return null;
   return (
     <div className="sources">
@@ -350,6 +351,12 @@ export function Sources({ turn, anchor, onPinPassage }: { turn: Turn; anchor: st
         <p className="removed">
           {flagged.length === 1 ? "1 number was" : `${flagged.length} numbers were`} not confirmed:{" "}
           {flagged.map((n) => `${n.text} (${FLAG[n.status as keyof typeof FLAG]})`).join(", ")}.
+        </p>
+      )}
+      {unknown.length > 0 && (
+        <p className="removed">
+          Not in Magonia, so ignore {unknown.length === 1 ? "this name" : "these names"}:{" "}
+          {unknown.map((m) => `“${m.text}” ${m.kind}`).join(", ")}.
         </p>
       )}
       {check && check.unverified.length > 0 && (
