@@ -37,3 +37,14 @@ def test_magon_cites_the_board_and_cannot_invent_items():
     assert final["board_cited"] == [1] and final["board_removed"] == [3]
     assert "[B3]" not in final["text"]
     assert "[B1] Trend 1: NDVI (computed in this workspace)" in model.seen[-1]["content"]
+
+
+def test_a_card_whose_result_changed_is_given_with_both_and_a_warning():
+    # #170: a live card that no longer finds what was pinned is not cited as if it did
+    items = given(
+        [Pinned("Lags", "When pinned: r = 0.70. Now: r = 0.64.", "changed", "2026-11-01")],
+        "what lag matters?",
+    )
+    assert len(items) == 1
+    said = block(items)
+    assert "changed since it was pinned" in said and "Now: r = 0.64." in said

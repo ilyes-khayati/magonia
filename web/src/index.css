@@ -1925,6 +1925,19 @@ button:disabled {
   gap: 4px;
 }
 
+/* a pinned card whose result is no longer what was pinned (#170) */
+.board-changed {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--warning);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--warning) 8%, var(--card));
+  font-size: var(--text-md);
+}
+
 .table-scroll:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;

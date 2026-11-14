@@ -281,6 +281,7 @@ const TRUST_LABEL: Record<string, string> = {
   checked: "an earlier answer whose checks passed",
   passage: "a paper's words",
   note: "your note",
+  changed: "computed here, but changed since it was pinned",
 };
 
 // The pinned items the answer cites as [B1]…, with how far each could be trusted

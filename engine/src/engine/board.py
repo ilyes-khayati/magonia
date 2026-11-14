@@ -8,6 +8,8 @@ evidence, cited [B1], [B2]… like papers, each with how far it can be trusted:
 - checked: an earlier answer whose checks passed
 - passage: a paper's words, pinned by the researcher
 - note: the researcher's own words, to be quoted as theirs and never stated as a finding
+- changed: a card whose result is no longer what was pinned (the data or the analysis
+  changed); given with what it said then and what it says now
 
 An earlier answer whose checks failed is never given as evidence. When the board holds more
 than fits the prompt, the items closest to the question are given.
@@ -23,6 +25,11 @@ TRUST = {
     "checked": "an earlier answer whose checks passed",
     "passage": "a passage of a paper, in its words",
     "note": "the researcher's own note: quote it as theirs, never as a finding",
+    # a live card whose result is no longer what was pinned (#170): both are given
+    "changed": (
+        "computed in this workspace, but its result changed since it was pinned: give what "
+        "it says now, and say that it differs from what was pinned"
+    ),
 }
 MAX_GIVEN = 8  # board items given with one question
 CITE = re.compile(r"\s?\[B(\d+)\]")
