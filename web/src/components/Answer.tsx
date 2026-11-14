@@ -211,6 +211,7 @@ const VERDICT: Record<SupportCheck["status"], { mark: string; label: string }> =
   supported: { mark: "✓", label: "Supported" },
   unclear: { mark: "?", label: "Partly or not clearly supported" },
   unsupported: { mark: "✗", label: "Not supported" },
+  unsourced: { mark: "–", label: "No source named, and no paper found bears it out" },
 };
 
 function Statement({ s }: { s: SupportCheck }) {
@@ -225,7 +226,12 @@ function Statement({ s }: { s: SupportCheck }) {
         {s.claim}
         {s.evidence && (
           <blockquote className="passage">
-            <span className="meta">Checked against {s.source}</span> {s.evidence}
+            <span className="meta">
+              {s.grounding === "paper"
+                ? `Found elsewhere in the paper, ${s.source}, not in the passages Magon was given`
+                : `Checked against ${s.source}`}
+            </span>{" "}
+            {s.evidence}
           </blockquote>
         )}
       </div>
@@ -269,6 +275,26 @@ function Withdrawn({ withdrawn }: { withdrawn: SupportCheck[] }) {
       </summary>
       <ul className="statements">
         {withdrawn.map((s, k) => (
+          <Statement key={k} s={s} />
+        ))}
+      </ul>
+    </details>
+  );
+}
+
+// The sentences that cite nothing, and whether any paper found bears them out; they stay in
+// the answer, marked, so not citing is not a way past the check
+function Uncited({ uncited }: { uncited: SupportCheck[] }) {
+  const backed = uncited.filter((s) => s.status === "supported").length;
+  const loose = uncited.length - backed;
+  return (
+    <details className="support">
+      <summary className="meta">
+        {uncited.length} {uncited.length === 1 ? "statement cites" : "statements cite"} nothing: {backed} borne out by a
+        paper found, {loose} unsourced
+      </summary>
+      <ul className="statements">
+        {uncited.map((s, k) => (
           <Statement key={k} s={s} />
         ))}
       </ul>
@@ -372,6 +398,7 @@ export function Sources({ turn, anchor, onPinPassage }: { turn: Turn; anchor: st
       )}
       {turn.details.support && turn.details.support.length > 0 && <Support support={turn.details.support} />}
       {turn.details.withdrawn && turn.details.withdrawn.length > 0 && <Withdrawn withdrawn={turn.details.withdrawn} />}
+      {turn.details.uncited && turn.details.uncited.length > 0 && <Uncited uncited={turn.details.uncited} />}
       <FromBoard turn={turn} />
       {check && check.removed.length > 0 && (
         <p className="removed">

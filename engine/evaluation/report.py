@@ -101,7 +101,9 @@ def main() -> None:
         if len(checked) < len(refs):
             m["references not checked yet (OpenAlex budget spent)"] = str(len(refs) - len(checked))
         m["statements per literature answer"] = f"{len(statements) / len(lit):.1f}" if lit else "–"
-        m["statements supported by the literature found"] = share(
+        # who judged support: a verifier, or the chat model grading itself (older runs)
+        judges = ", ".join(sorted({r.get("judge", "model") for r in lit})) or "model"
+        m[f"statements supported by the literature found (judge: {judges})"] = share(
             statements.count("supported"), len(statements)
         )
         m["  partly supported"] = share(statements.count("partly"), len(statements))
@@ -110,6 +112,15 @@ def main() -> None:
         m["statements with a citation"] = share(len(own), len(statements))
         m["cited statements supported by the paper cited (own check)"] = share(
             own.count("supported"), len(own)
+        )
+        loose = [x for r in lit for x in r.get("uncited", [])]
+        m["sentences citing nothing, per literature answer"] = (
+            f"{len(loose) / len(lit):.1f}" if lit else "–"
+        )
+        m["  borne out by a paper found"] = share(loose.count("supported"), len(loose))
+        m["  unsourced"] = share(loose.count("unsourced"), len(loose))
+        m["answers saying the papers found do not answer"] = share(
+            sum(bool(r.get("abstained")) for r in lit), len(lit)
         )
         m["papers found that help answer (model's judgement)"] = (
             f"{(relevance.count('yes') + 0.5 * relevance.count('partly')) / len(relevance):.2f}"

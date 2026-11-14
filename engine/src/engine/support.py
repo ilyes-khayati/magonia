@@ -12,11 +12,25 @@ winter" are equally close to the same passage. So code only rules out claims who
 say nothing on the subject, and the language model, asked one strict question about one claim
 and one passage, decides the rest:
 
-- supported: the passage says it (the model answered yes)
-- unclear: it partly says it, or there was no model to ask
+- supported: the passage says it (the judge answered yes)
+- unclear: it partly says it, or there was no judge to ask
 - not supported: the cited papers do not say it
 
-Faithfulness is the share of cited statements that are supported.
+What the model was given is a dozen passages chosen for the question, not for the sentences
+it then wrote. A paper can say what a sentence claims on a page that was not given, and a
+true statement would be withdrawn for it. So a statement the given passages do not support
+gets a second look, in the whole text of the papers it cites as kept in the library (`more`):
+the passages closest to the claim are judged the same way. A statement supported there is
+supported, with its grounding marked "paper" rather than "given", so the reader knows the
+model wrote it from memory and the paper happens to bear it out, and the source names the
+page that does. Faithfulness is the share of cited statements that are supported.
+
+A sentence that cites nothing escapes all of this, and a model that stops citing would
+escape the check entirely. So in a literature answer the declarative sentences that cite
+nothing, not even by their paragraph, are checked too (check_uncited), against every paper
+found rather than the ones they cite. One a paper bears out is supported, with the paper and
+page named under the answer; one no paper bears out is unsourced. Unsourced sentences stay
+in the answer, marked: whether withdrawing them is safe is a question for the evaluation.
 """
 
 import re
@@ -34,6 +48,11 @@ OFF_TOPIC_WORDS = 0.3
 
 MAX_JUDGED = 20  # each judgement is a call to the model, about a second each
 CANDIDATES = 2  # passages asked about per claim, closest first
+MAX_UNCITED = 10  # judgements spent on the sentences that cite nothing, per answer
+MIN_CLAIM_WORDS = 6  # content words; an uncited sentence shorter than this is framing
+
+# Not a claim about the literature: Magon speaking of itself, or of the answer
+SELF = re.compile(r"\b(I|I'm|I've|I'd|me|my|Magon|Magonia|this answer)\b")
 
 # A sentence ends at . ! or ? followed by a space, or at a line break
 SENTENCE = re.compile(r"[^\n]+?(?:[.!?](?=\s|$)|(?=\n)|$)")
@@ -57,11 +76,14 @@ class Statement:
     start: int  # character positions of the sentence in the answer
     end: int
     claim: str
-    cites: list[int]
-    status: str  # supported, unclear or unsupported
+    cites: list[int]  # empty for a sentence that cites nothing
+    status: str  # supported, unclear or unsupported; unsourced for an uncited sentence
     evidence: str  # the closest text from the cited papers
     source: str  # where that text comes from, e.g. "[1, p. 6]" or "[2] abstract"
-    judged: bool = False  # decided by the language model rather than by code
+    judged: bool = False  # decided by the judge rather than by code
+    # for a supported statement: "given" when a passage the model was given says it, "paper"
+    # when one found elsewhere in the paper's full text does
+    grounding: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -73,6 +95,7 @@ class Statement:
             "evidence": self.evidence,
             "source": self.source,
             "judged": self.judged,
+            "grounding": self.grounding,
         }
 
 
@@ -133,15 +156,21 @@ def judge_with(stream: Callable, errors: tuple[type[Exception], ...] = (OSError,
     return judge
 
 
+More = Callable[[str, list[int]], list[tuple[str, str]]]  # (claim, papers) → (source, text)
+
+
 def check_support(
     answer: str,
     evidence: dict[int, list[tuple[str, str]]],
     embed: Embed | None = None,
     judge: Judge | None = None,
+    more: More | None = None,
 ) -> list[Statement]:
     """Each cited statement of the answer, with how well its papers support it.
 
     evidence maps a paper's number to what was given from it, as (source, text) pairs.
+    more, when given, finds the passages closest to a claim in the whole text of the papers
+    it cites; a statement the given passages do not support is checked against them too.
     """
     found = statements(answer)
     if not found:
@@ -196,9 +225,124 @@ def check_support(
             if verdicts:
                 statement.judged = True
                 if "yes" in verdicts:
-                    statement.status = "supported"
+                    statement.status, statement.grounding = "supported", "given"
                 elif "partly" not in verdicts:
                     statement.status = "unsupported"
+        # a second look, in the whole text of the cited papers, for what was not supported
+        if more is not None:
+            for statement in result:
+                if statement.status == "supported" or calls == MAX_JUDGED:
+                    continue
+                for source, text in more(statement.claim, statement.cites)[:CANDIDATES]:
+                    if calls == MAX_JUDGED:
+                        break
+                    calls += 1
+                    statement.judged = True
+                    if judge(statement.claim, text) == "yes":
+                        statement.status, statement.grounding = "supported", "paper"
+                        statement.source, statement.evidence = source, text
+                        break
+    return result
+
+
+def uncited(answer: str) -> list[tuple[int, int, str]]:
+    """The declarative sentences that cite nothing, not even by their paragraph.
+
+    A sentence that cites, or follows a citation in its paragraph, is a cited statement
+    (statements()). Of the rest, a full sentence of some length that is not a heading, a
+    question, a reference or Magon speaking of itself claims something with no source named.
+    Returns each one's span and claim.
+    """
+    cited = {start for start, _, _, _ in statements(answer)}
+    found = []
+    masked = NOT_AN_END.sub(lambda m: m.group(0).replace(".", "\x00"), answer)
+    carried = False
+    for match in SENTENCE.finditer(masked):
+        sentence = answer[match.start() : match.end()]
+        if re.search(r"\n\s*\n\s*$", answer[: match.start()]):
+            carried = False  # a blank line starts a new paragraph
+        if GROUP.search(sentence):
+            carried = True
+        start = match.start() + len(sentence) - len(sentence.lstrip())
+        if carried or start in cited:
+            continue
+        claim = re.sub(r"\*\*", "", " ".join(sentence.split()).strip(" -*#:"))
+        if (
+            not claim.endswith(".")
+            or len(words(claim)) < MIN_CLAIM_WORDS
+            or sentence.lstrip().startswith("*")  # in italics: a note, a title
+            or SELF.search(claim)
+            or AUTHOR_YEAR.match(claim)
+        ):
+            continue
+        found.append((start, match.end(), claim))
+    return found
+
+
+def check_uncited(
+    answer: str,
+    evidence: dict[int, list[tuple[str, str]]],
+    embed: Embed | None = None,
+    judge: Judge | None = None,
+    more: More | None = None,
+) -> list[Statement]:
+    """Each sentence that cites nothing, with whether any paper found bears it out.
+
+    Checked like a cited statement, but against every paper found rather than the ones it
+    cites: the given passages first, then the papers' full text. At most MAX_UNCITED
+    judgements are spent on an answer. Without a judge, code only says whether a related
+    passage exists (unclear) or not (unsourced).
+    """
+    found = uncited(answer)
+    if not found:
+        return []
+    claims = [claim for _, _, claim in found]
+    chunks = [(n, source, text) for n, given in evidence.items() for source, text in given]
+    vectors = None
+    if embed is not None and chunks:
+        try:
+            vectors = embed(
+                [f"search_query: {c}" for c in claims]
+                + [f"search_document: {text}" for _, _, text in chunks]
+            )
+        except (OSError, KeyError, ValueError):
+            vectors = None
+    low = OFF_TOPIC if vectors is not None else OFF_TOPIC_WORDS
+    papers = sorted(evidence)
+    result, calls = [], 0
+    for i, (start, end, claim) in enumerate(found):
+        scored = []
+        for j, (_, source, text) in enumerate(chunks):
+            if vectors is not None:
+                score = cosine(vectors[i], vectors[len(claims) + j])
+            else:
+                asked = words(claim)
+                score = len(asked & words(text)) / max(len(asked), 1)
+            scored.append((score, source, text))
+        near = [(s, t) for score, s, t in sorted(scored, reverse=True) if score >= low]
+        near = near[:CANDIDATES]
+        best = near[0] if near else ("", "")
+        statement = Statement(start, end, claim, [], "unclear" if near else "unsourced", best[1], best[0])
+        if judge is not None and calls < MAX_UNCITED:
+            candidates = list(near)
+            if more is not None and papers:
+                candidates += more(claim, papers)[:CANDIDATES]
+            verdicts = []
+            for k, (source, text) in enumerate(candidates):
+                if calls == MAX_UNCITED:
+                    break
+                calls += 1
+                verdicts.append(judge(claim, text))
+                if verdicts[-1] == "yes":
+                    statement.status = "supported"
+                    statement.grounding = "given" if k < len(near) else "paper"
+                    statement.source, statement.evidence = source, text
+                    break
+            if verdicts:
+                statement.judged = True
+                if statement.status != "supported":
+                    statement.status = "unclear" if "partly" in verdicts else "unsourced"
+        result.append(statement)
     return result
 
 
@@ -247,7 +391,7 @@ def withdraw(answer: str, found: list[Statement]) -> tuple[str, list[Statement],
     n = len(gone)
     new += (
         f"\n\n*{n} {'statement was' if n == 1 else 'statements were'} withdrawn: "
-        f"the passages of the papers cited did not support {'it' if n == 1 else 'them'}.*"
+        f"the papers cited did not support {'it' if n == 1 else 'them'}.*"
     )
     return new, kept, gone
 

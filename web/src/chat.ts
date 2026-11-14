@@ -66,6 +66,7 @@ export function applyEvent(turn: Turn, event: ChatEvent): Turn {
           support: event.support,
           faithfulness: event.faithfulness,
           withdrawn: event.withdrawn,
+          uncited: event.uncited,
           board_cited: event.board_cited,
         },
       };

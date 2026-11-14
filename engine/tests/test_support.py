@@ -2,7 +2,16 @@ from engine.assistant import Scripted, ToolCall, answer
 from engine.fulltext import Passage
 from engine.library import Library
 from engine.literature import Paper
-from engine.support import Statement, check_support, faithfulness, judge_with, statements, withdraw
+from engine.support import (
+    Statement,
+    check_support,
+    check_uncited,
+    faithfulness,
+    judge_with,
+    statements,
+    uncited,
+    withdraw,
+)
 
 PASSAGE = "Vineyards and olive groves respond to long SPEI timescales during summer months."
 EVIDENCE = {1: [("[1, p. 18]", PASSAGE)], 2: [("[2] abstract", "Wheat yields in Canada.")]}
@@ -49,6 +58,91 @@ def test_the_judge_decides_claims_on_the_subject():
 def test_a_claim_is_compared_only_with_the_papers_it_cites():
     found = check_support("Olive groves respond to long SPEI timescales [2].", EVIDENCE)
     assert found[0].status == "unsupported" and found[0].source == "[2] abstract"
+
+
+def test_a_statement_the_given_passages_miss_is_looked_for_in_the_whole_paper():
+    elsewhere = "Olive yield fell by 40% in the 2016 drought year across Sfax."
+    looked = []
+
+    def more(claim, cites):
+        looked.append((claim, cites))
+        return [("[1, p. 22]", elsewhere)] if cites == [1] else []
+
+    def judge(claim, passage):
+        return "yes" if passage == elsewhere and "40%" in claim else "no"
+
+    text = (
+        "Olive groves respond to long SPEI timescales in summer [1]. "
+        "Olive yield fell by 40% in the 2016 drought [1]. "
+        "Barley prices rose sharply in Morocco last year [2]."
+    )
+    found = check_support(text, EVIDENCE, judge=judge, more=more)
+    assert [s.status for s in found] == ["unsupported", "supported", "unsupported"]
+    second = found[1]
+    assert second.grounding == "paper" and second.source == "[1, p. 22]"
+    assert second.evidence == elsewhere and second.judged
+    # the first was judged on the given passage and said no there and in the paper; the
+    # third cites a paper with nothing more to read
+    assert [c for _, c in looked] == [[1], [1], [2]]
+    # a statement supported by what was given says so
+    supported = check_support(
+        "Olive groves respond to long SPEI timescales in summer [1].",
+        EVIDENCE,
+        judge=lambda claim, passage: "yes",
+        more=more,
+    )
+    assert supported[0].grounding == "given"
+    assert "grounding" in supported[0].to_dict()
+
+
+def test_uncited_sentences_are_the_declarative_ones_that_cite_nothing_even_by_paragraph():
+    text = (
+        "## Drought and olives\n\n"
+        "Olive groves respond to long SPEI timescales in summer [1]. "
+        "The response is strongest in rain-fed orchards.\n\n"  # carried: cited by paragraph
+        "Drought lowers NDVI within one season in most Mediterranean orchards. "
+        "Is this true everywhere? Not always. "
+        "I searched for papers on olive drought response in Tunisia.\n"
+        "- *Smith et al., 2020.*\n"
+        "- Irrigated groves keep their NDVI through summer in Sfax.\n\n"
+        "*1 statement was withdrawn: the papers cited did not support it.*"
+    )
+    found = uncited(text)
+    assert [claim for _, _, claim in found] == [
+        "Drought lowers NDVI within one season in most Mediterranean orchards.",
+        "Irrigated groves keep their NDVI through summer in Sfax.",
+    ]
+    start, end, _ = found[1]
+    # the span keeps the bullet, as a cited statement's does, so a withdrawal takes the line
+    assert text[start:end] == "- Irrigated groves keep their NDVI through summer in Sfax."
+
+
+def test_uncited_sentences_are_checked_against_every_paper_found_and_marked():
+    elsewhere = "Irrigated olive groves in Sfax keep a stable NDVI through the summer."
+    text = (
+        "Olive groves respond to long SPEI timescales in summer, in a well-known paper. "
+        "Irrigated groves keep their NDVI through summer in Sfax, as some have observed. "
+        "Barley prices rose sharply in Morocco during the last year."
+    )
+
+    def more(claim, cites):
+        assert cites == [1, 2]  # every paper found, not the ones cited
+        return [("[2, p. 4]", elsewhere)] if "Sfax" in claim else []
+
+    def judge(claim, passage):
+        if passage == PASSAGE and "SPEI" in claim:
+            return "yes"
+        return "yes" if passage == elsewhere and "Sfax" in claim else "no"
+
+    found = check_uncited(text, EVIDENCE, judge=judge, more=more)
+    assert [s.status for s in found] == ["supported", "supported", "unsourced"]
+    assert [s.grounding for s in found] == ["given", "paper", ""]
+    assert found[1].source == "[2, p. 4]" and all(s.cites == [] for s in found)
+    # the third is on nothing any paper discusses: there was nothing to judge it against
+    assert [s.judged for s in found] == [True, True, False]
+    # without a judge, code only says whether a related passage exists
+    assert [s.status for s in check_uncited(text, EVIDENCE)] == ["unclear", "unsourced", "unsourced"]
+    assert check_uncited("Thanks! [1]", EVIDENCE) == []
 
 
 def test_the_judge_reads_the_first_word_and_survives_a_dead_model():

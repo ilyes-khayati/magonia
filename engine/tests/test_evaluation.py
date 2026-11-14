@@ -5,17 +5,51 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "evaluation"))
 
+import score
 from cases import CASES, gold, jendouba_view
 from score import (
+    ABSTAINS,
     CONSENSUS,
     DECLINES,
     DENIES,
+    chosen_judge,
     french,
     mentions,
     sentences,
     titles,
     value_given,
 )
+
+
+def test_saying_the_papers_do_not_answer_is_recognised_as_abstaining():
+    for text in (
+        "The papers found do not report any effect of hailstorms on olive NDVI.",
+        "None of the studies retrieved mention the 2023 locust outbreak.",
+        "I could not find a paper that measured this directly.",
+        "This is not addressed by the papers found; the closest study looks at drought [1].",
+        "The studies here don't directly examine Béja.",
+    ):
+        assert ABSTAINS.search(text), text
+    for text in (
+        "Hailstorms lowered olive NDVI by 20% in Béja in 2024 [1].",
+        "The papers report a strong effect of drought on NDVI [2].",
+    ):
+        assert not ABSTAINS.search(text), text
+
+
+def test_the_scorer_names_who_judged_support_and_falls_back_to_the_chat_model(monkeypatch):
+    def lean(messages, tools=None):
+        yield "yes"
+
+    _, who = chosen_judge("model", lean)
+    assert who == "model"
+    # a verifier that is not installed must not be reported as the judge
+    monkeypatch.setattr(score, "judge_for", lambda name: None)
+    _, who = chosen_judge("minicheck-roberta", lean)
+    assert who == "model"
+    monkeypatch.setattr(score, "judge_for", lambda name: (lambda claim, passage: "no"))
+    judge, who = chosen_judge("minicheck-roberta", lean)
+    assert who == "minicheck-roberta" and judge("a", "b") == "no"
 
 
 def test_the_expected_answers_match_the_data():

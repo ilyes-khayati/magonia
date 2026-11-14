@@ -544,10 +544,13 @@ export type SupportCheck = {
   end: number;
   claim: string;
   cites: number[];
-  status: "supported" | "unclear" | "unsupported";
+  status: "supported" | "unclear" | "unsupported" | "unsourced";
   evidence: string; // the closest text from the cited papers
   source: string; // e.g. "[1, p. 6]" or "[2] abstract"
   judged: boolean;
+  // for a supported statement: "given" when a passage Magon was given says it, "paper" when
+  // one found elsewhere in the paper's full text does
+  grounding?: "given" | "paper" | "";
 };
 
 // A passage of a paper's full text that Magonia was given, from the paper numbered n
@@ -588,6 +591,7 @@ export type AnswerDetails = {
   support?: SupportCheck[];
   faithfulness?: number | null; // the share of cited statements that are supported
   withdrawn?: SupportCheck[]; // statements taken out because their papers did not support them
+  uncited?: SupportCheck[]; // sentences that cite nothing, and whether any paper found bears them out
   board?: BoardGiven[]; // the pinned items it was given, [B1]…
   board_cited?: number[];
 };
@@ -661,6 +665,7 @@ export type ChatEvent =
       support?: SupportCheck[];
       faithfulness?: number | null;
       withdrawn?: SupportCheck[];
+      uncited?: SupportCheck[];
       board_cited?: number[];
     } & CitationCheck)
   | { type: "board"; items: BoardGiven[] }

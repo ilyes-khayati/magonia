@@ -85,6 +85,25 @@ CASES = [
     research("r11", "What do studies report on NDVI trends in Tunisia or North Africa?"),
     research("r12", "How well does Sentinel-2 map olive orchards compared with MODIS?"),
     research("r13", "What does research say about SPEI timescales and forest drought response?"),
+    # The papers found will not answer these: a good answer says so instead of asserting.
+    # Abstention is scored on its own, apart from support (abstains in score.py)
+    Case(
+        "ab1",
+        "research",
+        ("What have published studies found about the 2024 hailstorms' effect on olive NDVI in Béja?",),
+        {"search": True, "abstains": True},
+    ),
+    Case(
+        "ab2",
+        "research",
+        (
+            (
+                "Which published studies measured MODIS NDVI of Jendouba olive orchards during "
+                "the 2023 locust outbreak?"
+            ),
+        ),
+        {"search": True, "abstains": True},
+    ),
     research(
         "r14", "How do cereal crops and olive trees differ in phenology seen from satellites?"
     ),

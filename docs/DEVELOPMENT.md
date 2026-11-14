@@ -36,14 +36,19 @@
 
 ## Evaluating Magon
 
-`engine/evaluation/` asks 52 cases to four systems on the same model (the bare model, the
-model with Magon's rules, the pipeline on abstracts, the full pipeline) and scores them:
+`engine/evaluation/` asks the cases (54 today, in `cases.py`) to four systems on the same
+model (the bare model, the model with Magon's rules, the pipeline on abstracts, the full
+pipeline) and scores them:
 
 ```bash
 cd engine
 uv run python evaluation/run.py results/ --repeats 2        # needs the Ollama server
 uv run python evaluation/score.py results/ && uv run python evaluation/report.py results/
 ```
+
+The scorer judges whether the literature supports each statement with MiniCheck-RoBERTa
+(decision 0019); `--judge model` asks the chat model instead, as the earliest runs did, and
+the report names the judge next to the figure. Verdicts are cached per judge.
 
 To compare a change with an earlier run on the same papers, replay its searches:
 `MAGONIA_REPLAY=results/raw.jsonl uv run python evaluation/run.py after/ --systems magonia`.

@@ -30,7 +30,6 @@ import hashlib
 import json
 import os
 import re
-import sys
 import threading
 import time
 from collections.abc import Callable
@@ -49,8 +48,28 @@ from engine.literature import CERTIFICATES
 from engine.numbers import check_numbers
 from engine.rank import words
 from engine.support import NOT_AN_END, OFF_TOPIC, SENTENCE, judge_with
+from engine.verify import VERIFIERS, judge_for
 
 BY_ID = {c.id: c for c in CASES}
+# Who says whether a passage supports a statement: a verifier (decision 0019), so the
+# ladder's "supported" figure is not the generator grading itself, or the chat model
+DEFAULT_JUDGE = "minicheck-roberta"
+
+# Saying that the papers found do not answer, instead of asserting: the right answer when
+# they do not, measured on its own (the 2026 benchmarks score abstention apart from support)
+ABSTAINS = re.compile(
+    r"\b(papers?|studies|literature|sources?|results?|articles?)( I| that were| we)? "
+    r"(found|retrieved|searched|available|here)?,? ?(do(es)? not|don't|did not|didn't|"
+    r"neither) (directly )?(say|report|answer|address|cover|mention|discuss|examine|"
+    r"study|measure|confirm|support)"
+    r"|\bno (paper|study|evidence|published (study|work|research)|source)s? "
+    r"(found|was found|were found|that|reports?|addresses|covers?|mentions?|directly)"
+    r"|\b(could|did|do) not find (any |a )?(paper|study|evidence|publication|source)"
+    r"|\bnot (covered|addressed|reported|mentioned|discussed) (by|in) (the|any|these) "
+    r"(paper|stud|source|result)"
+    r"|\bnone of the (papers|studies|sources|results)",
+    re.IGNORECASE,
+)
 
 # Sentences that count studies or weigh them into a verdict, against Magonia's rules
 CONSENSUS = re.compile(
@@ -255,6 +274,9 @@ def expectations(r: dict, case) -> dict[str, bool]:
         out["denies"] = bool(DENIES.search(text))
     if "declines" in e:
         out["declines"] = bool(DECLINES.search(text))
+    if "abstains" in e:
+        # the papers found do not answer: a good answer says so rather than asserting
+        out["abstains"] = bool(ABSTAINS.search(text)) == e["abstains"]
     for pattern in e.get("has", []):
         out[f"has {pattern}"] = bool(re.search(pattern, text, re.IGNORECASE))
     if "has_any" in e:
@@ -310,8 +332,15 @@ def evidence(pool: Pool, claim: str, embed) -> list[str]:
     return [t for s, t in pool.closest(claim, embed) if s >= OFF_TOPIC]
 
 
-def pool_support(cache: Cache, pool: Pool, claim: str, embed, judge) -> str:
-    """supported, partly, unsupported or off-topic: what the literature found says of it."""
+def pool_support(
+    cache: Cache, pool: Pool, claim: str, embed, judge, judge_name: str = "model"
+) -> str:
+    """supported, partly, unsupported or off-topic: what the literature found says of it.
+
+    Verdicts are remembered per judge: a verifier's verdict is never mistaken for the chat
+    model's, or the other way round. The chat model's keep the key they had before judges
+    were named, so earlier runs stay scored.
+    """
 
     def look() -> str:
         near = evidence(pool, claim, embed)
@@ -322,7 +351,8 @@ def pool_support(cache: Cache, pool: Pool, claim: str, embed, judge) -> str:
             return "supported"
         return "partly" if "partly" in verdicts else "unsupported"
 
-    return cache.get(f"pool|{claim}|{len(pool.chunks)}|{hash_of(pool.chunks)}", look)
+    who = "" if judge_name == "model" else f"{judge_name}|"
+    return cache.get(f"pool|{who}{claim}|{len(pool.chunks)}|{hash_of(pool.chunks)}", look)
 
 
 def hash_of(chunks: list[str]) -> str:
@@ -370,8 +400,33 @@ def judge_stream(url: str, model: str):
     return stream
 
 
+def chosen_judge(name: str, lean) -> tuple[Callable[[str, str], str], str]:
+    """The support judge a name asks for, and the name of the one actually used.
+
+    A verifier that is not installed here falls back to the chat model, said out loud, so
+    a run scored by the generator itself is never mistaken for one scored independently.
+    """
+    if name != "model":
+        found = judge_for(name)
+        if found is not None:
+            return found, name
+        print(f"verifier {name} is not installed (uv sync --extra verify): the chat model judges")
+    return judge_with(lean), "model"
+
+
 def main() -> None:
-    folder = Path(sys.argv[1])
+    import argparse
+
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser.add_argument("results", type=Path)
+    parser.add_argument(
+        "--judge",
+        default=DEFAULT_JUDGE,
+        choices=[*VERIFIERS, "model"],
+        help="who decides whether a passage supports a statement (default: %(default)s)",
+    )
+    args = parser.parse_args()
+    folder = args.results
     raw = [json.loads(line) for line in (folder / "raw.jsonl").read_text().splitlines()]
     cache = Cache(folder / "cache.json")
     provider = Ollama(
@@ -379,7 +434,9 @@ def main() -> None:
         os.environ.get("MAGONIA_MODEL", "qwen2.5:7b"),
     )
     lean = judge_stream(provider.url, provider.model)
-    judge = judge_with(lean)
+    # the chat model still judges whether a paper helps answer (relevance): a question
+    # about usefulness, which a support verifier is not trained for
+    judge, judge_name = chosen_judge(args.judge, lean)
     embed = provider.embed
     view = jendouba_view()
     # the true data of the orchard: its facts and every reading Magonia could give
@@ -438,16 +495,20 @@ def main() -> None:
             claims = sentences(text)
             pool = pools[r["case"]]
             # the passages are kept with each verdict, so people can judge the same evidence
+            out["judge"] = judge_name
             out["statements"] = [
                 {
                     "claim": c,
-                    "pool": pool_support(cache, pool, c, embed, judge),
+                    "pool": pool_support(cache, pool, c, embed, judge, judge_name),
                     "evidence": evidence(pool, c, embed),
                 }
                 for c in claims
             ]
             support = check.get("support") or []
             out["own_support"] = [s["status"] for s in support]
+            # the sentences that cite nothing, and whether a paper found bears them out
+            out["uncited"] = [s["status"] for s in check.get("uncited") or []]
+            out["abstained"] = bool(ABSTAINS.search(text))
             cites = [m for m in GROUP.finditer(text)]
             out["page_citations"] = sum(bool(m.group(2)) for m in cites)
             out["all_citations"] = len(cites)
