@@ -381,14 +381,24 @@ def tools_seen(question: str) -> tuple:
             yield from super().stream(messages, tools)
 
     model = Recorder("Fine.")
-    events = list(answer(model, [{"role": "user", "content": question}], view=orchard_view()))
+    events = list(
+        answer(
+            model,
+            [{"role": "user", "content": question}],
+            view=orchard_view(),
+            search=lambda query: [],
+        )
+    )
     return seen, model, events
 
 
 def test_a_research_question_gets_the_search_and_no_workspace_facts():
     seen, model, events = tools_seen("What do studies say about olive NDVI in drought?")
-    assert seen == [["search_papers"]]
+    assert seen[0] == ["search_papers"]
     assert "What is open in Magonia" not in model.seen[-1]["content"]
+    # the model answered without searching, so code searched and asked it again (14 Nov)
+    searched = [e for e in events if e["type"] == "search"]
+    assert len(searched) == 1 and "olive" in searched[0]["query"]
     assert events[0] == {
         "type": "route",
         "kind": "research",

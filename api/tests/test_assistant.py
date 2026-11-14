@@ -119,6 +119,21 @@ def test_searched_answer_keeps_its_papers_and_check(client, library):
     }
 
 
+def test_the_sentences_that_cite_nothing_are_kept_with_the_answer(client, library):
+    # shown while streaming, they vanished when the conversation was reopened (14 Nov)
+    model = Scripted(
+        ToolCall("search_papers", {"query": "olive drought"}),
+        "Drought lowers olive NDVI in rainfed Mediterranean orchards within one season.",
+    )
+    main.app.dependency_overrides[main.get_provider] = lambda: model
+    c = conversation(client)
+    asked = {"content": "What do studies say about drought and olives?"}
+    got = events(client.post(f"/conversations/{c}/chat", json=asked))
+    streamed = next(e for e in got if e["type"] == "check")["uncited"]
+    saved = client.get(f"/conversations/{c}/messages").json()[-1]["details"]["uncited"]
+    assert streamed and saved == streamed
+
+
 def test_open_access_papers_are_read_and_their_pages_checked(client, monkeypatch, tmp_path):
     first = replace(paper("Sghaier", 2022), id="W1", pdf_url="https://example.org/1.pdf")
     monkeypatch.setattr(engine_assistant, "find_papers", lambda query, question, **_: [first])
@@ -159,11 +174,10 @@ def test_the_model_sees_the_earlier_conversation(client, model):
     client.post(f"/conversations/{c}/chat", json={"content": "What is NDVI?"})
     client.post(f"/conversations/{c}/chat", json={"content": "And LST?"})
 
-    assert [m["content"] for m in model.seen[1:]] == [
-        "What is NDVI?",
-        "NDVI measures how green the vegetation is.",
-        "And LST?",
-    ]
+    seen = [m["content"] for m in model.seen[1:]]
+    assert seen[:2] == ["What is NDVI?", "NDVI measures how green the vegetation is."]
+    # the follow-up comes last, after what the catalogue says of LST (its meaning, 14 Nov)
+    assert seen[2].endswith("And LST?") and "Land surface temperature" in seen[2]
 
 
 def test_a_follow_up_is_given_the_papers_cited_before(client, library):
