@@ -101,7 +101,9 @@ def main() -> None:
         if len(checked) < len(refs):
             m["references not checked yet (OpenAlex budget spent)"] = str(len(refs) - len(checked))
         m["statements per literature answer"] = f"{len(statements) / len(lit):.1f}" if lit else "–"
-        m["statements supported by the literature found"] = share(
+        # who judged support: a verifier, or the chat model grading itself (older runs)
+        judges = ", ".join(sorted({r.get("judge", "model") for r in lit})) or "model"
+        m[f"statements supported by the literature found (judge: {judges})"] = share(
             statements.count("supported"), len(statements)
         )
         m["  partly supported"] = share(statements.count("partly"), len(statements))

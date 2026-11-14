@@ -30,7 +30,6 @@ import hashlib
 import json
 import os
 import re
-import sys
 import threading
 import time
 from collections.abc import Callable
@@ -49,8 +48,12 @@ from engine.literature import CERTIFICATES
 from engine.numbers import check_numbers
 from engine.rank import words
 from engine.support import NOT_AN_END, OFF_TOPIC, SENTENCE, judge_with
+from engine.verify import VERIFIERS, judge_for
 
 BY_ID = {c.id: c for c in CASES}
+# Who says whether a passage supports a statement: a verifier (decision 0019), so the
+# ladder's "supported" figure is not the generator grading itself, or the chat model
+DEFAULT_JUDGE = "minicheck-roberta"
 
 # Sentences that count studies or weigh them into a verdict, against Magonia's rules
 CONSENSUS = re.compile(
@@ -310,8 +313,15 @@ def evidence(pool: Pool, claim: str, embed) -> list[str]:
     return [t for s, t in pool.closest(claim, embed) if s >= OFF_TOPIC]
 
 
-def pool_support(cache: Cache, pool: Pool, claim: str, embed, judge) -> str:
-    """supported, partly, unsupported or off-topic: what the literature found says of it."""
+def pool_support(
+    cache: Cache, pool: Pool, claim: str, embed, judge, judge_name: str = "model"
+) -> str:
+    """supported, partly, unsupported or off-topic: what the literature found says of it.
+
+    Verdicts are remembered per judge: a verifier's verdict is never mistaken for the chat
+    model's, or the other way round. The chat model's keep the key they had before judges
+    were named, so earlier runs stay scored.
+    """
 
     def look() -> str:
         near = evidence(pool, claim, embed)
@@ -322,7 +332,8 @@ def pool_support(cache: Cache, pool: Pool, claim: str, embed, judge) -> str:
             return "supported"
         return "partly" if "partly" in verdicts else "unsupported"
 
-    return cache.get(f"pool|{claim}|{len(pool.chunks)}|{hash_of(pool.chunks)}", look)
+    who = "" if judge_name == "model" else f"{judge_name}|"
+    return cache.get(f"pool|{who}{claim}|{len(pool.chunks)}|{hash_of(pool.chunks)}", look)
 
 
 def hash_of(chunks: list[str]) -> str:
@@ -370,8 +381,33 @@ def judge_stream(url: str, model: str):
     return stream
 
 
+def chosen_judge(name: str, lean) -> tuple[Callable[[str, str], str], str]:
+    """The support judge a name asks for, and the name of the one actually used.
+
+    A verifier that is not installed here falls back to the chat model, said out loud, so
+    a run scored by the generator itself is never mistaken for one scored independently.
+    """
+    if name != "model":
+        found = judge_for(name)
+        if found is not None:
+            return found, name
+        print(f"verifier {name} is not installed (uv sync --extra verify): the chat model judges")
+    return judge_with(lean), "model"
+
+
 def main() -> None:
-    folder = Path(sys.argv[1])
+    import argparse
+
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser.add_argument("results", type=Path)
+    parser.add_argument(
+        "--judge",
+        default=DEFAULT_JUDGE,
+        choices=[*VERIFIERS, "model"],
+        help="who decides whether a passage supports a statement (default: %(default)s)",
+    )
+    args = parser.parse_args()
+    folder = args.results
     raw = [json.loads(line) for line in (folder / "raw.jsonl").read_text().splitlines()]
     cache = Cache(folder / "cache.json")
     provider = Ollama(
@@ -379,7 +415,9 @@ def main() -> None:
         os.environ.get("MAGONIA_MODEL", "qwen2.5:7b"),
     )
     lean = judge_stream(provider.url, provider.model)
-    judge = judge_with(lean)
+    # the chat model still judges whether a paper helps answer (relevance): a question
+    # about usefulness, which a support verifier is not trained for
+    judge, judge_name = chosen_judge(args.judge, lean)
     embed = provider.embed
     view = jendouba_view()
     # the true data of the orchard: its facts and every reading Magonia could give
@@ -438,10 +476,11 @@ def main() -> None:
             claims = sentences(text)
             pool = pools[r["case"]]
             # the passages are kept with each verdict, so people can judge the same evidence
+            out["judge"] = judge_name
             out["statements"] = [
                 {
                     "claim": c,
-                    "pool": pool_support(cache, pool, c, embed, judge),
+                    "pool": pool_support(cache, pool, c, embed, judge, judge_name),
                     "evidence": evidence(pool, c, embed),
                 }
                 for c in claims

@@ -45,6 +45,10 @@ uv run python evaluation/run.py results/ --repeats 2        # needs the Ollama s
 uv run python evaluation/score.py results/ && uv run python evaluation/report.py results/
 ```
 
+The scorer judges whether the literature supports each statement with MiniCheck-RoBERTa
+(decision 0019); `--judge model` asks the chat model instead, as the earliest runs did, and
+the report names the judge next to the figure. Verdicts are cached per judge.
+
 To compare a change with an earlier run on the same papers, replay its searches:
 `MAGONIA_REPLAY=results/raw.jsonl uv run python evaluation/run.py after/ --systems magonia`.
 Read the failures in `report.md` by hand before trusting a number: some will be faults of

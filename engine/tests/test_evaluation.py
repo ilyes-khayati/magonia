@@ -5,17 +5,34 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "evaluation"))
 
+import score
 from cases import CASES, gold, jendouba_view
 from score import (
     CONSENSUS,
     DECLINES,
     DENIES,
+    chosen_judge,
     french,
     mentions,
     sentences,
     titles,
     value_given,
 )
+
+
+def test_the_scorer_names_who_judged_support_and_falls_back_to_the_chat_model(monkeypatch):
+    def lean(messages, tools=None):
+        yield "yes"
+
+    _, who = chosen_judge("model", lean)
+    assert who == "model"
+    # a verifier that is not installed must not be reported as the judge
+    monkeypatch.setattr(score, "judge_for", lambda name: None)
+    _, who = chosen_judge("minicheck-roberta", lean)
+    assert who == "model"
+    monkeypatch.setattr(score, "judge_for", lambda name: (lambda claim, passage: "no"))
+    judge, who = chosen_judge("minicheck-roberta", lean)
+    assert who == "minicheck-roberta" and judge("a", "b") == "no"
 
 
 def test_the_expected_answers_match_the_data():
