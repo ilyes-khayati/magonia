@@ -15,7 +15,7 @@ import {
   type View,
 } from "../api";
 import { applyEvent, conversationTitle, fromSaved, type Turn } from "../chat";
-import { AnswerText, Sources } from "./Answer";
+import { AnswerText, ClaimTestCard, Sources } from "./Answer";
 import { MagonMark } from "./Brand";
 import { ChevronIcon, CloseIcon, PlusIcon, SendIcon } from "./Icons";
 
@@ -390,6 +390,7 @@ export default function AssistantCard(props: Props) {
                   </div>
                 )}
                 {turn.error && <p className="error">{turn.error}</p>}
+                {turn.details.claim_test && <ClaimTestCard test={turn.details.claim_test} />}
                 {(turn.details.proposals ?? []).map((p, k) => (
                   <ProposalCard key={k} proposal={p} onAdd={onPropose} />
                 ))}

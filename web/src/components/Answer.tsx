@@ -1,6 +1,43 @@
 import { useReader, whereToRead } from "../reader";
-import { type CheckedNumber, type PaperCard, type PassageCard, type ReadStatus, type SupportCheck } from "../api";
+import {
+  type CheckedNumber,
+  type ClaimTest,
+  type PaperCard,
+  type PassageCard,
+  type ReadStatus,
+  type SupportCheck,
+} from "../api";
 import { answerParts, styled, type Turn } from "../chat";
+
+const CLAIM_VERDICT: Record<ClaimTest["verdict"], { mark: string; label: string }> = {
+  replicates: { mark: "✓", label: "Replicates on your data" },
+  contradicts: { mark: "✗", label: "Contradicted by your data" },
+  undecided: { mark: "?", label: "Undecided on your data" },
+  "cannot test": { mark: "–", label: "Cannot be tested here" },
+};
+
+// A claim from a paper tested on the researcher's own data: the verdict, decided by code, what
+// was tested, and the numbers behind it
+export function ClaimTestCard({ test }: { test: ClaimTest }) {
+  const v = CLAIM_VERDICT[test.verdict];
+  return (
+    <section className={`claim-test ${test.verdict.replace(" ", "-")}`} aria-label="Claim tested on your data">
+      <header>
+        <span className="verdict" aria-hidden="true">
+          {v.mark}
+        </span>
+        <strong>{v.label}</strong>
+        {test.area && <span className="meta"> · {test.area}</span>}
+      </header>
+      <blockquote className="passage">“{test.claim.text}”</blockquote>
+      <ul className="statements">
+        {test.summary.map((line, k) => (
+          <li key={k}>{line}</li>
+        ))}
+      </ul>
+    </section>
+  );
+}
 
 // How one of Magonia's answers is shown, in the chat and when pinned to the board: citations
 // as badges that point to their paper cards, numbers marked as checked or not, and sources

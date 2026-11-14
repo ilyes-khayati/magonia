@@ -1203,6 +1203,50 @@ button:disabled {
   color: var(--danger);
 }
 
+/* a claim from a paper, tested on the researcher's data */
+.claim-test {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--muted);
+  border-radius: var(--radius);
+  background: var(--card);
+  font-size: var(--text-md);
+}
+
+.claim-test header {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.claim-test.replicates {
+  border-left-color: var(--accent);
+}
+
+.claim-test.contradicts {
+  border-left-color: var(--danger);
+}
+
+.claim-test.undecided {
+  border-left-color: var(--warning);
+}
+
+.claim-test.replicates .verdict {
+  color: var(--accent);
+}
+
+.claim-test.contradicts .verdict {
+  color: var(--danger);
+}
+
+.claim-test.undecided .verdict {
+  color: var(--warning);
+}
+
 .cite-page {
   margin-left: 3px;
   font-weight: 400;

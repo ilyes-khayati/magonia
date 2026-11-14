@@ -26,6 +26,7 @@ KINDS = [
     ("instructions", "Following the researcher's instructions"),
     ("follow-up", "Follow-up questions"),
     ("french", "Questions in French"),
+    ("claims", "A paper's claim tested on the researcher's data"),
     ("held-out", "Held out: a researcher's own questions, never tuned on"),
 ]
 

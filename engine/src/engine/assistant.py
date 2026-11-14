@@ -13,7 +13,7 @@ from urllib.request import Request, urlopen
 
 from dotenv import load_dotenv
 
-from engine import honesty, interface
+from engine import claims, honesty, interface
 from engine.awareness import earlier_papers, files_asked_about, restated, wants_literature
 from engine.awareness import listing as library_listing
 from engine.board import Pinned
@@ -626,6 +626,10 @@ def answer(
             kind = route(earlier_question, areas, view is not None)
     if view is not None and view.focus and kind != "research":
         kind = "data"  # asked from a card: about what the card shows
+    # a claim to test on the researcher's data is a question about their data (#171)
+    testing = view is not None and claims.asks_to_test(text)
+    if testing:
+        kind = "data"
     # the researcher's own files: listed for every question, read when one is about them
     files = Uploads(library).all() if library is not None else []
     own = files_asked_about(text, files)
@@ -664,6 +668,23 @@ def answer(
             **messages[-1],
             "content": f"Read from the researcher's series: {reading}\n\n{messages[-1]['content']}",
         }
+    # a claim tested by code on the researcher's data; the model reports the verdict, it does
+    # not reach one (#171)
+    if testing:
+        claim = claims.read(claims.claim_in(text))
+        if claim is None:
+            result = None
+            note = (
+                "Magonia could not read a claim it can test in this message: it tests a "
+                "driver acting on vegetation (with or without a delay) and a long-term trend. "
+                "Say so, and ask for the claim in one sentence."
+            )
+        else:
+            result = claims.test(claim, view)
+            yield {"type": "claim_test", "test": result.to_dict()}
+            sources += [("the claim test", line) for line in result.summary]
+            note = claims.block(result)
+        messages[-1] = {**messages[-1], "content": f"{note}\n\n{messages[-1]['content']}"}
     # what a variable means, for a question that mixes kinds: the sign of SPEI was turned
     # upside down when no definition was given (14 Nov)
     if kind == "general" and (meaning := glossary(text)):

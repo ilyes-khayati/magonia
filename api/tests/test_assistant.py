@@ -433,3 +433,19 @@ def test_the_chosen_answer_length_reaches_the_model(client, monkeypatch, library
     conversation = client.post(f"/workspaces/{wid}/conversations").json()["id"]
     client.post(f"/conversations/{conversation}/chat", json={"content": "What is NDVI?"})
     assert "thorough" in seen[0]
+
+
+def test_a_claim_tested_on_the_data_is_kept_with_the_answer(client, monkeypatch, model):
+    # the verdict and its numbers stay with the answer when the conversation is reopened
+    tested = {"verdict": "replicates", "reading": "NDVI falls with LST 1 month earlier"}
+
+    def answer(*args, **kwargs):
+        yield {"type": "route", "kind": "data", "source": "Answered from your workspace"}
+        yield {"type": "claim_test", "test": tested}
+        yield {"type": "text", "text": "It holds here."}
+
+    monkeypatch.setattr(main.assistant, "answer", answer)
+    c = conversation(client)
+    client.post(f"/conversations/{c}/chat", json={"content": "Test this claim on my orchard."})
+    saved = client.get(f"/conversations/{c}/messages").json()[-1]
+    assert saved["details"]["claim_test"] == tested
