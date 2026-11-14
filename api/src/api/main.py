@@ -1522,6 +1522,10 @@ def chat(
                     details["board_cited"] = verdict["board_cited"]
                 if verdict.get("withdrawn"):
                     details["withdrawn"] = verdict["withdrawn"]
+                if verdict.get("uncited"):
+                    # the sentences that cite nothing: shown while streaming, and kept, or
+                    # they vanished from the answer when the conversation was reopened
+                    details["uncited"] = verdict["uncited"]
             text = verdict["text"] if verdict else "".join(said)
             store.add_message(conversation_id, "assistant", text, details)
 

@@ -31,6 +31,12 @@ def main() -> None:
     parser.add_argument("--repeats", type=int, default=2)
     parser.add_argument("--only", default="", help="case ids, comma separated")
     parser.add_argument("--systems", default="", help="system names, comma separated")
+    parser.add_argument(
+        "--set",
+        choices=["developer", "held-out", "all"],
+        default="all",
+        help="the developer's cases, the researcher's held-out questions, or both",
+    )
     args = parser.parse_args()
 
     url = os.environ.get("MAGONIA_MODEL_URL", "http://localhost:11434")
@@ -58,6 +64,7 @@ def main() -> None:
         for case in CASES
         for system in case.systems
         if (not only or case.id in only)
+        and (args.set == "all" or (case.kind == "held-out") == (args.set == "held-out"))
         and (not systems or system in systems)
         and (case.id, system, repeat) not in done
     ]

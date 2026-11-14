@@ -61,6 +61,13 @@ CHAT = re.compile(
     r"who are you|ok(ay)?|great|cool)\b",
     re.IGNORECASE,
 )
+# Small talk that stands on its own. "ok", "great" or "cool" usually carry the conversation
+# on ("ok I added it"), so a message starting with them is about what came before
+GREETING = re.compile(
+    r"^\s*(hi|hello|hey|salam|bonjour|thanks?|thank you|merci|good (morning|evening|night)|"
+    r"who are you)\b",
+    re.IGNORECASE,
+)
 
 
 # A short question that only makes sense after the one before: "And in Tunisia?", "What about

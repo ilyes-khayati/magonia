@@ -13,7 +13,7 @@ from urllib.request import Request, urlopen
 
 from dotenv import load_dotenv
 
-from engine import interface
+from engine import honesty, interface
 from engine.awareness import earlier_papers, files_asked_about, restated, wants_literature
 from engine.awareness import listing as library_listing
 from engine.board import Pinned
@@ -29,9 +29,11 @@ from engine.literature import LiteratureError, Paper, find_papers, keywords
 from engine.models import LABELS, SETTABLE
 from engine.numbers import check_numbers
 from engine.proposals import PROPOSE_TOOL, ProposalError, proposal
+from engine.proposals import WORDS as VARIABLE_WORDS
 from engine.proposals import describe as describe_proposal
+from engine.proposals import named as named_variables
 from engine.rank import ollama_embedder
-from engine.route import SOURCES, follows, glossary, in_french, route, together
+from engine.route import GREETING, SOURCES, follows, glossary, in_french, route, together
 from engine.standing import standing_instruction
 from engine.support import (
     CANDIDATES,
@@ -60,6 +62,7 @@ methods around it. Politely decline anything else.
 - Be concise and plain. Researchers are busy.
 - Answer in the language the researcher writes in, even when the papers are in English.
 - Never name your tools or write code for them: say in words what you looked at.
+- Write formulas in plain text, like NDVI = (NIR − Red) / (NIR + Red), never in LaTeX.
 - End when the answer is complete, without offering more help.
 - Questions on methods, such as models, their settings or statistics, may be answered from \
 general knowledge: say it is general advice, and relate it to what Magonia lets them set."""
@@ -142,6 +145,91 @@ def asks_to_run(text: str) -> bool:
     return bool(RUN.search(text)) and not NOT_RUN.search(text)
 
 
+# A year the question names, from 1950 to 2099
+ASKED_YEAR = re.compile(r"(?<![\w.])(19[5-9]\d|20\d\d)(?![\w.%])")
+MAX_ASKED_READINGS = 3
+
+
+def asked_readings(question: str, view: View) -> list[tuple[str, str, int]]:
+    """The series a question asks about for a given year: (area, variable, year).
+
+    A question naming a year and a variable open in the workspace ("the monthly NDVI values
+    in 2023") is about that year's values, which the facts do not hold. The area is the one
+    named, or every open one when none is.
+    """
+    years = list(dict.fromkeys(int(y) for y in ASKED_YEAR.findall(question)))
+    if not years:
+        return []
+    lower = question.lower()
+    variables = [
+        key
+        for key in dict.fromkeys(s.key for s in view.series)
+        if any(w in lower for w in VARIABLE_WORDS.get(key, (key,)))
+    ]
+    areas = list(dict.fromkeys(s.area for s in view.series))
+    named = [a for a in areas if a and a.lower() in lower] or areas
+    wanted = [(a, v, y) for y in years for v in variables for a in named]
+    return wanted[:MAX_ASKED_READINGS]
+
+
+def english_keywords(provider: "Provider", question: str, query: str) -> str:
+    """Search keywords in English for a question asked in another language.
+
+    Asked of the model in one short call when it can be asked; otherwise the query stays as
+    it was written.
+    """
+    ask = getattr(provider, "english_keywords", None)
+    if ask is None:
+        return query
+    try:
+        return ask(question) or query
+    except (ProviderError, OSError):
+        return query
+
+
+# An analysis named in a request, in the words a question or a model uses, most specific first
+ANALYSIS_WORDS = [
+    (
+        re.compile(
+            r"decompos|trend and season|seasonal part|break (it |them )?down", re.IGNORECASE
+        ),
+        "decomposition",
+    ),
+    (re.compile(r"\blags?\b|memory|lagged", re.IGNORECASE), "lags"),
+    (re.compile(r"season dates|phenolog|green-?up|senescence", re.IGNORECASE), "phenology"),
+    (re.compile(r"forecast|predict|experiment", re.IGNORECASE), "experiment"),
+    (re.compile(r"correlat", re.IGNORECASE), "correlation"),
+    (re.compile(r"\btrends?\b|mann-?kendall", re.IGNORECASE), "trend"),
+]
+# The words a model writes when it describes a proposal instead of making it
+PROSE_PROPOSAL = re.compile(
+    r"^[ \t]*[*_]*(proposed action|proposal|suggested action)[*_]*\s*:.*(\n|$)",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+
+def proposal_in_words(question: str, answer: str, areas: list[str]) -> dict | None:
+    """The analysis a request asks for, when the model described it instead of proposing it.
+
+    Read from the question first and then from the answer's own description; checked by the
+    same validator as a proposal the model makes. None when nothing valid can be proposed.
+    """
+    described = " ".join(m.group(0) for m in PROSE_PROPOSAL.finditer(answer))
+    for text in (question, described):
+        for pattern, kind in ANALYSIS_WORDS:
+            if pattern.search(text):
+                arguments = {"kind": kind}
+                if asked := named_variables(question):
+                    arguments["variable"] = asked[0]
+                    if kind == "correlation" and len(asked) > 1:
+                        arguments["driver"] = asked[1]
+                try:
+                    return proposal(arguments, areas, question)
+                except ProposalError:
+                    return None
+    return None
+
+
 DATA_RULES = """How to use these facts:
 - If the question is about the researcher's areas or results, answer from the facts. Copy \
 numbers exactly as written, never compute new ones, and name the chart or analysis each \
@@ -153,6 +241,7 @@ write a value you were not given.
 annual means: quote the "annual means" fact, never a single month.
 - A question about when in the year, or how high or low it usually goes, is answered with \
 the average year: quote both ends from the "average year" fact, never a single month.
+- Higher SPEI means wetter, lower (negative) SPEI drier. Higher LST means a hotter surface.
 - Interpret only what the facts state. A positive r means the two rise together. A trend \
 that is not statistically significant is not evidence of a trend. A correlation beyond its \
 chance band is unlikely to be chance.
@@ -297,6 +386,8 @@ class Provider(Protocol):
 
 
 SYSTEM = {"role": "system", "content": RULES}
+# How long Ollama keeps the model loaded after a question; "-1" keeps it until it restarts
+KEEP_ALIVE = os.environ.get("MAGONIA_KEEP_ALIVE", "60m")
 
 
 class Ollama:
@@ -326,6 +417,9 @@ class Ollama:
                 *messages,
             ],
             "stream": True,
+            # the model stays loaded between questions: Ollama unloads it after 5 idle
+            # minutes, and the next question waits for it to load again (a "Hi" took 13 s)
+            "keep_alive": KEEP_ALIVE,
             "options": {
                 "num_ctx": 8192,  # room for the abstracts of the papers found
                 **({} if self.temperature is None else {"temperature": self.temperature}),
@@ -360,6 +454,22 @@ class Ollama:
                     )
                 if text := message.get("content"):
                     yield text
+
+    def english_keywords(self, question: str) -> str:
+        """Short English search keywords for a question in another language."""
+        asked = [
+            {
+                "role": "system",
+                "content": "You translate research questions into English search keywords.",
+            },
+            {
+                "role": "user",
+                "content": "Give 3 to 6 English search keywords for this question, separated by "
+                f"spaces, and nothing else.\n\nQuestion: {question}",
+            },
+        ]
+        said = "".join(p for p in self.stream(asked) if isinstance(p, str))
+        return " ".join(re.findall(r"[A-Za-z0-9-]+", said)[:8])
 
 
 class Scripted:
@@ -484,6 +594,11 @@ def answer(
     follow_up = bool(earlier_question) and follows(text) and kind in ("general", "method")
     if follow_up and route(earlier_question, areas, view is not None) == "research":
         kind = "research"
+    # a reply that only carries the conversation on ("ok I added it", "great, and the trend?")
+    # is about what the question before was about, and gets the same facts and tools: routed
+    # as small talk, it got none and Magon invented the result it was told to read (14 Nov)
+    if kind == "chat" and earlier_question and not GREETING.match(text):
+        kind = route(earlier_question, areas, view is not None)
     if view is not None and view.focus and kind != "research":
         kind = "data"  # asked from a card: about what the card shows
     # the researcher's own files: listed for every question, read when one is about them
@@ -513,6 +628,22 @@ def answer(
         # the question comes last, where a small model attends to it best
         question = f"{view.sheet()}\n\n{DATA_RULES}\n\n---\nThe researcher asks: {last['content']}"
         messages[-1] = {**last, "content": question}
+    # the values of a year the question names are read by code before the model answers:
+    # left to the model, it skipped the tool and wrote twelve months of its own (14 Nov)
+    readings = asked_readings(text, view) if facts else []
+    for area, variable, year in readings:
+        yield {"type": "read", "area": area, "variable": variable, "year": year}
+        reading = view.read(area, variable, year)
+        sources.append((f"reading {area} {variable.upper()} {year}", reading))
+        messages[-1] = {
+            **messages[-1],
+            "content": f"Read from the researcher's series: {reading}\n\n{messages[-1]['content']}",
+        }
+    # what a variable means, for a question that mixes kinds: the sign of SPEI was turned
+    # upside down when no definition was given (14 Nov)
+    if kind == "general" and (meaning := glossary(text)):
+        sources.append(("Magonia's catalogue", meaning))
+        messages[-1] = {**messages[-1], "content": f"{meaning}\n\n{messages[-1]['content']}"}
     elif kind == "method" and (known := glossary(text)):
         sources.append(("Magonia's catalogue", known))
         messages[-1] = {**messages[-1], "content": f"{known}\n\n---\nThe researcher asks: {text}"}
@@ -521,7 +652,10 @@ def answer(
     if shown:
         yield {"type": "board", "items": [b.to_dict() for b in shown]}
         sources += [(f"your board [B{b.n}]", b.text) for b in shown]
-        messages[-1] = {**messages[-1], "content": f"{board_block(shown)}\n\n---\n{messages[-1]['content']}"}
+        messages[-1] = {
+            **messages[-1],
+            "content": f"{board_block(shown)}\n\n---\n{messages[-1]['content']}",
+        }
     # a follow-up of a literature question is searched by code: given the earlier papers, the
     # model answered from them instead of searching again (measured, f01)
     forced: list[ToolCall] = []
@@ -633,7 +767,9 @@ def answer(
             "follow it in this answer.)",
         }
     said: list[str] = []
-    searches = reads = proposed = refused = 0
+    searches = proposed = refused = 0
+    reads = len(readings)
+    cards_proposed = 0
     if own and not wants_literature(text):
         searches = max_searches  # a question about their own file needs no search
     if not asks_to_run(text):
@@ -666,6 +802,20 @@ def answer(
                 calls = written
                 del said[begun:]
                 yield {"type": "rewrite", "text": "".join(said)}
+        if (
+            not calls
+            and kind == "research"
+            and searches == 0
+            and not papers
+            and SEARCH_TOOL in tools
+        ):
+            # it answered a question about research with no paper given, from memory: that is
+            # how a paper that does not exist got a summary (14 Nov). Code searches instead,
+            # and the model answers again from what is found. With papers already given (the
+            # earlier answer's, the researcher's files), the honesty check covers the rest
+            calls = [ToolCall("search_papers", {"query": keywords(topic)})]
+            del said[begun:]
+            yield {"type": "rewrite", "text": "".join(said)}
         # Done when the model answered, or asked only for tools it was no longer offered
         if not calls or not any(c.name in offered for c in calls):
             break
@@ -696,6 +846,7 @@ def answer(
                         proposed = MAX_PROPOSALS  # it keeps getting it wrong: stop offering
                     continue
                 proposed += 1
+                cards_proposed += 1
                 yield {"type": "proposal", "proposal": {**found, "title": describe_proposal(found)}}
                 messages.append(
                     {
@@ -723,6 +874,9 @@ def answer(
                 continue
             searches += 1
             query = str(call.arguments.get("query", "")).strip()
+            if query and in_french(text):
+                # OpenAlex is searched in English: a French query found nothing (14 Nov)
+                query = english_keywords(provider, text, query)
             if call.name != "search_papers" or not query or searches > max_searches:
                 messages.append(
                     {"role": "tool", "content": "Unknown tool, empty query or no more calls."}
@@ -778,6 +932,16 @@ def answer(
             messages.append({"role": "tool", "content": given})
 
     _, said_text = written_calls("".join(said))  # a call it can no longer make is not shown
+    wrote_one = PROSE_PROPOSAL.search(said_text)
+    if facts and asks_to_run(text) and cards_proposed == 0 and refused == 0 and wrote_one:
+        # it described the analysis in words ("Proposed action: Add analysis, Decomposition")
+        # instead of proposing it, and the researcher got no button (14 Nov): code proposes
+        # the one the question asks for, and the words go. Not when it tried the tool and was
+        # refused: then the request did not fit the workspace (an area that is not open)
+        found = proposal_in_words(text, said_text, list(dict.fromkeys(s.area for s in view.series)))
+        if found is not None:
+            yield {"type": "proposal", "proposal": {**found, "title": describe_proposal(found)}}
+            said_text = PROSE_PROPOSAL.sub("", said_text)
     since = time.monotonic()
     verdict = check(tidy(said_text), papers, pages)
     clock.add("checks", since)
@@ -788,6 +952,13 @@ def answer(
     event = {"type": "check", **verdict.to_dict()}
     if shown:
         event["board_cited"], event["board_removed"] = event_cited, event_removed
+    # what it says against what Magon can check outright: a paper that was not found, a
+    # search it did not make, a definition turned upside down. Withdrawn whatever the
+    # setting for unsupported statements, because it is contradicted, not just unsupported
+    contradicted = honesty.withdrawn(final, papers, searched=searches > 0)
+    if contradicted:
+        final, _, gone = withdraw(final, contradicted, note=honesty.note(len(contradicted)))
+        event["withdrawn"] = [s.to_dict() for s in gone]
     embed = getattr(provider, "embed", None)
 
     def elsewhere(claim: str, cites: list[int]) -> list[tuple[str, str]]:
@@ -809,7 +980,7 @@ def answer(
         if withdraw_unsupported:
             # a statement its papers do not support leaves the answer, which says so
             final, found, gone = withdraw(final, found)
-            event["withdrawn"] = [s.to_dict() for s in gone]
+            event["withdrawn"] = event.get("withdrawn", []) + [s.to_dict() for s in gone]
         event["support"] = [s.to_dict() for s in found]
     if kind == "research" and papers:
         # the sentences that cite nothing: checked against every paper found, and marked,

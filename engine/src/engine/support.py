@@ -349,7 +349,9 @@ def check_uncited(
 BULLET = re.compile(r"^\s*(?:[-*•]|\d+[.)])?\s*$")  # what is left of a line once its sentence is gone
 
 
-def withdraw(answer: str, found: list[Statement]) -> tuple[str, list[Statement], list[Statement]]:
+def withdraw(
+    answer: str, found: list[Statement], note: str | None = None
+) -> tuple[str, list[Statement], list[Statement]]:
     """The answer without the statements its papers do not support.
 
     Returns the new text, the statements kept (their positions moved to the new text) and
@@ -389,10 +391,11 @@ def withdraw(answer: str, found: list[Statement]) -> tuple[str, list[Statement],
             kept.append(replace(s, start=moved(s.start), end=moved(s.end)))
     new = "".join(text).rstrip()
     n = len(gone)
-    new += (
-        f"\n\n*{n} {'statement was' if n == 1 else 'statements were'} withdrawn: "
-        f"the papers cited did not support {'it' if n == 1 else 'them'}.*"
+    said = note or (
+        f"{n} {'statement was' if n == 1 else 'statements were'} withdrawn: "
+        f"the papers cited did not support {'it' if n == 1 else 'them'}."
     )
+    new += f"\n\n*{said}*"
     return new, kept, gone
 
 
