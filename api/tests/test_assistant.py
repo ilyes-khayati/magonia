@@ -365,7 +365,11 @@ def test_magon_settings_are_saved_and_choose_the_model(client, monkeypatch):
     assert (
         first["model"] is None and first["detail"] == "concise" and first["papers_per_search"] == 6
     )
-    assert first["in_use"] == {"model_url": "http://127.0.0.1:9", "model": "qwen2.5:7b"}
+    assert {k: first["in_use"][k] for k in ("model_url", "model")} == {
+        "model_url": "http://127.0.0.1:9",
+        "model": "qwen2.5:7b",
+    }
+    assert first["in_use"]["verifier"] in ("minicheck-roberta", "model")
 
     chosen = {"model": "qwen3:8b", "temperature": 0.2, "detail": "detailed", "papers_per_search": 8}
     assert client.put("/assistant/settings", json=chosen).status_code == 200
@@ -383,7 +387,12 @@ def test_the_chosen_verifier_checks_the_answer(client, monkeypatch, library):
     asked = []
     monkeypatch.setattr(main, "judge_for", lambda name: asked.append(name))
     main.app.dependency_overrides[main.get_provider] = lambda: Scripted("Fine.")
-    assert client.get("/assistant/settings").json()["verifier"] == "model"
+    settings = client.get("/assistant/settings").json()
+    # MiniCheck checks by default; what checks in fact depends on whether it is installed here
+    assert settings["verifier"] == "minicheck-roberta"
+    assert settings["in_use"]["verifier"] in ("minicheck-roberta", "model")
+    monkeypatch.setattr(main, "verifier_installed", lambda name: False)
+    assert client.get("/assistant/settings").json()["in_use"]["verifier"] == "model"
     client.put("/assistant/settings", json={"verifier": "nli"})
     wid = workspace(client)
     conversation = client.post(f"/workspaces/{wid}/conversations").json()["id"]

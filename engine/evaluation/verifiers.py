@@ -36,6 +36,7 @@ from engine.support import judge_with
 from engine.verify import VERIFIERS, load
 
 LEVEL = {"yes": 1.0, "partly": 0.5, "no": 0.0}
+WRONGLY_WITHDRAWN = 0.05  # the share of supported claims the withdraw threshold may remove
 
 
 def scifact(folder: Path) -> list[dict]:
@@ -85,15 +86,31 @@ def best_threshold(truth: list[int], probs: list[float]) -> float:
     )
 
 
+def withdraw_threshold(truth: list[int], probs: list[float]) -> float:
+    """The probability below which at most WRONGLY_WITHDRAWN of the supported claims fall.
+
+    Withdrawing a true statement costs more than keeping a doubtful one marked unclear, so the
+    threshold is set by the supported claims alone: the highest one that withdraws no more than
+    that share of them.
+    """
+    supported = sorted(p for p, y in zip(probs, truth, strict=True) if y)
+    return supported[int(WRONGLY_WITHDRAWN * len(supported))]
+
+
 def measure(truth: list[int], probs: list[float]) -> dict:
     t = best_threshold(truth, probs)
     said = [int(p >= t) for p in probs]
+    w = withdraw_threshold(truth, probs)
+    unsupported = [p for p, y in zip(probs, truth, strict=True) if not y]
     return {
         "auc": roc_auc_score(truth, probs) if len(set(truth)) > 1 else None,
         "threshold": t,
         "balanced_accuracy": balanced_accuracy_score(truth, said),
         "kappa": cohen_kappa_score(truth, said),
         "at_0.5": balanced_accuracy_score(truth, [int(p >= 0.5) for p in probs]),
+        "withdraw_threshold": w,
+        # the share of claims their passage does not support that would be withdrawn
+        "unsupported_withdrawn": sum(p < w for p in unsupported) / len(unsupported),
     }
 
 
@@ -112,15 +129,18 @@ def main() -> None:
     sets = {"SciFact dev": scifact(args.scifact)}
 
     results: dict = {}
+    scored: dict = {}  # every pair's probability, so thresholds can be re-derived without a re-run
     for set_name, items in sets.items():
         truth = [i["supported"] for i in items]
         results[set_name] = {"n": len(items), "supported": sum(truth), "verifiers": {}}
+        scored[set_name] = {"supported": truth}
         for name in args.verifiers.split(","):
             started = time.time()
             probs = scores(name, items)
             m = measure(truth, probs)
             m["seconds_per_claim"] = (time.time() - started) / len(items)
             results[set_name]["verifiers"][name] = m
+            scored[set_name][name] = probs
             print(f"{set_name} · {name}: AUC {fmt(m['auc'])}, κ {fmt(m['kappa'])}", flush=True)
 
     lines = ["# Verifiers compared", ""]
@@ -130,18 +150,31 @@ def main() -> None:
             "",
             f"{r['n']} claim–passage pairs, {r['supported']} supported.",
             "",
-            "| Verifier | AUC | Best threshold | Balanced accuracy | κ | Balanced accuracy at 0.5 | s / claim |",
-            "|---|---|---|---|---|---|---|",
+            (
+                "| Verifier | AUC | Best threshold | Balanced accuracy | κ | Balanced accuracy "
+                "at 0.5 | Withdraw below | Unsupported withdrawn | s / claim |"
+            ),
+            "|---|---|---|---|---|---|---|---|---|",
         ]
         for name, m in r["verifiers"].items():
             lines.append(
                 f"| {name} | {fmt(m['auc'])} | {fmt(m['threshold'])} | "
                 f"{fmt(m['balanced_accuracy'])} | {fmt(m['kappa'])} | {fmt(m['at_0.5'])} | "
+                f"{m['withdraw_threshold']:.3f} | {m['unsupported_withdrawn']:.0%} | "
                 f"{m['seconds_per_claim']:.2f} |"
             )
-        lines.append("")
+        lines += [
+            "",
+            (
+                "Withdraw below: the highest threshold that withdraws at most "
+                f"{WRONGLY_WITHDRAWN:.0%} of the supported claims. Thresholds are chosen and "
+                "measured on the same claims, so the figures at them are optimistic."
+            ),
+            "",
+        ]
     (args.out / "verifiers.md").write_text("\n".join(lines))
     (args.out / "verifiers.json").write_text(json.dumps(results, indent=1))
+    (args.out / "scores.json").write_text(json.dumps(scored))
     print(args.out / "verifiers.md")
 
 

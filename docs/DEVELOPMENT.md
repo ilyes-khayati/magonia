@@ -50,6 +50,17 @@ To compare a change with an earlier run on the same papers, replay its searches:
 Read the failures in `report.md` by hand before trusting a number: some will be faults of
 the case or of the scorer.
 
+Magon checks each cited sentence against its passages with a verifier, a small model that
+runs on the CPU of the machine serving the API (decision 0019). Install it there, once:
+
+```bash
+cd api && uv sync --extra verify     # about 2.5 GB with the model weights, downloaded on first use
+```
+
+Without it the chat model judges its own sentences, and Settings says so. To re-measure the
+verifiers' thresholds on SciFact:
+`cd engine && uv run --extra verify python evaluation/verifiers.py OUT --scifact DATA`.
+
 ## Configuration
 
 Settings that differ per machine live in `.env`, which is never committed.

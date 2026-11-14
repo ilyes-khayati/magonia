@@ -31,6 +31,7 @@ from engine.purity import PurityError, purity
 from engine.purity import sample as sample_pixels
 from engine.series import Masking, band_name
 from engine.trend import trend
+from engine.verify import installed as verifier_installed
 from engine.verify import judge_for
 from fastapi import Depends, FastAPI, HTTPException, Query, Response, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
@@ -1076,18 +1077,24 @@ class MagonSettings(BaseModel):
     # who checks that a cited passage supports a sentence: the chat model, or a verifier
     # withdraw: a statement its papers do not support leaves the answer; mark: it stays, flagged
     claims: Literal["withdraw", "mark"] = "withdraw"
-    verifier: Literal["model", "nli", "minicheck-roberta", "minicheck-deberta"] = "model"
+    # MiniCheck RoBERTa by default: on SciFact it agrees with expert labels as well as the chat
+    # model does, four times faster, and it is not the model that wrote the answer
+    verifier: Literal["model", "nli", "minicheck-roberta", "minicheck-deberta"] = (
+        "minicheck-roberta"
+    )
 
 
 @app.get("/assistant/settings")
 def get_magon_settings(store: StoreDep, provider: ProviderDep) -> dict:
-    """The settings saved, with the server and model in use, so the form can show them."""
+    """The settings saved, with the server, model and checker in use, so the form can show
+    them. The checker in use is the chat model when the chosen verifier is not installed."""
     saved = MagonSettings(**magon_settings(store))
     return {
         **saved.model_dump(),
         "in_use": {
             "model_url": getattr(provider, "url", None),
             "model": getattr(provider, "model", None),
+            "verifier": saved.verifier if verifier_installed(saved.verifier) else "model",
         },
     }
 

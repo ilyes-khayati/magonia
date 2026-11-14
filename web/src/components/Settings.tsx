@@ -188,6 +188,7 @@ function MagonSection() {
   const [inUse, setInUse] = useState<{
     model_url: string | null;
     model: string | null;
+    verifier?: MagonSettings["verifier"];
   }>({ model_url: null, model: null });
   const [models, setModels] = useState<string[] | null>(null);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -399,16 +400,22 @@ function MagonSection() {
             value={form.verifier}
             onChange={(e) => set({ verifier: e.target.value as MagonSettings["verifier"] })}
           >
-            <option value="model">The chat model (default)</option>
-            <option value="nli">Inference model (DeBERTa NLI)</option>
-            <option value="minicheck-roberta">MiniCheck RoBERTa</option>
+            <option value="minicheck-roberta">MiniCheck RoBERTa (default)</option>
             <option value="minicheck-deberta">MiniCheck DeBERTa</option>
+            <option value="nli">Inference model (DeBERTa NLI)</option>
+            <option value="model">The chat model</option>
           </select>
         </label>
         <p className="settings-help">
           A separate model trained only to tell whether a passage supports a sentence, instead of
           asking the model that wrote the answer. Runs on this computer; needs the verify extra.
         </p>
+        {saved && saved.verifier !== "model" && inUse.verifier === "model" && (
+          <p className="settings-help" role="status">
+            Not installed on this computer, so the chat model checks instead. Install it with{" "}
+            <code>uv sync --extra verify</code> in <code>api/</code>.
+          </p>
+        )}
       </div>
 
       <details className="setting-row advanced">
