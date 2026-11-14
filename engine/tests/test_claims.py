@@ -165,3 +165,9 @@ def test_genuine_claims_held_out_are_read_right_and_the_rest_counted():
     assert all(reading(i["text"]) in i["expected"] for i in genuine)
     right = sum(reading(i["text"]) in i["expected"] for i in REAL["held_out"])
     assert right >= 5
+
+
+def test_magon_is_told_what_the_verdict_means():
+    # left to explain REPLICATES, Magon wrote that the data showed "the opposite of the claim"
+    result = claims.ClaimTest(claims.read("Higher LST reduces NDVI one month later."), "replicates")
+    assert "which means the researcher's data show what the claim says" in claims.block(result)

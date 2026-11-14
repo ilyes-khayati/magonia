@@ -305,12 +305,24 @@ def trend_test(claim: Claim, response: Series) -> ClaimTest:
     )
 
 
+# What each verdict means, said for the model: left to explain it, Magon wrote that a claim
+# that replicated "shows the opposite of the claim" (14 Nov)
+MEANING = {
+    "replicates": "the researcher's data show what the claim says",
+    "contradicts": "the researcher's data show the opposite of what the claim says",
+    "undecided": "the researcher's data show nothing beyond chance where the claim points",
+    "cannot test": "Magonia cannot test this claim with what is open",
+}
+
+
 def block(result: ClaimTest) -> str:
     """The result as Magon is given it: it reports the verdict, it does not reach one."""
     lines = "\n".join(f"- {line}" for line in result.summary)
     return (
         f'Magonia tested the claim "{result.claim.text}" on the researcher\'s data. '
-        f"Verdict, decided by code: {result.verdict.upper()}.\n{lines}\n"
-        "Report this verdict and its numbers as given, say what was tested, and that it holds "
-        "or not for this area and period, not for the paper's."
+        f"Verdict, decided by code: {result.verdict.upper()}, which means "
+        f"{MEANING[result.verdict]}.\n{lines}\n"
+        "Report this verdict and what it means in these words, with the numbers as given. Use "
+        "only the numbers of these lines for the claim, not other facts. Say what was tested, "
+        "and that it holds or not for this area and period, not for the paper's."
     )
