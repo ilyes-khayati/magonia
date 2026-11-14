@@ -8,6 +8,10 @@ dependencies = [
     "engine",
 ]
 
+[project.optional-dependencies]
+# the verifier that checks Magon's sentences against papers runs inside the API
+verify = ["engine[verify]"]
+
 [tool.uv.sources]
 engine = { path = "../engine", editable = true }
 

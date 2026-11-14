@@ -16,34 +16,63 @@ Two kinds are offered, so they can be compared on the same claims (evaluation/ve
 Both need the optional dependencies: uv sync --extra verify. The weights are downloaded from
 Hugging Face the first time a verifier is used.
 
-To fit the support check, the probability is read as one of its three answers: yes at
-SUPPORTED or above, partly at PARTLY or above, no below. The thresholds are calibrated on
-statements labelled by people (evaluation/labels.py), not chosen by hand.
+To fit the support check, the probability is read as one of its three answers: yes at the
+verifier's supported threshold or above, no below its withdraw threshold, partly between.
+Each verifier has its own two thresholds, measured on SciFact (Wadden et al., 2020), 340
+scientific claims labelled by experts (evaluation/verifiers.py, results in
+reports/verifier-results): supported is the threshold with the best balanced accuracy, and
+withdraw is the highest threshold that would withdraw at most 5% of the claims the experts
+called supported, because withdrawing a true statement costs more than keeping a doubtful one
+marked unclear. A verifier's probabilities are not calibrated (MiniCheck-RoBERTa supports at
+0.18, not 0.5), which is why the thresholds are measured rather than assumed.
 """
 
 import logging
 from collections.abc import Callable
+from dataclasses import dataclass
 from functools import cache
 
 log = logging.getLogger("magonia")
 
-# name → Hugging Face model and how its output is read
+
+@dataclass(frozen=True)
+class Spec:
+    model_id: str  # on Hugging Face
+    kind: str  # how its output is read: nli or minicheck
+    supported: float  # the probability from which a passage supports a sentence
+    withdraw: float  # the probability below which the sentence is not supported at all
+
+
+# Thresholds measured on SciFact dev; at the withdraw threshold MiniCheck-RoBERTa withdraws
+# 49% of the unsupported claims, MiniCheck-DeBERTa 35%, and the NLI model none (its
+# probabilities for supported claims go down to 0, so no threshold withdraws safely)
 VERIFIERS = {
-    "nli": ("cross-encoder/nli-deberta-v3-base", "nli"),
-    "minicheck-roberta": ("lytang/MiniCheck-RoBERTa-Large", "minicheck"),
-    "minicheck-deberta": ("lytang/MiniCheck-DeBERTa-v3-Large", "minicheck"),
+    "minicheck-roberta": Spec("lytang/MiniCheck-RoBERTa-Large", "minicheck", 0.18, 0.021),
+    "minicheck-deberta": Spec("lytang/MiniCheck-DeBERTa-v3-Large", "minicheck", 0.12, 0.018),
+    "nli": Spec("cross-encoder/nli-deberta-v3-base", "nli", 0.001, 0.0),
 }
-SUPPORTED = 0.5
-PARTLY = 0.2
 MAX_TOKENS = 512  # a passage of ~200 words and a sentence fit with room to spare
 BATCH = 8
 
 
-def verdict(probability: float) -> str:
-    """The support check's answer for a probability of support."""
-    if probability >= SUPPORTED:
+def verdict(probability: float, name: str = "minicheck-roberta") -> str:
+    """The support check's answer for a verifier's probability of support."""
+    spec = VERIFIERS[name]
+    if probability >= spec.supported:
         return "yes"
-    return "partly" if probability >= PARTLY else "no"
+    return "no" if probability < spec.withdraw else "partly"
+
+
+def installed(name: str | None) -> bool:
+    """Whether the verifier a setting names can run here; the chat model always can."""
+    if not name or name == "model":
+        return True
+    try:
+        import torch  # noqa: F401
+        import transformers  # noqa: F401
+    except ImportError:
+        return False
+    return name in VERIFIERS
 
 
 class Verifier:
@@ -53,7 +82,8 @@ class Verifier:
         import torch
         from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
-        model_id, self.kind = VERIFIERS[name]
+        spec = VERIFIERS[name]
+        model_id, self.kind = spec.model_id, spec.kind
         self.name = name
         self.torch = torch
         self.tokenizer = AutoTokenizer.from_pretrained(model_id)
@@ -96,7 +126,7 @@ class Verifier:
 
     def judge(self, claim: str, passage: str) -> str:
         """The support check's judge: yes, partly or no."""
-        return verdict(self.support([(passage, claim)])[0])
+        return verdict(self.support([(passage, claim)])[0], self.name)
 
 
 @cache

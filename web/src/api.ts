@@ -728,7 +728,12 @@ export type MagonSettings = {
 };
 
 export const magonSettings = () =>
-  call<MagonSettings & { in_use: { model_url: string | null; model: string | null } }>("/assistant/settings");
+  call<
+    MagonSettings & {
+      // verifier: the checker actually used, the chat model when the chosen one is not installed
+      in_use: { model_url: string | null; model: string | null; verifier?: MagonSettings["verifier"] };
+    }
+  >("/assistant/settings");
 
 export const saveMagonSettings = (settings: MagonSettings) =>
   call<MagonSettings>("/assistant/settings", send("PUT", settings));
