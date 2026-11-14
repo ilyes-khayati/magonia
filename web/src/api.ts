@@ -548,6 +548,9 @@ export type SupportCheck = {
   evidence: string; // the closest text from the cited papers
   source: string; // e.g. "[1, p. 6]" or "[2] abstract"
   judged: boolean;
+  // for a supported statement: "given" when a passage Magon was given says it, "paper" when
+  // one found elsewhere in the paper's full text does
+  grounding?: "given" | "paper" | "";
 };
 
 // A passage of a paper's full text that Magonia was given, from the paper numbered n

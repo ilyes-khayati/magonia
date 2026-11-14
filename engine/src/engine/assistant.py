@@ -33,7 +33,7 @@ from engine.proposals import describe as describe_proposal
 from engine.rank import ollama_embedder
 from engine.route import SOURCES, follows, glossary, in_french, route, together
 from engine.standing import standing_instruction
-from engine.support import Judge, check_support, faithfulness, judge_with, withdraw
+from engine.support import CANDIDATES, Judge, check_support, faithfulness, judge_with, withdraw
 
 NAME = "Magon"  # the assistant; Magonia is the whole platform
 
@@ -785,7 +785,17 @@ def answer(
         yield {"type": "verifying"}
         embed = getattr(provider, "embed", None)
         since = time.monotonic()
-        found = check_support(final, evidence, embed=embed, judge=judge)
+
+        def elsewhere(claim: str, cites: list[int]) -> list[tuple[str, str]]:
+            # the passages closest to the claim in the whole text of the papers it cites,
+            # as the library keeps it; a paper read only to its abstract has none
+            if library is None:
+                return []
+            numbered = {n: papers[n - 1] for n in cites if 0 < n <= len(papers)}
+            found = library.best(claim, numbered, keep=CANDIDATES, per_paper=CANDIDATES)
+            return [(f"[{f.n}, p. {f.page}]", f.text) for f in found]
+
+        found = check_support(final, evidence, embed=embed, judge=judge, more=elsewhere)
         clock.add("support", since)
         event["faithfulness"] = faithfulness(found)  # of what the model wrote
         if withdraw_unsupported:

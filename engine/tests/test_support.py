@@ -51,6 +51,41 @@ def test_a_claim_is_compared_only_with_the_papers_it_cites():
     assert found[0].status == "unsupported" and found[0].source == "[2] abstract"
 
 
+def test_a_statement_the_given_passages_miss_is_looked_for_in_the_whole_paper():
+    elsewhere = "Olive yield fell by 40% in the 2016 drought year across Sfax."
+    looked = []
+
+    def more(claim, cites):
+        looked.append((claim, cites))
+        return [("[1, p. 22]", elsewhere)] if cites == [1] else []
+
+    def judge(claim, passage):
+        return "yes" if passage == elsewhere and "40%" in claim else "no"
+
+    text = (
+        "Olive groves respond to long SPEI timescales in summer [1]. "
+        "Olive yield fell by 40% in the 2016 drought [1]. "
+        "Barley prices rose sharply in Morocco last year [2]."
+    )
+    found = check_support(text, EVIDENCE, judge=judge, more=more)
+    assert [s.status for s in found] == ["unsupported", "supported", "unsupported"]
+    second = found[1]
+    assert second.grounding == "paper" and second.source == "[1, p. 22]"
+    assert second.evidence == elsewhere and second.judged
+    # the first was judged on the given passage and said no there and in the paper; the
+    # third cites a paper with nothing more to read
+    assert [c for _, c in looked] == [[1], [1], [2]]
+    # a statement supported by what was given says so
+    supported = check_support(
+        "Olive groves respond to long SPEI timescales in summer [1].",
+        EVIDENCE,
+        judge=lambda claim, passage: "yes",
+        more=more,
+    )
+    assert supported[0].grounding == "given"
+    assert "grounding" in supported[0].to_dict()
+
+
 def test_the_judge_reads_the_first_word_and_survives_a_dead_model():
     assert judge_with(lambda messages, tools: iter(["Yes, ", "it does."]))("a", "b") == "yes"
     assert judge_with(lambda messages, tools: iter(["Maybe"]))("a", "b") == "no"

@@ -225,7 +225,12 @@ function Statement({ s }: { s: SupportCheck }) {
         {s.claim}
         {s.evidence && (
           <blockquote className="passage">
-            <span className="meta">Checked against {s.source}</span> {s.evidence}
+            <span className="meta">
+              {s.grounding === "paper"
+                ? `Found elsewhere in the paper, ${s.source}, not in the passages Magon was given`
+                : `Checked against ${s.source}`}
+            </span>{" "}
+            {s.evidence}
           </blockquote>
         )}
       </div>

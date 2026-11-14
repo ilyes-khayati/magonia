@@ -12,11 +12,18 @@ winter" are equally close to the same passage. So code only rules out claims who
 say nothing on the subject, and the language model, asked one strict question about one claim
 and one passage, decides the rest:
 
-- supported: the passage says it (the model answered yes)
-- unclear: it partly says it, or there was no model to ask
+- supported: the passage says it (the judge answered yes)
+- unclear: it partly says it, or there was no judge to ask
 - not supported: the cited papers do not say it
 
-Faithfulness is the share of cited statements that are supported.
+What the model was given is a dozen passages chosen for the question, not for the sentences
+it then wrote. A paper can say what a sentence claims on a page that was not given, and a
+true statement would be withdrawn for it. So a statement the given passages do not support
+gets a second look, in the whole text of the papers it cites as kept in the library (`more`):
+the passages closest to the claim are judged the same way. A statement supported there is
+supported, with its grounding marked "paper" rather than "given", so the reader knows the
+model wrote it from memory and the paper happens to bear it out, and the source names the
+page that does. Faithfulness is the share of cited statements that are supported.
 """
 
 import re
@@ -61,7 +68,10 @@ class Statement:
     status: str  # supported, unclear or unsupported
     evidence: str  # the closest text from the cited papers
     source: str  # where that text comes from, e.g. "[1, p. 6]" or "[2] abstract"
-    judged: bool = False  # decided by the language model rather than by code
+    judged: bool = False  # decided by the judge rather than by code
+    # for a supported statement: "given" when a passage the model was given says it, "paper"
+    # when one found elsewhere in the paper's full text does
+    grounding: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -73,6 +83,7 @@ class Statement:
             "evidence": self.evidence,
             "source": self.source,
             "judged": self.judged,
+            "grounding": self.grounding,
         }
 
 
@@ -133,15 +144,21 @@ def judge_with(stream: Callable, errors: tuple[type[Exception], ...] = (OSError,
     return judge
 
 
+More = Callable[[str, list[int]], list[tuple[str, str]]]  # (claim, papers) → (source, text)
+
+
 def check_support(
     answer: str,
     evidence: dict[int, list[tuple[str, str]]],
     embed: Embed | None = None,
     judge: Judge | None = None,
+    more: More | None = None,
 ) -> list[Statement]:
     """Each cited statement of the answer, with how well its papers support it.
 
     evidence maps a paper's number to what was given from it, as (source, text) pairs.
+    more, when given, finds the passages closest to a claim in the whole text of the papers
+    it cites; a statement the given passages do not support is checked against them too.
     """
     found = statements(answer)
     if not found:
@@ -196,9 +213,23 @@ def check_support(
             if verdicts:
                 statement.judged = True
                 if "yes" in verdicts:
-                    statement.status = "supported"
+                    statement.status, statement.grounding = "supported", "given"
                 elif "partly" not in verdicts:
                     statement.status = "unsupported"
+        # a second look, in the whole text of the cited papers, for what was not supported
+        if more is not None:
+            for statement in result:
+                if statement.status == "supported" or calls == MAX_JUDGED:
+                    continue
+                for source, text in more(statement.claim, statement.cites)[:CANDIDATES]:
+                    if calls == MAX_JUDGED:
+                        break
+                    calls += 1
+                    statement.judged = True
+                    if judge(statement.claim, text) == "yes":
+                        statement.status, statement.grounding = "supported", "paper"
+                        statement.source, statement.evidence = source, text
+                        break
     return result
 
 
@@ -247,7 +278,7 @@ def withdraw(answer: str, found: list[Statement]) -> tuple[str, list[Statement],
     n = len(gone)
     new += (
         f"\n\n*{n} {'statement was' if n == 1 else 'statements were'} withdrawn: "
-        f"the passages of the papers cited did not support {'it' if n == 1 else 'them'}.*"
+        f"the papers cited did not support {'it' if n == 1 else 'them'}.*"
     )
     return new, kept, gone
 
