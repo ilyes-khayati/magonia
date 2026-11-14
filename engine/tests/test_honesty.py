@@ -3,7 +3,9 @@
 The texts are Magon's own answers from that session, cut to what each test needs.
 """
 
+from pdf import make_pdf
 from test_agent import orchard_view
+from test_uploads import FIELD
 
 from engine import honesty
 from engine.assistant import (
@@ -13,7 +15,9 @@ from engine.assistant import (
     asked_readings,
     english_keywords,
     proposal_in_words,
+    written_calls,
 )
+from engine.library import Library, Uploads
 from engine.literature import Paper
 
 SGHAIER = Paper(
@@ -212,3 +216,81 @@ def test_a_french_question_is_searched_in_english():
     assert asked == ["drought NDVI olive"]
     # a model that cannot translate keeps its own query
     assert english_keywords(Scripted(), "Quelles études ?", "sécheresse") == "sécheresse"
+
+
+# The second round of a researcher's tests, 14 November: what the first fixes got wrong
+
+CORRECT = [
+    # withdrawn as wrong by the first SPEI check, though right: both directions are given
+    (
+        "Positive SPEI values indicate wetter conditions, while negative values indicate drier "
+        "conditions."
+    ),
+    "No, higher SPEI indicates wetter conditions.",
+    "Higher SPEI means wetter; lower SPEI means drier.",
+    "Lower SPEI values mark drought, and higher values wetter months.",
+    "Higher LST means a hotter, drier surface.",
+    "SPEI below zero is drier than usual, above zero wetter.",
+]
+WRONG = [
+    (
+        "The researcher's data show that higher SPEI values generally correspond to drier "
+        "conditions."
+    ),
+    "Higher LST values make orchards cooler.",
+    "Lower SPEI values indicate wetter months.",
+    "A rising SPEI points to drought.",
+]
+
+
+def test_the_sign_check_raises_no_false_alarm_on_correct_definitions():
+    assert [s for s in CORRECT if honesty.upside_down(s)] == []
+    assert [s for s in WRONG if not honesty.upside_down(s)] == []
+
+
+def test_a_search_written_as_text_is_made_and_its_claim_withdrawn():
+    said = '- Search_papers("olive NDVI hailstorms Béja 2024") yielded no relevant results.'
+    calls, rest = written_calls(said)
+    assert [(c.name, c.arguments) for c in calls] == [
+        ("search_papers", {"query": "olive NDVI hailstorms Béja 2024"})
+    ]
+    assert "Search_papers" not in rest
+    # if it stays in an answer with no search made, the sentence is withdrawn
+    assert honesty.withdrawn(said, [], searched=False)
+
+
+def test_ok_before_a_new_question_routes_the_question_itself():
+    # inheriting sent "ok what lag is important for ndvi here?" to the literature
+    model = Scripted("Fine.")
+    events = list(
+        answer(
+            model,
+            [
+                {"role": "user", "content": "What have published studies found about hail?"},
+                {"role": "assistant", "content": "None were found."},
+                {"role": "user", "content": "ok what lag is important for ndvi here?"},
+            ],
+            view=orchard_view(),
+            search=lambda query: [],
+        )
+    )
+    assert events[0]["kind"] != "research"
+    assert "What is open in Magonia" in model.seen[-1]["content"]
+
+
+def test_a_library_file_does_not_stop_the_search(tmp_path):
+    # with the researcher's file given as relevant, the model skipped the search and gave
+    # the file invented findings of a paper that does not exist
+    shelf = Library(tmp_path / "library.db")
+    Uploads(shelf).add("survey.pdf", make_pdf([FIELD]))
+    asked = []
+    events = list(
+        answer(
+            Scripted("Ben Salah et al. (2019) found that olive NDVI fell [1].", "Nothing found."),
+            [{"role": "user", "content": "What did studies find on olive NDVI loss in Jendouba?"}],
+            library=shelf,
+            search=lambda query: asked.append(query) or [],
+        )
+    )
+    assert asked, "the search must run"
+    assert "Ben Salah" not in events[-1]["text"]

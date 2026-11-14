@@ -145,6 +145,11 @@ def asks_to_run(text: str) -> bool:
     return bool(RUN.search(text)) and not NOT_RUN.search(text)
 
 
+# The words that open a reply without saying anything: "ok", "great, so", "cool and"
+FILLER = re.compile(
+    r"^\s*((ok(ay)?|great|cool|right|alright|so|and|then|well)[\s,.!]*)+", re.IGNORECASE
+)
+
 # A year the question names, from 1950 to 2099
 ASKED_YEAR = re.compile(r"(?<![\w.])(19[5-9]\d|20\d\d)(?![\w.%])")
 MAX_ASKED_READINGS = 3
@@ -337,12 +342,26 @@ def tidy(text: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", text).strip()
 
 
-def written_calls(text: str) -> tuple[list[ToolCall], str]:
-    """Tool calls the model wrote into its answer as JSON instead of making them.
+# A search written as a function call in the text: 'Search_papers("olive NDVI hail")' (14 Nov)
+SEARCH_IN_WORDS = re.compile(
+    r"`?\bsearch_papers\s*\(\s*(?:query\s*=\s*)?[\"'“”‘’]([^\"'“”‘’)]{2,200})[\"'“”‘’]\s*\)`?",
+    re.IGNORECASE,
+)
 
-    A small model sometimes does: the researcher would see the JSON. Returns the calls
-    and the text without them.
+
+def written_calls(text: str) -> tuple[list[ToolCall], str]:
+    """Tool calls the model wrote into its answer instead of making them.
+
+    A small model sometimes does, as JSON or as a function call in a sentence; the
+    researcher would see it, and a search written out is a search that never ran. Returns
+    the calls and the text without them.
     """
+    found_in_words = [
+        ToolCall("search_papers", {"query": m.group(1).strip()})
+        for m in SEARCH_IN_WORDS.finditer(text)
+    ]
+    if found_in_words:
+        return found_in_words, SEARCH_IN_WORDS.sub("", text).strip()
     decoder = json.JSONDecoder()
     calls, kept, at = [], [], 0
     for start in re.finditer(r"(```(?:json)?\s*)?\{", text):
@@ -594,11 +613,17 @@ def answer(
     follow_up = bool(earlier_question) and follows(text) and kind in ("general", "method")
     if follow_up and route(earlier_question, areas, view is not None) == "research":
         kind = "research"
-    # a reply that only carries the conversation on ("ok I added it", "great, and the trend?")
-    # is about what the question before was about, and gets the same facts and tools: routed
-    # as small talk, it got none and Magon invented the result it was told to read (14 Nov)
+    # a reply that only carries the conversation on ("ok I added it") is about what the
+    # question before was about, and gets the same facts and tools: routed as small talk, it
+    # got none and Magon invented the result it was told to read (14 Nov). But "ok" before a
+    # question of its own ("ok what lag is important for ndvi here?") starts a new one, which
+    # is routed on its own words: inheriting sent a data question to the literature (14 Nov)
     if kind == "chat" and earlier_question and not GREETING.match(text):
-        kind = route(earlier_question, areas, view is not None)
+        rest = FILLER.sub("", text)
+        if rest.rstrip().endswith("?") or len(rest.split()) >= 5:
+            kind = route(rest, areas, view is not None)
+        else:
+            kind = route(earlier_question, areas, view is not None)
     if view is not None and view.focus and kind != "research":
         kind = "data"  # asked from a card: about what the card shows
     # the researcher's own files: listed for every question, read when one is about them
@@ -806,13 +831,16 @@ def answer(
             not calls
             and kind == "research"
             and searches == 0
-            and not papers
+            and not own
+            and not earlier
             and SEARCH_TOOL in tools
         ):
-            # it answered a question about research with no paper given, from memory: that is
+            # it answered a question about research without searching, from memory: that is
             # how a paper that does not exist got a summary (14 Nov). Code searches instead,
-            # and the model answers again from what is found. With papers already given (the
-            # earlier answer's, the researcher's files), the honesty check covers the rest
+            # and the model answers again from what is found. Not when the question is about
+            # the researcher's own files or the papers an earlier answer cited: those are
+            # given. A library file that merely speaks to the question is no reason to skip
+            # the search: with one given, the model attributed invented findings to it
             calls = [ToolCall("search_papers", {"query": keywords(topic)})]
             del said[begun:]
             yield {"type": "rewrite", "text": "".join(said)}
