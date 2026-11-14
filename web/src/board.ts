@@ -28,7 +28,25 @@ export type BoardItem = {
   source?: Source; // drawn live from this; items pinned before had only a picture
   pinned: string; // ISO date
   layout?: CardLayout;
+  // a live card that now says something else than when it was pinned: what it says now, and
+  // what the researcher chose to keep as pinned anyway (#170)
+  now?: string[];
+  kept?: string[];
 };
+
+// Whether a live card's findings differ from what it said when pinned: the same sentences in
+// any order, spacing aside, are the same findings
+export function changed(pinned: string[], now: string[]): boolean {
+  if (!now.length) return false;
+  const norm = (lines: string[]) => lines.map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean).sort().join("\n");
+  return norm(pinned) !== norm(now);
+}
+
+// The claim a pinned passage is tested for: what the researcher highlighted in it, or its text
+export function claimOf(b: BoardItem): string {
+  const text = b.highlights?.[0] ?? b.lines.join(" ");
+  return text.length > 500 ? `${text.slice(0, 500).replace(/\s+\S*$/, "")}…` : text;
+}
 
 export function pin(board: BoardItem[], item: Omit<BoardItem, "id" | "pinned">): BoardItem[] {
   const id = Math.max(0, ...board.map((b) => b.id)) + 1;
@@ -61,6 +79,7 @@ export function sectionOf(board: BoardItem[], index: number): string | null {
 export function trustOf(b: BoardItem): BoardTrust {
   if (b.kind === "note") return "note";
   if (b.kind === "passage") return "passage";
+  if (b.now?.length) return "changed"; // its result is no longer what was pinned
   if (b.kind !== "answer") return "computed";
   const d = b.answer?.details;
   const failed =
@@ -81,7 +100,7 @@ export function boardForMagonia(board: BoardItem[]): { title: string; text: stri
         text: [
           ...(b.highlights ?? []).map((h) => `Highlighted: "${h}"`),
           b.question ? `Asked: ${b.question}` : "",
-          ...b.lines,
+          ...(b.now?.length ? ["When pinned:", ...b.lines, "Now:", ...b.now] : b.lines),
           ...(b.cautions ?? []).map((c) => `Caution. ${c}`),
         ]
           .filter(Boolean)

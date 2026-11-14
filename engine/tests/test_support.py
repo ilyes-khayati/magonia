@@ -277,3 +277,15 @@ def test_withdraw_leaves_an_answer_without_unsupported_statements_alone():
     text = "NDVI peaks in March [1]."
     found = [stated(text, "NDVI peaks in March [1].", "unclear")]
     assert withdraw(text, found) == (text, found, [])
+
+
+def test_a_sentence_saying_the_paper_does_not_report_something_is_not_withdrawn():
+    # withdrawn as unsupported in a live answer (14 Nov): no passage supports an absence
+    text = (
+        "However, the specific time frame of the response was not quantified [1]. "
+        "Olive yield doubled in Sfax [1]."
+    )
+    found = check_support(text, EVIDENCE, judge=lambda claim, passage: "no")
+    kept_text, _, gone = withdraw(text, found)
+    assert [s.claim for s in gone] == ["Olive yield doubled in Sfax."]
+    assert "not quantified" in kept_text

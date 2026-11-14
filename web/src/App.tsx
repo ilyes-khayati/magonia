@@ -177,6 +177,8 @@ export default function App() {
   const [setupOpen, setSetupOpen] = useState(false);
   const [undo, setUndo] = useState<Undo | null>(null);
   const [attached, setAttached] = useState<{ title: string; key: number } | null>(null);
+  // a question written for the researcher to send, such as a pinned passage to test (#171)
+  const [prefill, setPrefill] = useState<{ text: string; key: number } | null>(null);
   const [reading, setReading] = useState<Readable | null>(null);
   // a paper opens inside Magonia when it is the researcher's own, else in a new tab
   const read = useCallback((paper: PaperCard, page?: number) => {
@@ -228,6 +230,12 @@ export default function App() {
   // "Ask Magon about this" on a card: Magon opens beside the page with the card attached
   function askAbout(title: string) {
     setAttached({ title, key: Date.now() });
+    if (page !== "assistant") setDocked(true);
+  }
+
+  // "Test on my data" on a pinned passage: Magon opens with the request written, to send
+  function askToTest(claim: string) {
+    setPrefill({ text: `Test this claim on my data: "${claim}"`, key: Date.now() });
     if (page !== "assistant") setDocked(true);
   }
 
@@ -1041,6 +1049,7 @@ export default function App() {
             onSection={() => changeBoard(pin(board, { kind: "section", title: "New section", lines: [] }))}
             pagePath={(p) => (workspaceId === null || !isPage(p) ? null : pagePath(workspaceId, p))}
             live={livePin}
+            onTest={askToTest}
           />
         )}
         {page === "library" && workspaceId !== null && (
@@ -1110,6 +1119,7 @@ export default function App() {
           onUndoable={(text, run) => offer(text, run)}
           attached={attached}
           onDetach={() => setAttached(null)}
+          prefill={prefill}
           loading={{
             opening: earthEngine === null || workspaceId === null,
             series: progress.total - progress.done - progress.failed,

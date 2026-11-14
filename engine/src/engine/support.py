@@ -346,6 +346,14 @@ def check_uncited(
     return result
 
 
+# What a sentence says a paper does not do: an absence, which no passage supports
+ABSENCE = re.compile(
+    r"\b(not|never|no)\s+(\w+\s+){0,2}(quantif\w*|stated|specified|reported|measured|"
+    r"addressed|examined|studied|given|mentioned|discussed|provided|found)\b"
+    r"|\b(do|does|did) not (say|report|state|specify|quantify|address|mention|examine)\b",
+    re.IGNORECASE,
+)
+
 BULLET = re.compile(r"^\s*(?:[-*•]|\d+[.)])?\s*$")  # what is left of a line once its sentence is gone
 
 
@@ -360,7 +368,10 @@ def withdraw(
     knows the evidence for it was not found; the withdrawn sentences are listed with the
     passage each was checked against.
     """
-    gone = [s for s in found if s.status == "unsupported"]
+    # a sentence saying the paper does not report something ("the time frame was not
+    # quantified") is the right thing to say, and no passage can support an absence: it is
+    # kept, marked as it was judged (14 Nov)
+    gone = [s for s in found if s.status == "unsupported" and not ABSENCE.search(s.claim)]
     if not gone:
         return answer, found, []
     cuts = []

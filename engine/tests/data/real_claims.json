@@ -1,0 +1,244 @@
+{
+ "note": "Labelled by hand before the reader was run on them. The development set was used while fixing the reader; the held-out set was run once (14 Nov 2026: 5 of 11, 4 of 5 genuine claims) and then the rain/drier rule was generalised.",
+ "development": [
+  {
+   "source": "Bounouh 2024",
+   "text": "The results show that NDVI is negatively correlated with LST and positively correlated with SPEI, but the strength and timing of these relationships vary by region.",
+   "expected": [
+    [
+     "lag",
+     "lst",
+     -1
+    ],
+    [
+     "lag",
+     "spei",
+     1
+    ]
+   ]
+  },
+  {
+   "source": "Bounouh 2024",
+   "text": "This suggests that when the SPEI trend indicates drier conditions, the NDVI trend decreases and vice versa.",
+   "expected": [
+    [
+     "lag",
+     "spei",
+     1
+    ]
+   ]
+  },
+  {
+   "source": "Bounouh 2024",
+   "text": "In contrast, in Zarzis and Sfax, where Calcisols and shallow soils prevail, the NDVI response to LST anomalies occurs with minimal lag, indicating a more immediate water limitation.",
+   "expected": [
+    [
+     "lag",
+     "lst",
+     -1
+    ]
+   ]
+  },
+  {
+   "source": "Bounouh 2024",
+   "text": "Interestingly, a high correlation between NDVI and SPEI trend components was not observed in the 12-month range but became significant at longer time lags.",
+   "expected": [
+    null
+   ]
+  },
+  {
+   "source": "Bounouh 2024",
+   "text": "Methodologically, the comparison between Pearson correlation and wavelet coherence confirms that linear metrics alone are insufficient to characterise drought– vegetation relationships in olive systems.",
+   "expected": [
+    null
+   ]
+  },
+  {
+   "source": "Bounouh 2024",
+   "text": "The arrows in all study areas indicate that NDVI and LST are negatively correlated throughout the period, particularly during Period 1.",
+   "expected": [
+    [
+     "lag",
+     "lst",
+     -1
+    ]
+   ]
+  },
+  {
+   "source": "Bounouh 2024",
+   "text": "Wavelet Coherence revealed clear lagged drought–vegetation interactions that were not captured by linear correlation, particularly at multi-annual scales.",
+   "expected": [
+    null
+   ]
+  },
+  {
+   "source": "Bounouh 2024",
+   "text": "Once again, the arrows point predominantly to the left in these regions, showing an anti-phase relationship, where the NDVI trend decreases when SPEI suggests drier conditions.",
+   "expected": [
+    [
+     "lag",
+     "spei",
+     1
+    ]
+   ]
+  },
+  {
+   "source": "Remote Sens. 2011",
+   "text": "For a given month i, we assigned a weight to the precipitation of the previous month, because the vegetation NDVI index for the month i is influenced mainly by the precipitation which fell during the preceding months.",
+   "expected": [
+    [
+     "lag",
+     "rain",
+     1
+    ]
+   ]
+  },
+  {
+   "source": "Remote Sens. 2011",
+   "text": "For example, in March and April high positive correlations are noted between the vegetation index and precipitation.",
+   "expected": [
+    [
+     "lag",
+     "rain",
+     1
+    ]
+   ]
+  },
+  {
+   "source": "Remote Sens. 2011",
+   "text": "In most cases, the precipitation recorded in any given month does not strongly affect the vegetation in that same month, but leads to a notable response over a longer period of time.",
+   "expected": [
+    null
+   ]
+  },
+  {
+   "source": "Remote Sens. 2011",
+   "text": "In the case of the olive grove cover, the correlation coefficient is lower, which, as previously discussed, can be attributed to the limited influence of drought on this highly resistant type of vegetation, and also to its limited vegetation fraction (about 5%).",
+   "expected": [
+    null
+   ]
+  },
+  {
+   "source": "Remote Sens. 2011",
+   "text": "This is a consequence of the time lag between the vegetation's response to precipitation, and the fact that water deficits have a cumulative impact on vegetation, especially in arid regions.",
+   "expected": [
+    [
+     "lag",
+     "rain",
+     1
+    ]
+   ]
+  }
+ ],
+ "held_out": [
+  {
+   "source": "Agric. Water Manag. 2025",
+   "text": "The correlation results suggest that temperature-related variables, especially LST and TCI, significantly affect vegetation health in the studied area.",
+   "expected": [
+    [
+     "lag",
+     "lst",
+     -1
+    ]
+   ]
+  },
+  {
+   "source": "Agric. Water Manag. 2025",
+   "text": "The relatively weak correlation may be due to the semi-arid conditions of Sindh, where vegetation growth is influenced by irrigation, soil moisture storage, and temperature-driven evapotranspiration.",
+   "expected": [
+    null
+   ]
+  },
+  {
+   "source": "Agric. Water Manag. 2025",
+   "text": "Variable RMSE R² TCI VCI VHI LST NDVI MNDWI precipitation 0.17 0.08 0.10 0.49 0.04 0.05 0.67 0.77 0.82 0.88 0.81 0.87 0.92 0.86 increased reconstruction fidelity for all variables with RMSE values ranging from 0.04 to 0.67 and R² values between 0.77 and 0.92.",
+   "expected": [
+    null
+   ]
+  },
+  {
+   "source": "Agric. Water Manag. 2025",
+   "text": "A notable strong negative correlation was identified between LST and the TCI (r = –0.96), indicating that rising surface temperatures intensify thermal stress on vegetation.",
+   "expected": [
+    [
+     "lag",
+     "lst",
+     -1
+    ]
+   ]
+  },
+  {
+   "source": "J. Hydrol. Reg. Stud. 2026",
+   "text": "From the 1980s to the 2000s, remote-sensing technologies became increasingly important, and some of the well-known indices that were developed include the Crop Water Stress Index (CWSI) in 1988, the Standardized Precipitation Index (SPI) in 1993, and the Vegetation Condition Index (VCI) in 1995, among others.",
+   "expected": [
+    null
+   ]
+  },
+  {
+   "source": "J. Hydrol. Reg. Stud. 2026",
+   "text": "NDVI helps detect reductions in vegetation greenness in areas of drought, and the Enhanced Vegetation Index (EVI) minimizes atmospheric interference and soil background signal, so it is more reliable in high vegetation density regions.",
+   "expected": [
+    null,
+    [
+     "lag",
+     "spei",
+     1
+    ]
+   ]
+  },
+  {
+   "source": "J. Hydrol. Reg. Stud. 2026",
+   "text": "Strong correlations between VCI and meteorological drought indicators in dry environments have been reported (Quiring and Ganesh, 2010).",
+   "expected": [
+    null
+   ]
+  },
+  {
+   "source": "J. Hydrol. Reg. Stud. 2026",
+   "text": "However, their efficiency decreases in humid or monsoon-dominated regions due to persistent cloud cover and vegetation saturation reducing sensitivity to precipitation variability (Kogan, 1995).",
+   "expected": [
+    null
+   ]
+  },
+  {
+   "source": "J. Hydrol. Reg. Stud. 2026",
+   "text": "Contemporary drought-monitoring frameworks increasingly integrate meteorological reanalysis datasets such as ERA5, hydrological simulations including GLDAS and FLDAS, soil-moisture products such as SMOS, GLEAM, and AWAP, and vegetation indicators including NDVI, EVI, and Solar-Induced Chlorophyll Fluorescence (SIF).",
+   "expected": [
+    null
+   ]
+  },
+  {
+   "source": "Rhif 2022",
+   "text": "Similarly, NDVI4 faced a decrease in NDVI value from 2005, conforming to a severe drought event reported in this region.",
+   "expected": [
+    [
+     "trend",
+     null,
+     -1
+    ],
+    [
+     "lag",
+     "spei",
+     1
+    ]
+   ]
+  },
+  {
+   "source": "Rhif 2022",
+   "text": "MRA-WT gives the largest negative trend slopes for NDVI2 and NDVI4 (up to one order of magnitude), which may be explained by the smoother response to rainfall benefit conditions in 2008, and followed by a gradual decrease in vegetation due to drier years over the end of the period.",
+   "expected": [
+    null,
+    [
+     "trend",
+     null,
+     -1
+    ],
+    [
+     "lag",
+     "rain",
+     1
+    ]
+   ]
+  }
+ ]
+}

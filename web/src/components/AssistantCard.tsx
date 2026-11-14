@@ -193,11 +193,13 @@ type Props = {
   onPinPassage?: (paper: PaperCard, passage: PassageCard) => void; // keep one passage
   onUndoable?: (text: string, undo: () => Promise<void>) => void; // offer to bring back a deletion
   attached?: { title: string; key: number } | null; // the card asked about, sent with the question
+  prefill?: { text: string; key: number } | null; // a question written for the researcher to send
   onDetach?: () => void;
 };
 
 export default function AssistantCard(props: Props) {
-  const { workspaceId, view, actions, loading, onPropose, onPin, onPinPassage, onUndoable, attached, onDetach } = props;
+  const { workspaceId, view, actions, loading, onPropose, onPin, onPinPassage, onUndoable, attached, onDetach, prefill } =
+    props;
   const box = useRef<HTMLTextAreaElement>(null);
 
   // a card attached from its page: ready to ask about at once
@@ -208,6 +210,16 @@ export default function AssistantCard(props: Props) {
   const [openId, setOpenId] = useState<number | null>(null);
   const [turns, setTurns] = useState<Turn[]>([]);
   const [draft, setDraft] = useState("");
+  // a question written elsewhere (a pinned passage to test): put in the box, not sent, so the
+  // researcher reads it first; taken once per request, as React advises, while rendering
+  const [taken, setTaken] = useState<number | null>(null);
+  if (prefill && prefill.key !== taken) {
+    setTaken(prefill.key);
+    setDraft(prefill.text);
+  }
+  useEffect(() => {
+    if (prefill) box.current?.focus();
+  }, [prefill]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [model, setModel] = useState<string | null>(null);

@@ -46,11 +46,11 @@ NEAR = 1  # months either side of a claimed lag that count as the claimed lag
 
 LOWERS = re.compile(
     r"\b(reduc\w*|decreas\w*|lower\w*|declin\w*|loss|lost|los(e|es|ing)|drop\w*|fall\w*|fell|"
-    r"negativ\w*|harm\w*|suppress\w*|less|brown\w*|stress\w*|damag\w*)\b",
+    r"negativ\w*|harm\w*|suppress\w*|brown\w*|stress\w*|damag\w*)\b",
     re.IGNORECASE,
 )
 RAISES = re.compile(
-    r"\b(increas\w*|rais\w*|higher|positiv\w*|enhanc\w*|boost\w*|green(er|ing)|more|"
+    r"\b(increas\w*|rais\w*|higher|positiv\w*|enhanc\w*|boost\w*|green(er|ing)|"
     r"improv\w*|ris(e|es|ing)|rose)\b",
     re.IGNORECASE,
 )
@@ -74,6 +74,19 @@ DRIVER_MOVES = re.compile(
     re.IGNORECASE,
 )
 DRIVER_DOWN = re.compile(r"^(lower|less|decreas\w*|falling|cooler|drier|weaker)$", re.IGNORECASE)
+
+
+RAIN_FALLS = re.compile(r"\b(fell|falls?|fallen|falling)\b", re.IGNORECASE)
+DRY = re.compile(r"\b(drought|dry|drier|aridity|water deficit)\b", re.IGNORECASE)
+# Not a finding a series can test: a link denied ("was not observed in the 12-month range")
+# is easily read as the link itself, and a sentence about methods ("linear metrics alone are
+# insufficient") claims nothing about the data (both from Bounouh 2024)
+NOT_A_FINDING = re.compile(
+    r"\b(not|no|never|neither|nor)\s+(\w+\s+){0,2}(observed|found|captured|detected|"
+    r"significant|correlat\w*|affect\w*|related|linked)\b"
+    r"|\b(metrics?|methods?|methodolog\w*|approach(es)?|insufficient|inappropriate)\b",
+    re.IGNORECASE,
+)
 
 
 def count(word: str) -> int:
@@ -149,12 +162,14 @@ def read(text: str) -> Claim | None:
     response = next((v for v in variables if v in VEGETATION), None)
     if response is None and re.search(r"\b(vegetation|greenness|canopy)\b", text, re.IGNORECASE):
         response = "ndvi"
-    if response is None:
+    if response is None or NOT_A_FINDING.search(text):
         return None
     driver = next((v for v in variables if v in DRIVERS), None)
     # the way the driver moves ("higher LST") is read apart from what it does ("reduces NDVI")
     moved = DRIVER_MOVES.search(text)
     rest = DRIVER_MOVES.sub(" ", text) if moved else text
+    if driver == "rain":
+        rest = RAIN_FALLS.sub(" ", rest)  # "the rain which fell": rain falling, not a decrease
     lowers, raises = bool(LOWERS.search(rest)), bool(RAISES.search(rest))
     effect = -1 if lowers and not raises else 1 if raises and not lowers else None
     if moved and effect is not None and DRIVER_DOWN.match(moved.group("way")):
@@ -174,12 +189,16 @@ def read(text: str) -> Claim | None:
     if lag is not None and not 1 <= lag <= MAX_LAG:
         lag = None
 
-    # "drought lowers NDVI": drought is low SPEI, so NDVI rises with SPEI
-    said_drought = driver == "spei" and re.search(r"\bdrought|dry|aridity\b", text, re.IGNORECASE)
-    named_spei = re.search(r"\bspei\b", text, re.IGNORECASE)
+    # Drought is low SPEI: "drought lowers NDVI", "when SPEI indicates drier conditions NDVI
+    # decreases" (Bounouh 2024) and "stronger drought reduces greenness" all mean NDVI rises
+    # with SPEI. Said of drought rather than of SPEI's own value, the sign turns over; the
+    # same holds for rain and soil moisture ("a decrease in vegetation due to drier years")
     sign = effect
-    if sign is not None and said_drought and not named_spei:
-        sign = -sign
+    if sign is not None and driver in ("spei", "rain", "soil_moisture"):
+        drought_moved = moved and re.search(r"drought|aridity", moved.group(0), re.IGNORECASE)
+        said_dry = DRY.search(text) and not moved
+        if drought_moved or said_dry:
+            sign = -sign
     if sign is None:
         return Claim(text, "lag", response, driver, EXPECTED.get(driver), "physics", lag)
     return Claim(text, "lag", response, driver, sign, "claim", lag)
@@ -286,12 +305,24 @@ def trend_test(claim: Claim, response: Series) -> ClaimTest:
     )
 
 
+# What each verdict means, said for the model: left to explain it, Magon wrote that a claim
+# that replicated "shows the opposite of the claim" (14 Nov)
+MEANING = {
+    "replicates": "the researcher's data show what the claim says",
+    "contradicts": "the researcher's data show the opposite of what the claim says",
+    "undecided": "the researcher's data show nothing beyond chance where the claim points",
+    "cannot test": "Magonia cannot test this claim with what is open",
+}
+
+
 def block(result: ClaimTest) -> str:
     """The result as Magon is given it: it reports the verdict, it does not reach one."""
     lines = "\n".join(f"- {line}" for line in result.summary)
     return (
         f'Magonia tested the claim "{result.claim.text}" on the researcher\'s data. '
-        f"Verdict, decided by code: {result.verdict.upper()}.\n{lines}\n"
-        "Report this verdict and its numbers as given, say what was tested, and that it holds "
-        "or not for this area and period, not for the paper's."
+        f"Verdict, decided by code: {result.verdict.upper()}, which means "
+        f"{MEANING[result.verdict]}.\n{lines}\n"
+        "Report this verdict and what it means in these words, with the numbers as given. Use "
+        "only the numbers of these lines for the claim, not other facts. Say what was tested, "
+        "and that it holds or not for this area and period, not for the paper's."
     )

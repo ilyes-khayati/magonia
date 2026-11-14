@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
-import type { BoardItem } from "../board";
+import { changed, claimOf, snapshotLines, type BoardItem } from "../board";
 import { moved } from "../cards";
 import { paint, selectedIn } from "../highlight";
 import { AnswerText, Sources } from "./Answer";
@@ -17,12 +17,14 @@ type Props = {
   pagePath: (page: string) => string | null;
   // the live card for an item, or null to show what was kept when it was pinned
   live: (item: BoardItem, update: (change: Partial<BoardItem>) => void, remove: () => void) => React.ReactNode | null;
+  // a pinned passage's claim, tested on the researcher's data by Magon (#171)
+  onTest?: (claim: string) => void;
 };
 
 const FROM: Record<string, string> = { data: "Data", analyses: "Analyses", model: "Model", assistant: "Magon" };
 
 // The research board: findings pinned from anywhere, as they were when pinned, with notes
-export default function BoardPage({ board, onChange, onRemove, onNote, onSection, pagePath, live }: Props) {
+export default function BoardPage({ board, onChange, onRemove, onNote, onSection, pagePath, live, onTest }: Props) {
   const update = (id: number, change: Partial<BoardItem>) => onChange(board.map((b) => (b.id === id ? { ...b, ...change } : b)));
 
   return (
@@ -93,7 +95,7 @@ export default function BoardPage({ board, onChange, onRemove, onNote, onSection
                     )
                   : null;
                 return card ? (
-                  <div className="board-live">
+                  <LiveCheck b={b} update={(change) => update(b.id, change)}>
                     <span className="meta row" style={{ justifyContent: "space-between" }}>
                       <span>
                         Pinned {b.pinned}
@@ -113,7 +115,7 @@ export default function BoardPage({ board, onChange, onRemove, onNote, onSection
                       </button>
                     </span>
                     {card}
-                  </div>
+                  </LiveCheck>
                 ) : null;
               })() ?? (
               <Item
@@ -121,6 +123,7 @@ export default function BoardPage({ board, onChange, onRemove, onNote, onSection
                 update={(change) => update(b.id, change)}
                 remove={() => onRemove(b.id)}
                 pagePath={pagePath}
+                onTest={onTest}
               />
               )}
             </CardSlot>
@@ -129,6 +132,88 @@ export default function BoardPage({ board, onChange, onRemove, onNote, onSection
       )}
     </div>
   );
+}
+
+// A live card on the board, read again once drawn: when what it says now is not what it said
+// when pinned (the data or the analysis changed), the board says so, shows both, and lets the
+// researcher keep the new result or the pinned one (#170). Magon is told the same.
+const SETTLE_MS = 1500; // a card's findings are read once they stop changing
+const GIVE_UP_MS = 60000; // a card still computing after a minute is left as it is
+
+function LiveCheck({
+  b,
+  update,
+  children,
+}: {
+  b: BoardItem;
+  update: (change: Partial<BoardItem>) => void;
+  children: React.ReactNode;
+}) {
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let last = "";
+    let quiet = 0;
+    const started = Date.now();
+    const timer = window.setInterval(() => {
+      const card = box.current?.querySelector<HTMLElement>(".card");
+      const { lines } = card ? snapshotLines(card) : { lines: [] };
+      const seen = lines.join("\n");
+      quiet = seen && seen === last ? quiet + 500 : 0;
+      last = seen;
+      if (quiet >= SETTLE_MS || Date.now() - started > GIVE_UP_MS) {
+        window.clearInterval(timer);
+        if (!lines.length) return;
+        const differs = changed(b.lines, lines);
+        const kept = b.kept && !changed(b.kept, lines);
+        if (differs && !kept && !sameLines(b.now, lines)) update({ now: lines });
+        if ((!differs || kept) && b.now) update({ now: undefined });
+      }
+    }, 500);
+    return () => window.clearInterval(timer);
+    // read once per item and pinned findings; re-reading on every update would loop
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [b.id, b.lines.join("\n"), b.kept?.join("\n")]);
+
+  return (
+    <div className="board-live" ref={box}>
+      {b.now && b.now.length > 0 && (
+        <div className="board-changed" role="status">
+          <strong>Changed since pinned on {b.pinned}</strong>
+          <span className="meta">
+            The data or the analysis behind this card changed, and so did what it finds. Magon is told both.
+          </span>
+          <details>
+            <summary className="meta">What it said then, and what it says now</summary>
+            <p className="meta">Then</p>
+            <ul className="summary">
+              {b.lines.map((line, k) => (
+                <li key={k}>{line}</li>
+              ))}
+            </ul>
+            <p className="meta">Now</p>
+            <ul className="summary">
+              {b.now.map((line, k) => (
+                <li key={k}>{line}</li>
+              ))}
+            </ul>
+          </details>
+          <span className="row">
+            <button className="button" onClick={() => update({ lines: b.now, now: undefined, kept: undefined })}>
+              Keep the new result
+            </button>
+            <button className="link" onClick={() => update({ kept: b.now, now: undefined })}>
+              Keep as pinned
+            </button>
+          </span>
+        </div>
+      )}
+      {children}
+    </div>
+  );
+}
+
+function sameLines(a: string[] | undefined, b: string[]): boolean {
+  return !!a && !changed(a, b);
 }
 
 const KIND: Record<BoardItem["kind"], string> = {
@@ -145,10 +230,11 @@ type ItemProps = {
   update: (change: Partial<BoardItem>) => void;
   remove: () => void;
   pagePath: (page: string) => string | null;
+  onTest?: (claim: string) => void;
 };
 
 // An item kept as it was pinned: its text, which the researcher can highlight
-function Item({ b, update, remove, pagePath }: ItemProps) {
+function Item({ b, update, remove, pagePath, onTest }: ItemProps) {
   const card = useRef<HTMLElement>(null);
   const [hint, setHint] = useState("");
   const highlights = b.highlights ?? [];
@@ -234,6 +320,18 @@ function Item({ b, update, remove, pagePath }: ItemProps) {
               <a href={b.link} target="_blank" rel="noreferrer">
                 Open the paper
               </a>
+            </>
+          )}
+          {onTest && (
+            <>
+              {" · "}
+              <button
+                className="link"
+                onClick={() => onTest(claimOf(b))}
+                title={b.highlights?.length ? "Test what you highlighted on your data" : "Test this passage on your data"}
+              >
+                Test on my data
+              </button>
             </>
           )}
         </blockquote>

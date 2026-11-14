@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { boardForMagonia, pin, readBoard, sectionOf, trustOf } from "./board";
+import { boardForMagonia, changed, claimOf, pin, readBoard, sectionOf, trustOf } from "./board";
 
 describe("board", () => {
   it("pins items with an id and the date, and reads back only what it knows", () => {
@@ -44,5 +44,38 @@ describe("board", () => {
     expect(trustOf(answer({ support: [{ status: "supported" }] }))).toBe("checked");
     expect(trustOf(answer({ support: [{ status: "unsupported" }] }))).toBe("failed");
     expect(trustOf(answer({ numbers: [{ status: "unmatched" }] }))).toBe("failed");
+  });
+});
+
+describe("pinned results that changed (#170)", () => {
+  const card = pin([], {
+    kind: "card",
+    title: "Lags",
+    lines: ["NDVI anomalies remember 1 month (r = 0.70).", "SPEI-12 one month earlier stands out."],
+  })[0];
+
+  it("sees a change in what a card finds, not in the order or spacing of its sentences", () => {
+    expect(changed(card.lines, [...card.lines].reverse())).toBe(false);
+    expect(changed(card.lines, card.lines.map((l) => ` ${l.replace(" ", "  ")} `))).toBe(false);
+    expect(changed(card.lines, ["NDVI anomalies remember 1 month (r = 0.64).", card.lines[1]])).toBe(true);
+    // a card still drawing says nothing yet: no change
+    expect(changed(card.lines, [])).toBe(false);
+  });
+
+  it("tells Magon a changed card is no longer what was pinned, and gives both", () => {
+    const now = ["NDVI anomalies remember 1 month (r = 0.64)."];
+    const moved = { ...card, now };
+    expect(trustOf(moved)).toBe("changed");
+    const [given] = boardForMagonia([moved]);
+    expect(given.trust).toBe("changed");
+    expect(given.text).toContain("When pinned:");
+    expect(given.text).toContain("Now: NDVI anomalies remember 1 month (r = 0.64).");
+  });
+
+  it("tests what the researcher highlighted in a passage, or the passage", () => {
+    const passage = pin([], { kind: "passage", title: "Bounouh 2024", lines: ["NDVI lags SPEI. It is long."] })[0];
+    expect(claimOf(passage)).toBe("NDVI lags SPEI. It is long.");
+    expect(claimOf({ ...passage, highlights: ["NDVI lags SPEI."] })).toBe("NDVI lags SPEI.");
+    expect(claimOf({ ...passage, lines: ["word ".repeat(200)] }).length).toBeLessThanOrEqual(501);
   });
 });
