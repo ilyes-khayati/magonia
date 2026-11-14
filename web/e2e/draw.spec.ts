@@ -1466,10 +1466,13 @@ test("the board has sections, highlights and pinned passages, and Magonia is tol
   await assistant.getByRole("button", { name: "Send" }).click();
   await expect
     .poll(() => (asked.at(-1)?.view as { board?: { title: string; text: string }[] } | undefined)?.board)
-    .toContainEqual({
-      title: "[Drought evidence] Passage: Sghaier et al., 2022, p. 6",
-      text: 'Highlighted: "Rainfed groves lost NDVI" Rainfed groves lost NDVI within one season of drought.',
-    });
+    .toContainEqual(
+      expect.objectContaining({
+        title: "[Drought evidence] Passage: Sghaier et al., 2022, p. 6",
+        text: 'Highlighted: "Rainfed groves lost NDVI" Rainfed groves lost NDVI within one season of drought.',
+        trust: "passage",
+      }),
+    );
 
   // highlights survive a reload, and can be removed
   await page.waitForTimeout(700);

@@ -376,6 +376,23 @@ function MagonSection() {
 
       <div className="setting-row">
         <label className="field">
+          Statements the papers do not support
+          <select
+            className="select"
+            value={form.claims}
+            onChange={(e) => set({ claims: e.target.value as MagonSettings["claims"] })}
+          >
+            <option value="withdraw">Withdraw them from the answer (default)</option>
+            <option value="mark">Keep them, marked</option>
+          </select>
+        </label>
+        <p className="settings-help">
+          A withdrawn statement is listed under the answer with the passage it was checked against.
+        </p>
+      </div>
+
+      <div className="setting-row">
+        <label className="field">
           Checking sentences against papers
           <select
             className="select"

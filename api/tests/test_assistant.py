@@ -88,6 +88,8 @@ def test_answer_streams_as_events_and_is_saved(client, model):
 
 
 def test_searched_answer_keeps_its_papers_and_check(client, library):
+    # the test papers are made up, so their statements are kept and only marked
+    client.put("/assistant/settings", json={"claims": "mark"})
     model = Scripted(
         ToolCall("search_papers", {"query": "olive drought"}),
         "Drought lowers olive NDVI [1], see also [4].",
@@ -165,6 +167,8 @@ def test_the_model_sees_the_earlier_conversation(client, model):
 
 
 def test_a_follow_up_is_given_the_papers_cited_before(client, library):
+    # the test papers are made up, so their statements are kept and only marked
+    client.put("/assistant/settings", json={"claims": "mark"})
     model = Scripted(
         ToolCall("search_papers", {"query": "olive drought"}),
         "Drought lowers olive NDVI [1].",

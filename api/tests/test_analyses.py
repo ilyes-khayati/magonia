@@ -460,9 +460,10 @@ def test_magonia_reads_what_the_researcher_pinned_first(client, store):
         f"/conversations/{conversation(client, ws)}/chat",
         json={"content": "What did I note?", "view": view},
     )
-    assert (
-        "[Board: Note: check 2017]\n- The 2017 dip may be the drought." in model.seen[-1]["content"]
-    )
+    # an item sent without a trust level is the researcher's own, quoted as theirs
+    seen = model.seen[-1]["content"]
+    assert "[B1] Note: check 2017 (the researcher's own note" in seen
+    assert "The 2017 dip may be the drought." in seen
 
 
 def test_coherence_finds_a_shared_cycle_and_is_kept(client, store, monkeypatch):

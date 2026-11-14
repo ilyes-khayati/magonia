@@ -16,6 +16,10 @@ from dotenv import load_dotenv
 from engine import interface
 from engine.awareness import earlier_papers, files_asked_about, restated, wants_literature
 from engine.awareness import listing as library_listing
+from engine.board import Pinned
+from engine.board import block as board_block
+from engine.board import check as board_check
+from engine.board import given as board_items
 from engine.catalogue import CATALOGUE
 from engine.citations import check
 from engine.facts import View
@@ -29,7 +33,7 @@ from engine.proposals import describe as describe_proposal
 from engine.rank import ollama_embedder
 from engine.route import SOURCES, follows, glossary, in_french, route, together
 from engine.standing import standing_instruction
-from engine.support import Judge, check_support, faithfulness, judge_with
+from engine.support import Judge, check_support, faithfulness, judge_with, withdraw
 
 NAME = "Magon"  # the assistant; Magonia is the whole platform
 
@@ -441,6 +445,8 @@ def answer(
     papers_per_search: int = 6,
     detail: str = "concise",
     search_mode: str = "keyword",
+    withdraw_unsupported: bool = True,
+    board: list[Pinned] | None = None,
 ) -> Iterator[dict]:
     """Answer the last message of the conversation, using tools when the model asks.
 
@@ -502,6 +508,12 @@ def answer(
     elif kind == "method" and (known := glossary(text)):
         sources.append(("Magonia's catalogue", known))
         messages[-1] = {**messages[-1], "content": f"{known}\n\n---\nThe researcher asks: {text}"}
+    # what the researcher pinned, as evidence it can cite [B1]…; not for small talk
+    shown = board_items(board or [], text) if kind != "chat" else []
+    if shown:
+        yield {"type": "board", "items": [b.to_dict() for b in shown]}
+        sources += [(f"your board [B{b.n}]", b.text) for b in shown]
+        messages[-1] = {**messages[-1], "content": f"{board_block(shown)}\n\n---\n{messages[-1]['content']}"}
     # a follow-up of a literature question is searched by code: given the earlier papers, the
     # model answered from them instead of searching again (measured, f01)
     forced: list[ToolCall] = []
@@ -760,22 +772,35 @@ def answer(
     _, said_text = written_calls("".join(said))  # a call it can no longer make is not shown
     since = time.monotonic()
     verdict = check(tidy(said_text), papers, pages)
-    event = {"type": "check", "text": verdict.text, **verdict.to_dict()}
-    # numbers are checked when there was something to check them against
-    if facts or papers or kind == "method":
-        event["numbers"] = [n.to_dict() for n in check_numbers(verdict.text, sources)]
-    # every page, button or analysis it names must be one the interface has
-    event["app"] = [m.to_dict() for m in interface.check_app(verdict.text)]
     clock.add("checks", since)
+    final = verdict.text
+    if shown:
+        # a board item it was not given cannot be cited
+        final, event_cited, event_removed = board_check(final, shown)
+    event = {"type": "check", **verdict.to_dict()}
+    if shown:
+        event["board_cited"], event["board_removed"] = event_cited, event_removed
     if verdict.cited:
         # does each cited statement say what its papers say?
         yield {"type": "verifying"}
         embed = getattr(provider, "embed", None)
         since = time.monotonic()
-        found = check_support(verdict.text, evidence, embed=embed, judge=judge)
+        found = check_support(final, evidence, embed=embed, judge=judge)
         clock.add("support", since)
+        event["faithfulness"] = faithfulness(found)  # of what the model wrote
+        if withdraw_unsupported:
+            # a statement its papers do not support leaves the answer, which says so
+            final, found, gone = withdraw(final, found)
+            event["withdrawn"] = [s.to_dict() for s in gone]
         event["support"] = [s.to_dict() for s in found]
-        event["faithfulness"] = faithfulness(found)
+    since = time.monotonic()
+    event["text"] = final
+    # numbers are checked when there was something to check them against
+    if facts or papers or shown or kind == "method":
+        event["numbers"] = [n.to_dict() for n in check_numbers(final, sources)]
+    # every page, button or analysis it names must be one the interface has
+    event["app"] = [m.to_dict() for m in interface.check_app(final)]
+    clock.add("checks", since)
     # where the time went: the model, searching, reading papers, checking, judging support
     event["timings"] = clock.report()
     yield event

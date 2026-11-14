@@ -587,6 +587,9 @@ export type AnswerDetails = {
   read?: Record<string, ReadStatus>; // by paper number
   support?: SupportCheck[];
   faithfulness?: number | null; // the share of cited statements that are supported
+  withdrawn?: SupportCheck[]; // statements taken out because their papers did not support them
+  board?: BoardGiven[]; // the pinned items it was given, [B1]…
+  board_cited?: number[];
 };
 
 // What kind of question code took it for, and so what the answer was allowed to draw on
@@ -628,7 +631,7 @@ export type View = {
   analyses: unknown[];
   series: SeriesOptions[];
   display?: string | null; // how the Data page shows the series, if changed
-  board?: { title: string; text: string }[]; // what the researcher pinned
+  board?: { title: string; text: string; trust: BoardTrust; pinned: string }[]; // what the researcher pinned
   focus?: string | null; // the card asked about ("Ask Magon about this"), by its title
 };
 
@@ -639,6 +642,10 @@ export type ChatMessage = {
   details: AnswerDetails;
   created: string;
 };
+
+// How far Magon may trust a pinned item; a failed answer is never given to it as evidence
+export type BoardTrust = "computed" | "checked" | "passage" | "note" | "failed";
+export type BoardGiven = { n: number; title: string; trust: BoardTrust; pinned: string };
 
 export type ChatEvent =
   | { type: "text"; text: string }
@@ -653,7 +660,10 @@ export type ChatEvent =
       app?: AppMention[];
       support?: SupportCheck[];
       faithfulness?: number | null;
+      withdrawn?: SupportCheck[];
+      board_cited?: number[];
     } & CitationCheck)
+  | { type: "board"; items: BoardGiven[] }
   | { type: "verifying" }
   | { type: "error"; message: string }
   | { type: "view"; cards: string[] }
@@ -713,6 +723,7 @@ export type MagonSettings = {
   detail: "concise" | "detailed";
   papers_per_search: number;
   search: "keyword" | "hybrid";
+  claims: "withdraw" | "mark";
   verifier: "model" | "nli" | "minicheck-roberta" | "minicheck-deberta";
 };
 

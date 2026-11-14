@@ -65,6 +65,8 @@ export function applyEvent(turn: Turn, event: ChatEvent): Turn {
           app: event.app,
           support: event.support,
           faithfulness: event.faithfulness,
+          withdrawn: event.withdrawn,
+          board_cited: event.board_cited,
         },
       };
     case "error":
@@ -77,6 +79,8 @@ export function applyEvent(turn: Turn, event: ChatEvent): Turn {
       return { ...turn, status: "Checking each statement against the paper it cites…" };
     case "reading":
       return { ...turn, status: `Reading ${event.count === 1 ? "1 paper" : `${event.count} papers`} in full…` };
+    case "board":
+      return { ...turn, details: { ...details, board: event.items } };
     case "passages":
       return {
         ...turn,

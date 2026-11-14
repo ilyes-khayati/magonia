@@ -233,6 +233,49 @@ function Statement({ s }: { s: SupportCheck }) {
   );
 }
 
+const TRUST_LABEL: Record<string, string> = {
+  computed: "computed in this workspace",
+  checked: "an earlier answer whose checks passed",
+  passage: "a paper's words",
+  note: "your note",
+};
+
+// The pinned items the answer cites as [B1]…, with how far each could be trusted
+function FromBoard({ turn }: { turn: Turn }) {
+  const cited = new Set(turn.details.board_cited ?? []);
+  const items = (turn.details.board ?? []).filter((b) => cited.has(b.n));
+  if (items.length === 0) return null;
+  return (
+    <div className="support">
+      <span className="meta">From your board</span>
+      <ul className="statements">
+        {items.map((b) => (
+          <li key={b.n}>
+            [B{b.n}] {b.title} <span className="meta">· {TRUST_LABEL[b.trust] ?? b.trust}{b.pinned ? `, pinned ${b.pinned.slice(0, 10)}` : ""}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// What the fact check took out of the answer, with the passage each statement was checked against
+function Withdrawn({ withdrawn }: { withdrawn: SupportCheck[] }) {
+  return (
+    <details className="support">
+      <summary className="meta">
+        Withdrawn from the answer: {withdrawn.length} {withdrawn.length === 1 ? "statement" : "statements"} the
+        cited papers did not support
+      </summary>
+      <ul className="statements">
+        {withdrawn.map((s, k) => (
+          <Statement key={k} s={s} />
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 // Fact check: whether each cited statement says what its papers say
 function Support({ support }: { support: SupportCheck[] }) {
   const ok = support.filter((s) => s.status === "supported").length;
@@ -328,6 +371,8 @@ export function Sources({ turn, anchor, onPinPassage }: { turn: Turn; anchor: st
         </details>
       )}
       {turn.details.support && turn.details.support.length > 0 && <Support support={turn.details.support} />}
+      {turn.details.withdrawn && turn.details.withdrawn.length > 0 && <Withdrawn withdrawn={turn.details.withdrawn} />}
+      <FromBoard turn={turn} />
       {check && check.removed.length > 0 && (
         <p className="removed">
           Removed {check.removed.length === 1 ? "a citation" : `${check.removed.length} citations`} (
