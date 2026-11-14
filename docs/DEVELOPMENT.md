@@ -50,6 +50,11 @@ The scorer judges whether the literature supports each statement with MiniCheck-
 (decision 0019); `--judge model` asks the chat model instead, as the earliest runs did, and
 the report names the judge next to the figure. Verdicts are cached per judge.
 
+The cases are of two sets. The developer's were written alongside the code, and fixes have
+been aimed at them. The held-out set (`h01`–`h20`, kind `held-out`) is a researcher's own
+questions from 14 November 2026: never tune against it, only measure on it, with
+`--set held-out`. Its pass rate is the honest figure.
+
 To compare a change with an earlier run on the same papers, replay its searches:
 `MAGONIA_REPLAY=results/raw.jsonl uv run python evaluation/run.py after/ --systems magonia`.
 Read the failures in `report.md` by hand before trusting a number: some will be faults of

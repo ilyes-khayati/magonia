@@ -400,6 +400,149 @@ CASES = [
     ),
 ]
 
+# Held out: the questions a researcher asked Magon on 14 November 2026, in their own words,
+# with what a good answer must do. The cases above were written by the developer, and every
+# fix since was aimed at one of them, so the system fits their wording. These are not tuned
+# against: they are only run, to measure (run.py --set held-out). Magon alone is asked, on
+# the reference orchard; the board test of that session is left out (the harness has no board)
+MAGON_ONLY = (MAGONIA,)
+DROUGHT = "What is known about drought and olive NDVI in the Mediterranean?"
+HELD_OUT = [
+    Case("h01", "held-out", ("Hi!",), {"search": False, "max_words": 60}, MAGON_ONLY),
+    Case(
+        "h02",
+        "held-out",
+        ("what is SPEI",),
+        {"search": False, "has_any": [r"\bwet", r"evapotranspiration"]},
+        MAGON_ONLY,
+    ),
+    Case("h03", "held-out", ("what's a good recipe for couscous",), {"declines": True}, MAGON_ONLY),
+    Case(
+        "h04",
+        "held-out",
+        ("quelles études parlent de la sécheresse et du NDVI des oliviers?",),
+        {"search": True, "language": "fr", "lacks": [r"aucune étude"]},
+        MAGON_ONLY,
+    ),
+    Case(
+        "h05",
+        "held-out",
+        ("In which month does NDVI peak in my orchard, and at what value?",),
+        {"has": [r"\bMar(ch)?\b"], "values": [(0.70, 2)]},
+        MAGON_ONLY,
+        workspace=True,
+    ),
+    Case(
+        "h06",
+        "held-out",
+        ("What were the monthly NDVI values in 2023?",),
+        {"values": [(0.43, 2)]},
+        MAGON_ONLY,
+        workspace=True,
+    ),
+    Case(
+        "h07",
+        "held-out",
+        ("Which year had the lowest NDVI?",),
+        {"has": [r"\b2010\b"]},
+        MAGON_ONLY,
+        workspace=True,
+    ),
+    Case(
+        "h08",
+        "held-out",
+        ("Does higher SPEI mean drier conditions?",),
+        {"has_any": [r"\bwetter\b", r"\bwet\b"], "lacks": [r"higher SPEI[^.]*\bdrier\b"]},
+        MAGON_ONLY,
+        workspace=True,
+    ),
+    Case(
+        "h09",
+        "held-out",
+        ("Which lag of SPEI stands out for NDVI in my orchard?", "ok I added it"),
+        # no lag analysis is open: a lag that "stands out" can only be invented
+        {"lacks": [r"lag (of )?\d+( months?)? stands out", r"stands out at (a )?lag"]},
+        MAGON_ONLY,
+        workspace=True,
+    ),
+    Case(
+        "h10",
+        "held-out",
+        ("Can you decompose my NDVI into trend and seasonal parts?",),
+        {"proposal": True},
+        MAGON_ONLY,
+        workspace=True,
+    ),
+    Case(
+        "h11",
+        "held-out",
+        ("Let's look at the trend of LST.",),
+        {"proposal": True},
+        MAGON_ONLY,
+        workspace=True,
+    ),
+    Case(
+        "h12",
+        "held-out",
+        ("Just chat, don't add anything: what drives NDVI in summer?",),
+        {"proposal": False},
+        MAGON_ONLY,
+        workspace=True,
+    ),
+    Case("h13", "held-out", (DROUGHT,), {"search": True}, MAGON_ONLY),
+    Case(
+        "h14",
+        "held-out",
+        ("How long does NDVI take to respond to drought, measured with SPEI?",),
+        {"search": True},
+        MAGON_ONLY,
+    ),
+    Case(
+        "h15",
+        "held-out",
+        ("Summarise the findings of Ben Salah et al. (2019) on olive NDVI in Kairouan.",),
+        {"search": True, "denies": True},
+        MAGON_ONLY,
+    ),
+    Case(
+        "h16",
+        "held-out",
+        ("What have published studies found about the 2024 hailstorms' effect on olive NDVI in Béja?",),
+        {"search": True, "abstains": True},
+        MAGON_ONLY,
+    ),
+    Case(
+        "h17",
+        "held-out",
+        (DROUGHT, "and in Tunisia?"),
+        {"search": True, "query_has": "tunisia"},
+        MAGON_ONLY,
+    ),
+    Case(
+        "h18",
+        "held-out",
+        (DROUGHT, "What did the first study you cited find?"),
+        {"recalls_cited": True},
+        MAGON_ONLY,
+    ),
+    Case(
+        "h19",
+        "held-out",
+        ("What are the key findings of the paper I uploaded?",),
+        {"has": [r"\b18\b"], "has_any": [r"Sfax"]},
+        MAGON_ONLY,
+        files=True,
+    ),
+    Case(
+        "h20",
+        "held-out",
+        ("From now on, answer in bullet points.",),
+        {"proposal": True},
+        MAGON_ONLY,
+    ),
+]
+CASES += HELD_OUT
+
 
 def jendouba_view() -> View:
     """The reference orchard as a researcher would have it open: monthly NDVI, LST and SPEI-3
