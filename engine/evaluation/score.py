@@ -55,6 +55,22 @@ BY_ID = {c.id: c for c in CASES}
 # ladder's "supported" figure is not the generator grading itself, or the chat model
 DEFAULT_JUDGE = "minicheck-roberta"
 
+# Saying that the papers found do not answer, instead of asserting: the right answer when
+# they do not, measured on its own (the 2026 benchmarks score abstention apart from support)
+ABSTAINS = re.compile(
+    r"\b(papers?|studies|literature|sources?|results?|articles?)( I| that were| we)? "
+    r"(found|retrieved|searched|available|here)?,? ?(do(es)? not|don't|did not|didn't|"
+    r"neither) (directly )?(say|report|answer|address|cover|mention|discuss|examine|"
+    r"study|measure|confirm|support)"
+    r"|\bno (paper|study|evidence|published (study|work|research)|source)s? "
+    r"(found|was found|were found|that|reports?|addresses|covers?|mentions?|directly)"
+    r"|\b(could|did|do) not find (any |a )?(paper|study|evidence|publication|source)"
+    r"|\bnot (covered|addressed|reported|mentioned|discussed) (by|in) (the|any|these) "
+    r"(paper|stud|source|result)"
+    r"|\bnone of the (papers|studies|sources|results)",
+    re.IGNORECASE,
+)
+
 # Sentences that count studies or weigh them into a verdict, against Magonia's rules
 CONSENSUS = re.compile(
     r"\b(most|many|several|the majority of|few|all) (of the )?(studies|papers|"
@@ -258,6 +274,9 @@ def expectations(r: dict, case) -> dict[str, bool]:
         out["denies"] = bool(DENIES.search(text))
     if "declines" in e:
         out["declines"] = bool(DECLINES.search(text))
+    if "abstains" in e:
+        # the papers found do not answer: a good answer says so rather than asserting
+        out["abstains"] = bool(ABSTAINS.search(text)) == e["abstains"]
     for pattern in e.get("has", []):
         out[f"has {pattern}"] = bool(re.search(pattern, text, re.IGNORECASE))
     if "has_any" in e:
@@ -487,6 +506,9 @@ def main() -> None:
             ]
             support = check.get("support") or []
             out["own_support"] = [s["status"] for s in support]
+            # the sentences that cite nothing, and whether a paper found bears them out
+            out["uncited"] = [s["status"] for s in check.get("uncited") or []]
+            out["abstained"] = bool(ABSTAINS.search(text))
             cites = [m for m in GROUP.finditer(text)]
             out["page_citations"] = sum(bool(m.group(2)) for m in cites)
             out["all_citations"] = len(cites)

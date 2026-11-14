@@ -544,7 +544,7 @@ export type SupportCheck = {
   end: number;
   claim: string;
   cites: number[];
-  status: "supported" | "unclear" | "unsupported";
+  status: "supported" | "unclear" | "unsupported" | "unsourced";
   evidence: string; // the closest text from the cited papers
   source: string; // e.g. "[1, p. 6]" or "[2] abstract"
   judged: boolean;
@@ -591,6 +591,7 @@ export type AnswerDetails = {
   support?: SupportCheck[];
   faithfulness?: number | null; // the share of cited statements that are supported
   withdrawn?: SupportCheck[]; // statements taken out because their papers did not support them
+  uncited?: SupportCheck[]; // sentences that cite nothing, and whether any paper found bears them out
   board?: BoardGiven[]; // the pinned items it was given, [B1]…
   board_cited?: number[];
 };
@@ -664,6 +665,7 @@ export type ChatEvent =
       support?: SupportCheck[];
       faithfulness?: number | null;
       withdrawn?: SupportCheck[];
+      uncited?: SupportCheck[];
       board_cited?: number[];
     } & CitationCheck)
   | { type: "board"; items: BoardGiven[] }

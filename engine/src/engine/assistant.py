@@ -33,7 +33,15 @@ from engine.proposals import describe as describe_proposal
 from engine.rank import ollama_embedder
 from engine.route import SOURCES, follows, glossary, in_french, route, together
 from engine.standing import standing_instruction
-from engine.support import CANDIDATES, Judge, check_support, faithfulness, judge_with, withdraw
+from engine.support import (
+    CANDIDATES,
+    Judge,
+    check_support,
+    check_uncited,
+    faithfulness,
+    judge_with,
+    withdraw,
+)
 
 NAME = "Magon"  # the assistant; Magonia is the whole platform
 
@@ -780,21 +788,21 @@ def answer(
     event = {"type": "check", **verdict.to_dict()}
     if shown:
         event["board_cited"], event["board_removed"] = event_cited, event_removed
+    embed = getattr(provider, "embed", None)
+
+    def elsewhere(claim: str, cites: list[int]) -> list[tuple[str, str]]:
+        # the passages closest to the claim in the whole text of the papers numbered, as
+        # the library keeps it; a paper read only to its abstract has none
+        if library is None:
+            return []
+        numbered = {n: papers[n - 1] for n in cites if 0 < n <= len(papers)}
+        found = library.best(claim, numbered, keep=CANDIDATES, per_paper=CANDIDATES)
+        return [(f"[{f.n}, p. {f.page}]", f.text) for f in found]
+
     if verdict.cited:
         # does each cited statement say what its papers say?
         yield {"type": "verifying"}
-        embed = getattr(provider, "embed", None)
         since = time.monotonic()
-
-        def elsewhere(claim: str, cites: list[int]) -> list[tuple[str, str]]:
-            # the passages closest to the claim in the whole text of the papers it cites,
-            # as the library keeps it; a paper read only to its abstract has none
-            if library is None:
-                return []
-            numbered = {n: papers[n - 1] for n in cites if 0 < n <= len(papers)}
-            found = library.best(claim, numbered, keep=CANDIDATES, per_paper=CANDIDATES)
-            return [(f"[{f.n}, p. {f.page}]", f.text) for f in found]
-
         found = check_support(final, evidence, embed=embed, judge=judge, more=elsewhere)
         clock.add("support", since)
         event["faithfulness"] = faithfulness(found)  # of what the model wrote
@@ -803,6 +811,13 @@ def answer(
             final, found, gone = withdraw(final, found)
             event["withdrawn"] = [s.to_dict() for s in gone]
         event["support"] = [s.to_dict() for s in found]
+    if kind == "research" and papers:
+        # the sentences that cite nothing: checked against every paper found, and marked,
+        # so that not citing is not a way past the check
+        since = time.monotonic()
+        loose = check_uncited(final, evidence, embed=embed, judge=judge, more=elsewhere)
+        clock.add("support", since)
+        event["uncited"] = [s.to_dict() for s in loose]
     since = time.monotonic()
     event["text"] = final
     # numbers are checked when there was something to check them against

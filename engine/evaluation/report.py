@@ -113,6 +113,15 @@ def main() -> None:
         m["cited statements supported by the paper cited (own check)"] = share(
             own.count("supported"), len(own)
         )
+        loose = [x for r in lit for x in r.get("uncited", [])]
+        m["sentences citing nothing, per literature answer"] = (
+            f"{len(loose) / len(lit):.1f}" if lit else "–"
+        )
+        m["  borne out by a paper found"] = share(loose.count("supported"), len(loose))
+        m["  unsourced"] = share(loose.count("unsourced"), len(loose))
+        m["answers saying the papers found do not answer"] = share(
+            sum(bool(r.get("abstained")) for r in lit), len(lit)
+        )
         m["papers found that help answer (model's judgement)"] = (
             f"{(relevance.count('yes') + 0.5 * relevance.count('partly')) / len(relevance):.2f}"
             f" ({len(relevance)} papers)"

@@ -36,8 +36,9 @@
 
 ## Evaluating Magon
 
-`engine/evaluation/` asks 52 cases to four systems on the same model (the bare model, the
-model with Magon's rules, the pipeline on abstracts, the full pipeline) and scores them:
+`engine/evaluation/` asks the cases (54 today, in `cases.py`) to four systems on the same
+model (the bare model, the model with Magon's rules, the pipeline on abstracts, the full
+pipeline) and scores them:
 
 ```bash
 cd engine
