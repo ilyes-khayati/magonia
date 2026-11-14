@@ -594,6 +594,16 @@ export type AnswerDetails = {
   uncited?: SupportCheck[]; // sentences that cite nothing, and whether any paper found bears them out
   board?: BoardGiven[]; // the pinned items it was given, [B1]…
   board_cited?: number[];
+  claim_test?: ClaimTest; // a claim from a paper, tested on the researcher's own data
+};
+
+// A claim tested by code on the researcher's data, with the verdict fixed rules gave it
+export type ClaimTest = {
+  claim: { text: string; kind: "lag" | "trend"; response: string; driver: string | null; lag: number | null };
+  verdict: "replicates" | "contradicts" | "undecided" | "cannot test";
+  area: string;
+  reading: string; // what was tested, in words
+  summary: string[];
 };
 
 // What kind of question code took it for, and so what the answer was allowed to draw on
@@ -674,6 +684,7 @@ export type ChatEvent =
   | { type: "view"; cards: string[] }
   | ({ type: "read" } & Read)
   | { type: "proposal"; proposal: Proposal }
+  | { type: "claim_test"; test: ClaimTest }
   | ({ type: "route" } & Route)
   | { type: "reading"; count: number }
   | {

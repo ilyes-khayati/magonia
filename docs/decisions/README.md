@@ -24,6 +24,7 @@ Numbered in order; superseded records are kept and marked as such.
 | [0017](0017-files-per-workspace.md) | Each workspace has its own files; the paper cache is shared |
 | [0018](0018-charts-and-map-layers.md) | Charts drawn by Observable Plot, and the map reads Earth Engine images |
 | [0019](0019-independent-verifier-measured-thresholds.md) | A separate verifier checks support, at thresholds measured on expert labels |
+| [0020](0020-claims-tested-on-the-researchers-data.md) | A claim from a paper is tested on the researcher's data, by code |
 
 The reasoning behind each, with the alternatives and when they would win, is in the
 architecture document.

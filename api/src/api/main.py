@@ -1464,6 +1464,7 @@ def chat(
         board_given: list[dict] = []
         passages, read = [], {}
         route = None
+        claim_test = None  # a claim tested on the researcher's data, with its verdict
         try:
             for event in itertools.chain(head, events):
                 match event["type"]:
@@ -1490,6 +1491,8 @@ def chat(
                     case "passages":
                         passages.extend(event["passages"])
                         read.update(event["read"])
+                    case "claim_test":
+                        claim_test = event["test"]
                 yield json.dumps(event) + "\n"
         except assistant.ProviderError as exc:
             log.warning("chat stopped: %s", exc)
@@ -1502,6 +1505,8 @@ def chat(
                 details["board"] = board_given  # the pinned items it was given, [B1]…
             if route:
                 details["route"] = route
+            if claim_test:
+                details["claim_test"] = claim_test
             if passages or read:
                 details["passages"] = passages
                 details["read"] = read

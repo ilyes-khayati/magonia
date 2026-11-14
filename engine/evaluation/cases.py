@@ -384,6 +384,29 @@ CASES = [
         NO_LITERATURE,
         workspace=True,
     ),
+    # A claim from a paper tested on the reference orchard (#171): the verdict is code's, and
+    # the answer must report it, not another
+    Case(
+        "k01",
+        "claims",
+        ('Test this claim on my orchard: "Higher LST reduces NDVI one month later."',),
+        {"has_any": [r"replicat", r"holds", r"confirm"], "lacks": [r"contradict"]},
+        (MAGONIA,),
+        workspace=True,
+    ),
+    Case(
+        "k02",
+        "claims",
+        (
+            (
+                'Does this finding hold for my orchard: "Olive NDVI responds to drought with a '
+                'lag of about 12 months."'
+            ),
+        ),
+        {"has_any": [r"undecided", r"not beyond chance", r"does not stand out"]},
+        (MAGONIA,),
+        workspace=True,
+    ),
     # French
     Case(
         "l01",

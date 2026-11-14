@@ -118,9 +118,33 @@ SEARCHED = re.compile(
     r"did not find|didn't find|could not find|couldn't find)"
     r"|\b(a|my|the|this|our)\s+(literature\s+)?search\b"
     r"|\bsearch(ing)?\s+(of\s+)?the\s+literature\b"
-    r"|\bdid not (yield|return|find)\b",
+    r"|\bdid not (yield|return|find)\b|\b(yielded|returned|found) no\b"
+    # the tool written out as text: 'Search_papers("olive hail") yielded no results' (14 Nov)
+    r"|\bsearch_papers\b",
     re.IGNORECASE,
 )
+
+# Between the variable and the word that would invert it, a contrast means the sentence gives
+# both directions: "positive SPEI values indicate wetter conditions, while negative values
+# indicate drier ones" is right, and was withdrawn as wrong (14 Nov)
+CONTRAST = re.compile(
+    r"\b(wet|wetter|dry|drier|while|whereas|but|negative|positive|lower|low|higher|high|"
+    r"less|more|conversely|opposite|hotter|warmer)\b|;",
+    re.IGNORECASE,
+)
+
+
+def upside_down(sentence: str) -> str:
+    """The definition a sentence turns upside down, or "" when it does not."""
+    for pattern, fact in UPSIDE_DOWN:
+        for match in pattern.finditer(sentence):
+            between = match.group(0)[len(match.group(1)) :]
+            # the words after the variable, up to the inverting word, not including it
+            between = between[: between.lower().rfind(match.group(match.lastindex).lower())]
+            if not CONTRAST.search(between):
+                return fact
+    return ""
+
 
 # A variable whose direction is fixed by its definition, written the wrong way round
 UPSIDE_DOWN = [
@@ -219,7 +243,7 @@ def withdrawn(
         elif not searched and SEARCHED.search(sentence):
             why = "No literature search was made for this answer."
         else:
-            why = next((fact for pattern, fact in UPSIDE_DOWN if pattern.search(sentence)), "")
+            why = upside_down(sentence)
         if why:
             out.append(Statement(start, end, sentence, [], "unsupported", why, "Magonia's check"))
     return out

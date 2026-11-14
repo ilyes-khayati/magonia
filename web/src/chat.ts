@@ -94,6 +94,8 @@ export function applyEvent(turn: Turn, event: ChatEvent): Turn {
       };
     case "proposal":
       return { ...turn, details: { ...details, proposals: [...(details.proposals ?? []), event.proposal] } };
+    case "claim_test":
+      return { ...turn, status: "Testing the claim on your data…", details: { ...details, claim_test: event.test } };
     case "read": {
       const { area, variable, year } = event;
       return {
