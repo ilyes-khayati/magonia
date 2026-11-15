@@ -25,6 +25,7 @@ Numbered in order; superseded records are kept and marked as such.
 | [0018](0018-charts-and-map-layers.md) | Charts drawn by Observable Plot, and the map reads Earth Engine images |
 | [0019](0019-independent-verifier-measured-thresholds.md) | A separate verifier checks support, at thresholds measured on expert labels |
 | [0020](0020-claims-tested-on-the-researchers-data.md) | A claim from a paper is tested on the researcher's data, by code |
+| [0021](0021-explanations-from-papers-or-labelled.md) | An explanation of the researcher's data comes from papers, or is labelled as Magon's own |
 
 The reasoning behind each, with the alternatives and when they would win, is in the
 architecture document.

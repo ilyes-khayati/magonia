@@ -484,3 +484,38 @@ def test_statement_its_paper_does_not_support_is_withdrawn():
     assert "1 statement was withdrawn" in final["text"]
     assert [w["status"] for w in final["withdrawn"]] == ["unsupported"]
     assert final["faithfulness"] == 0.0  # of what the model wrote, before withdrawal
+
+
+def test_a_why_question_on_the_data_searches_papers_first():
+    _, model, events = tools_seen("Why does NDVI peak in December in my orchard?")
+    searched = [e for e in events if e["type"] == "search"]
+    # code searched before the model said anything, on the question's own words
+    assert len(searched) == 1 and "NDVI" in searched[0]["query"]
+    assert any("What is open in Magonia" in str(m.get("content")) for m in model.seen)
+    assert any("own reasoning" in str(m.get("content")) for m in model.seen)
+
+
+def test_a_question_on_the_data_that_asks_no_why_is_not_searched():
+    _, _, events = tools_seen("When does NDVI peak in my orchard?")
+    assert not [e for e in events if e["type"] == "search"]
+
+
+def test_an_explanation_is_labelled_sentence_by_sentence():
+    model = Scripted(
+        "NDVI peaks in Dec (0.41) (NDVI chart). Olive leaves live only a few months, so "
+        "the canopy renews itself every winter."
+    )
+    events = list(
+        answer(
+            model,
+            [{"role": "user", "content": "Why does NDVI peak in December in my orchard?"}],
+            view=orchard_view(),
+            search=lambda query: [],
+        )
+    )
+    final = events[-1]
+    claims = [s["claim"] for s in final["uncited"]]
+    # the explanation, which nothing found bears out, is marked; the computed fact is not
+    assert any("Olive leaves" in c for c in claims)
+    assert not any("peaks in Dec" in c for c in claims)
+    assert all(s["status"] == "unsourced" for s in final["uncited"])

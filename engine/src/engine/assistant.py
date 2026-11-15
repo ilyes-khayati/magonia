@@ -235,6 +235,23 @@ def proposal_in_words(question: str, answer: str, areas: list[str]) -> dict | No
     return None
 
 
+# A question that asks why the data look as they do, or what they mean: answered from papers
+# found on the mechanism, not from what the model remembers. Asked "why so fast?", Magon said
+# olive leaves have a short lifespan, which is false, and nothing checked it (14 Nov)
+EXPLAINS = re.compile(
+    r"\b(why|explain\w*|interpret\w*|how come|reasons? (for|behind)|caused by|driven by|"
+    r"due to|what (could|might|would|may) (cause|explain|drive|be behind)|"
+    r"what does (this|it|that) (mean|tell|say)|looks? like)\b",
+    re.IGNORECASE,
+)
+
+EXPLAIN_RULES = """(Note from Magonia: this asks for an explanation. Magonia searches papers \
+on it and gives them to you. Keep two things apart. What the researcher's data show: from the facts, \
+as always. Why: only from the papers given, cited by number like [1], saying in what setting \
+each study was made. Where no paper given speaks to a point, say plainly that it is your own \
+reasoning, for example "My own reading, which no paper found confirms, is that…". Never \
+present your own reasoning as what research found.)"""
+
 DATA_RULES = """How to use these facts:
 - If the question is about the researcher's areas or results, answer from the facts. Copy \
 numbers exactly as written, never compute new ones, and name the chart or analysis each \
@@ -630,6 +647,13 @@ def answer(
     testing = view is not None and claims.asks_to_test(text)
     if testing:
         kind = "data"
+    # why the data look as they do: searched for, then every sentence checked or labelled
+    explaining = (
+        view is not None
+        and kind in ("data", "general")
+        and not testing
+        and bool(EXPLAINS.search(text))
+    )
     # the researcher's own files: listed for every question, read when one is about them
     files = Uploads(library).all() if library is not None else []
     own = files_asked_about(text, files)
@@ -713,6 +737,11 @@ def answer(
         }
         topic = together(text, earlier_question)
         forced = [ToolCall("search_papers", {"query": keywords(topic)})]
+    if explaining:
+        # code searches on the question's words before the model answers: left to it, a
+        # small model explains from memory (14 Nov)
+        messages[-1] = {**messages[-1], "content": f"{messages[-1]['content']}\n\n{EXPLAIN_RULES}"}
+        forced = [ToolCall("search_papers", {"query": keywords(text)})]
     if in_french(text):
         # said last, where a small model attends to it, or it answers in the papers' English
         messages[-1] = {
@@ -821,7 +850,8 @@ def answer(
     if not asks_to_run(text):
         proposed = MAX_PROPOSALS
     while True:
-        tools = [SEARCH_TOOL] if searches < max_searches and kind in ("research", "general") else []
+        searching = kind in ("research", "general") or explaining
+        tools = [SEARCH_TOOL] if searches < max_searches and searching else []
         if facts and reads < max_reads:
             tools.append(READ_TOOL)
         if facts and proposed < MAX_PROPOSALS:
@@ -1031,11 +1061,23 @@ def answer(
             final, found, gone = withdraw(final, found)
             event["withdrawn"] = event.get("withdrawn", []) + [s.to_dict() for s in gone]
         event["support"] = [s.to_dict() for s in found]
-    if kind == "research" and papers:
+    if (kind == "research" and papers) or explaining:
         # the sentences that cite nothing: checked against every paper found, and marked,
-        # so that not citing is not a way past the check
+        # so that not citing is not a way past the check. In an explanation of the
+        # researcher's data, a sentence whose numbers code computed is not an explanation:
+        # it is checked as a number, and the rest is either borne out by a paper or marked
+        # as Magon's own reasoning
+        computed = []
+        if explaining:
+            computed = [n for n in check_numbers(final, sources) if n.status == "verified"]
+
+        def from_the_data(start: int, end: int) -> bool:
+            return any(start <= n.start < end for n in computed)
+
         since = time.monotonic()
-        loose = check_uncited(final, evidence, embed=embed, judge=judge, more=elsewhere)
+        loose = check_uncited(
+            final, evidence, embed=embed, judge=judge, more=elsewhere, skip=from_the_data
+        )
         clock.add("support", since)
         event["uncited"] = [s.to_dict() for s in loose]
     since = time.monotonic()

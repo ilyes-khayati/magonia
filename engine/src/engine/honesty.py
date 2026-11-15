@@ -12,6 +12,8 @@ conditions". Each is a sentence code can recognise:
   invented, and so is what the sentence says it found
 - a sentence about a search or a reading when none was made: Magon misreporting its own
   actions
+- what "studies have shown" when no paper was found or given: published work cited from
+  memory, without even a name to check
 - a statement that inverts the sign of a variable whose meaning is fixed: higher SPEI is
   wetter, higher LST is hotter
 
@@ -121,6 +123,33 @@ SEARCHED = re.compile(
     r"|\bdid not (yield|return|find)\b|\b(yielded|returned|found) no\b"
     # the tool written out as text: 'Search_papers("olive hail") yielded no results' (14 Nov)
     r"|\bsearch_papers\b",
+    re.IGNORECASE,
+)
+
+# What research is said to have found, without naming a paper: "studies have shown that…",
+# "a 2019 study in Kairouan found…", "according to the literature…". With no paper found or
+# given for the answer, nothing Magon read says so: it is speaking from memory and presenting
+# it as published work. A reference without a name escaped the author–year check entirely
+RESEARCH = (
+    r"(studies|research|researchers|scientists|the literature|previous work|prior work|"
+    r"(a|an|one|another|previous|recent|earlier|several|many|some|other|numerous)\s+"
+    r"(\d{4}\s+)?(\w+\s+)?(study|studies|paper|papers|work|analysis|analyses|experiments?))"
+)
+FOUND = (
+    r"(have\s+|has\s+|had\s+)?(shown|show|shows|found|find|finds|indicated?|indicates|"
+    r"suggested|suggests?|reported|reports?|demonstrated?|demonstrates|confirmed|confirms?|"
+    r"revealed|reveals?|observed|documented|highlighted|highlights?)"
+)
+RESEARCH_SAYS = re.compile(
+    rf"\b{RESEARCH}\s+(\w+\s+){{0,6}}?{FOUND}\b"
+    r"|\baccording\s+to\s+(the\s+|some\s+|several\s+|recent\s+|previous\s+)?"
+    r"(literature|studies|research|researchers)\b"
+    r"|\bit\s+(has\s+been|is|was)\s+(well\s+)?(shown|found|reported|demonstrated|documented)\b",
+    re.IGNORECASE,
+)
+# "No studies have shown…", "few papers report…": a statement of absence, not a finding
+NO_RESEARCH = re.compile(
+    r"\b(no|few|not any|none of the|neither)\s+(\w+\s+)?(studies|study|research|papers?|evidence|work)\b",
     re.IGNORECASE,
 )
 
@@ -242,6 +271,16 @@ def withdrawn(
             why = f"Describes {tainted}, a paper that was not found."
         elif not searched and SEARCHED.search(sentence):
             why = "No literature search was made for this answer."
+        elif (
+            not papers
+            and RESEARCH_SAYS.search(sentence)
+            and not NO_RESEARCH.search(sentence)
+            and not DENIAL.search(sentence)
+        ):
+            why = (
+                "It says what research has found, but no paper was found or given for this "
+                "answer, so nothing Magon read says it."
+            )
         else:
             why = upside_down(sentence)
         if why:

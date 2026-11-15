@@ -248,7 +248,7 @@ const VERDICT: Record<SupportCheck["status"], { mark: string; label: string }> =
   supported: { mark: "✓", label: "Supported" },
   unclear: { mark: "?", label: "Partly or not clearly supported" },
   unsupported: { mark: "✗", label: "Not supported" },
-  unsourced: { mark: "–", label: "No source named, and no paper found bears it out" },
+  unsourced: { mark: "–", label: "Magon's own reasoning: no source named, and no paper found bears it out" },
 };
 
 function Statement({ s }: { s: SupportCheck }) {
@@ -329,7 +329,7 @@ function Uncited({ uncited }: { uncited: SupportCheck[] }) {
     <details className="support">
       <summary className="meta">
         {uncited.length} {uncited.length === 1 ? "statement cites" : "statements cite"} nothing: {backed} borne out by a
-        paper found, {loose} unsourced
+        paper found, {loose} Magon's own reasoning
       </summary>
       <ul className="statements">
         {uncited.map((s, k) => (

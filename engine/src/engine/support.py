@@ -245,7 +245,9 @@ def check_support(
     return result
 
 
-def uncited(answer: str) -> list[tuple[int, int, str]]:
+def uncited(
+    answer: str, skip: Callable[[int, int], bool] | None = None
+) -> list[tuple[int, int, str]]:
     """The declarative sentences that cite nothing, not even by their paragraph.
 
     A sentence that cites, or follows a citation in its paragraph, is a cited statement
@@ -264,7 +266,7 @@ def uncited(answer: str) -> list[tuple[int, int, str]]:
         if GROUP.search(sentence):
             carried = True
         start = match.start() + len(sentence) - len(sentence.lstrip())
-        if carried or start in cited:
+        if carried or start in cited or (skip is not None and skip(start, match.end())):
             continue
         claim = re.sub(r"\*\*", "", " ".join(sentence.split()).strip(" -*#:"))
         if (
@@ -285,15 +287,17 @@ def check_uncited(
     embed: Embed | None = None,
     judge: Judge | None = None,
     more: More | None = None,
+    skip: Callable[[int, int], bool] | None = None,
 ) -> list[Statement]:
     """Each sentence that cites nothing, with whether any paper found bears it out.
 
     Checked like a cited statement, but against every paper found rather than the ones it
     cites: the given passages first, then the papers' full text. At most MAX_UNCITED
     judgements are spent on an answer. Without a judge, code only says whether a related
-    passage exists (unclear) or not (unsourced).
+    passage exists (unclear) or not (unsourced). skip(start, end) leaves out the sentences
+    checked another way, such as those stating numbers computed from the researcher's data.
     """
-    found = uncited(answer)
+    found = uncited(answer, skip)
     if not found:
         return []
     claims = [claim for _, _, claim in found]
