@@ -31,6 +31,19 @@ KINDS = [
 ]
 
 
+def spread(done: list[dict]) -> str:
+    """How much the pass rate moves between repeats: the standard deviation of each repeat's
+    rate, in points. Answers vary from run to run (FIRE-Bench, arXiv 2602.02905), so one run
+    cannot tell luck from skill."""
+    rates = defaultdict(list)
+    for r in done:
+        rates[r["repeat"]].append(r["passed"])
+    if len(rates) < 2:
+        return ""
+    per_repeat = [100 * sum(v) / len(v) for v in rates.values()]
+    return f" (± {statistics.stdev(per_repeat):.0f} between repeats)"
+
+
 def share(hits: int, total: int) -> str:
     return f"{hits}/{total} ({100 * hits / total:.0f}%)" if total else "–"
 
@@ -68,7 +81,7 @@ def main() -> None:
         row = [label]
         for s in systems:
             done = [r for r in by[s] if r["kind"] == kind and r.get("passed") is not None]
-            row.append(share(sum(r["passed"] for r in done), len(done)))
+            row.append(share(sum(r["passed"] for r in done), len(done)) + spread(done))
             summary.setdefault("passed", {}).setdefault(s, {})[kind] = [
                 sum(r["passed"] for r in done),
                 len(done),
