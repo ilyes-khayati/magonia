@@ -81,12 +81,49 @@ DRY = re.compile(r"\b(drought|dry|drier|aridity|water deficit)\b", re.IGNORECASE
 # Not a finding a series can test: a link denied ("was not observed in the 12-month range")
 # is easily read as the link itself, and a sentence about methods ("linear metrics alone are
 # insufficient") claims nothing about the data (both from Bounouh 2024)
+#
+# Following VeriScore (Song et al. 2024), only what can be checked is checked: of the sentences
+# in paper abstracts that name vegetation and a driver, most were not findings (measured on 20
+# sentences labelled by hand, 15 Nov: 1 of 12 refused). Besides denials and methods, these are:
+# - what was done or why: "correlation analysis was used to determine…", "quantifying the
+#   response is crucial", "the results add insights"
+# - a comparison between places or vegetation types: "arid regions showed the strongest
+#   response", "vegetation loss in areas experiencing intensive land use". One series cannot
+#   test a difference between series
+# - an absence: "there was no evidence that winter rain reduces NDVI"
 NOT_A_FINDING = re.compile(
     r"\b(not|no|never|neither|nor)\s+(\w+\s+){0,2}(observed|found|captured|detected|"
     r"significant|correlat\w*|affect\w*|related|linked)\b"
-    r"|\b(metrics?|methods?|methodolog\w*|approach(es)?|insufficient|inappropriate)\b",
+    r"|\b(metrics?|methods?|methodolog\w*|approach(es)?|insufficient|inappropriate)\b"
+    r"|\b(was|were|is|are) (used|considered|applied|employed|derived|calculated|obtained)\b"
+    r"|\bto (determine|assess|quantify|investigate|explore|understand|evaluate|examine)\b"
+    r"|\b(quantifying|understanding|monitoring) [^.]{0,60}\b(is|are) (crucial|essential|"
+    r"important|key|needed)\b|\b(add|adds|provide|provides) (more |new )?(insights?|support)\b"
+    r"|\bguide the development\b|\b(RMSE|root mean squared? error|accuracy)\b"
+    r"|\b(strongest|weakest|most sensitive|least sensitive|in comparison (to|with))\b"
+    r"|\b(in|within) (the )?(areas|regions|sites|zones|places) (experiencing|with|where|that)\b"
+    r"|\bno evidence\b",
     re.IGNORECASE,
 )
+# A finding links vegetation to something: without one of these words a sentence names the
+# variables ("three products are considered: NDVI, SWI and LST") but says nothing about them
+RELATION = re.compile(
+    r"\b(correlat\w*|respon\w*|reduc\w*|decreas\w*|increas\w*|lower\w*|rais\w*|declin\w*|"
+    r"affect\w*|impact\w*|effects?|control\w*|driv(e|es|en|er|ers|ing)|depend\w*|sensitiv\w*|"
+    r"limit\w*|linked|associated|explain\w*|coupled|influenc\w*|stress\w*|harm\w*|"
+    r"suppress\w*|enhanc\w*|boost\w*|improv\w*|ris(e|es|ing)|rose|fell|fall\w*|drop\w*|"
+    r"lag\w*|loss|lost|green(er|ing))\b",
+    re.IGNORECASE,
+)
+# The sign of a correlation stated outright: "positive correlations between the NDVI and the
+# SPEI during dry summers" is NDVI rising with SPEI, whatever else the sentence says of drought
+STATED_SIGN = re.compile(
+    r"\b(?P<sign>positiv|negativ)\w*\s+(\w+\s+){0,3}?correlat\w*"
+    r"|\bcorrelat\w*\s+(\w+\s+){0,2}?(?P<sign2>positiv|negativ)\w*",
+    re.IGNORECASE,
+)
+# the driver named by its own name, not as drought
+NAMED_DRIVER = re.compile(r"\b(spei|spi|precipitation|rain\w*|soil moisture)\b", re.IGNORECASE)
 
 
 def count(word: str) -> int:
@@ -95,6 +132,7 @@ def count(word: str) -> int:
 
 TREND = re.compile(
     r"\b(trend\w*|since (19|20)\d\d|over (the )?(last|past) \d+|decades?|long[- ]term|"
+    r"between (19|20)\d\d and (19|20)\d\d|per year|yr\s*[−-]1|"
     r"has (been )?(declin|increas|decreas|risen|fallen|grown)\w*)\b",
     re.IGNORECASE,
 )
@@ -156,13 +194,36 @@ def claim_in(message: str) -> str:
     return message.strip()
 
 
+DRIVER_NAMES = {
+    "spei": r"spei|spi|drought",
+    "lst": r"lst|land surface temperature|temperature",
+    "air_temperature": r"air temperature|temperature",
+    "rain": r"rain\w*|precipitation",
+    "soil_moisture": r"soil moisture",
+    "et": r"et|evapotranspiration",
+}
+
+
+def said_of(driver: str, text: str) -> int:
+    """The sign of a correlation stated outright for this driver, or 0. "NDVI is negatively
+    correlated with LST and positively correlated with SPEI" gives -1 for LST, 1 for SPEI:
+    each sign is the one whose words, up to the next sign, name the driver."""
+    found = list(STATED_SIGN.finditer(text))
+    for k, match in enumerate(found):
+        end = found[k + 1].start() if k + 1 < len(found) else len(text)
+        if re.search(rf"\b({DRIVER_NAMES[driver]})\b", text[match.start() : end], re.IGNORECASE):
+            word = (match.group("sign") or match.group("sign2")).lower()
+            return 1 if word == "positiv" else -1
+    return 0
+
+
 def read(text: str) -> Claim | None:
     """What a claim asserts, or None when it is not one Magonia can test."""
     variables = named(text)
     response = next((v for v in variables if v in VEGETATION), None)
     if response is None and re.search(r"\b(vegetation|greenness|canopy)\b", text, re.IGNORECASE):
         response = "ndvi"
-    if response is None or NOT_A_FINDING.search(text):
+    if response is None or NOT_A_FINDING.search(text) or not RELATION.search(text):
         return None
     driver = next((v for v in variables if v in DRIVERS), None)
     # the way the driver moves ("higher LST") is read apart from what it does ("reduces NDVI")
@@ -176,7 +237,9 @@ def read(text: str) -> Claim | None:
         effect = -effect  # "less rain lowers NDVI": NDVI rises with rain
 
     if driver is None:
-        if not TREND.search(text):
+        # a change with no direction ("moving to a more constant seasonal behaviour"), or
+        # both ("7.6% negative and 11.8% positive NDVI trends"), is not one change to test
+        if not TREND.search(text) or effect is None:
             return None
         return Claim(text, "trend", response, sign=effect, sign_from="claim" if effect else "")
 
@@ -194,6 +257,9 @@ def read(text: str) -> Claim | None:
     # with SPEI. Said of drought rather than of SPEI's own value, the sign turns over; the
     # same holds for rain and soil moisture ("a decrease in vegetation due to drier years")
     sign = effect
+    stated = said_of(driver, text)
+    if stated and (driver not in ("spei", "rain", "soil_moisture") or NAMED_DRIVER.search(text)):
+        return Claim(text, "lag", response, driver, stated, "claim", lag)
     if sign is not None and driver in ("spei", "rain", "soil_moisture"):
         drought_moved = moved and re.search(r"drought|aridity", moved.group(0), re.IGNORECASE)
         said_dry = DRY.search(text) and not moved

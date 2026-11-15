@@ -32,11 +32,32 @@ def orchard():
         # the way the driver moves is read apart from the verb
         ("Higher LST reduces NDVI one month later.", "lag", "lst", -1, "claim", 1),
         ("Less rain lowers NDVI three months later.", "lag", "rain", 1, "claim", 3),
-        ("Stronger drought reduces olive greenness within two months.", "lag", "spei", 1, "claim", 2),
+        (
+            "Stronger drought reduces olive greenness within two months.",
+            "lag",
+            "spei",
+            1,
+            "claim",
+            2,
+        ),
         # no direction stated: the physical expectation is tested, and said to be
-        ("Olive NDVI responds to drought with a lag of about 12 months.", "lag", "spei", 1, "physics", 12),
+        (
+            "Olive NDVI responds to drought with a lag of about 12 months.",
+            "lag",
+            "spei",
+            1,
+            "physics",
+            12,
+        ),
         # a range is tested at its middle
-        ("SPEI-12 is positively correlated with NDVI at 3-6 months lag.", "lag", "spei", 1, "claim", 4),
+        (
+            "SPEI-12 is positively correlated with NDVI at 3-6 months lag.",
+            "lag",
+            "spei",
+            1,
+            "claim",
+            4,
+        ),
         ("Olive NDVI has declined since 2000.", "trend", None, -1, "claim", None),
     ],
 )
@@ -58,9 +79,12 @@ def test_what_is_not_a_testable_claim_is_said_to_be():
 
 
 def test_the_claim_is_found_in_the_message():
-    assert claims.claim_in(
-        'Test this claim on my orchard: "Olive NDVI responds to drought with a 12-month lag."'
-    ) == "Olive NDVI responds to drought with a 12-month lag."
+    assert (
+        claims.claim_in(
+            'Test this claim on my orchard: "Olive NDVI responds to drought with a 12-month lag."'
+        )
+        == "Olive NDVI responds to drought with a 12-month lag."
+    )
     assert claims.claim_in("Check this finding: higher LST reduces NDVI a month later") == (
         "higher LST reduces NDVI a month later"
     )
@@ -164,7 +188,25 @@ def test_genuine_claims_held_out_are_read_right_and_the_rest_counted():
     genuine = [i for i in REAL["held_out"] if None not in i["expected"]]
     assert all(reading(i["text"]) in i["expected"] for i in genuine)
     right = sum(reading(i["text"]) in i["expected"] for i in REAL["held_out"])
-    assert right >= 5
+    assert right >= 7  # 7 of 11 once the refusal rules were added (15 Nov)
+
+
+def test_sentences_that_are_not_claims_are_refused():
+    # held_out_2, measured once before the refusal rules (15 Nov): 6 of 20, 1 of 12
+    # non-claims refused, and two stated positive correlations read as negative. The rules
+    # were then written on it, so it is now a development set
+    assert all(reading(i["text"]) in i["expected"] for i in REAL["held_out_2"])
+
+
+def test_refusing_non_claims_holds_on_sentences_it_was_not_written_on():
+    # held_out_3, labelled before the reader was run on it, run once (15 Nov): 16 of 18,
+    # every genuine claim read right, 10 of 12 non-claims refused. The two missed: a
+    # conditional ("the response varies with soil and vegetation type") and a contrast in
+    # space ("maximised at the west side"), left as they are, so the number stays honest
+    held = REAL["held_out_3"]
+    genuine = [i for i in held if None not in i["expected"]]
+    assert all(reading(i["text"]) in i["expected"] for i in genuine)
+    assert sum(reading(i["text"]) in i["expected"] for i in held) >= 16
 
 
 def test_magon_is_told_what_the_verdict_means():
