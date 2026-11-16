@@ -53,6 +53,32 @@ QUESTIONS = [
     ("w12", "What does the correlation between NDVI and SPEI tell me about my orchard?"),
 ]
 
+# A second set, written on 16 Nov before the setting check was built and never used while
+# building it: asked of the version before the check and the version after it. The orchard
+# is located for both (WHERE), as the platform now tells Magon where the areas lie, so that
+# what differs between the two versions is the pipeline alone
+SECOND = [
+    ("n01", "Why does the orchard's NDVI drop so sharply in May?"),
+    ("n02", "What might explain why NDVI is higher in winter than in summer here?"),
+    ("n03", "How should I interpret the negative correlation between NDVI and LST in my orchard?"),
+    ("n04", "Is there a reason NDVI responds to SPEI with a delay in this orchard?"),
+    ("n05", "What could be behind the low NDVI years in my record?"),
+    ("n06", "Explain why 2010 has the lowest annual NDVI in my orchard."),
+    ("n07", "What does the seasonal amplitude of NDVI tell me about this orchard?"),
+    ("n08", "Why is the summer NDVI so stable from June to September here?"),
+    ("n09", "What might cause NDVI to rise again in autumn in my orchard?"),
+    ("n10", "How come LST matters more than SPEI for NDVI here?"),
+    ("n11", "What does the lag between drought and greenness tell me about my orchard?"),
+    ("n12", "Why would this orchard's NDVI peak in early spring?"),
+    ("n13", "Explain why NDVI and SPEI-3 move together in this orchard."),
+    ("n14", "What could explain a weak long-term NDVI trend in my orchard?"),
+    ("n15", "Why does the NDVI of my orchard vary so much from year to year?"),
+    ("n16", "What are the reasons behind the hot-season NDVI minimum here?"),
+]
+SETS = {"first": QUESTIONS, "second": SECOND}
+# where the reference orchard lies, as the platform says it (centroid of its polygon)
+WHERE = "The areas lie near 36.51° N, 8.56° E."
+
 MIN_WORDS = 6  # a shorter sentence is a heading or a framing, not an explanation
 # what research is said to have found, with no paper named (as engine.honesty, kept here so
 # the old version is scored by the same rule)
@@ -73,6 +99,8 @@ def run(args) -> None:
     import engine
 
     view = jendouba_view()
+    if args.set == "second":
+        view.context.append(WHERE)
     args.results.mkdir(parents=True, exist_ok=True)
     library = Library(args.results / f"papers-{args.label}.db", embed=provider.embed)
     raw = args.results / "raw.jsonl"
@@ -82,7 +110,7 @@ def run(args) -> None:
             r = json.loads(line)
             done.add((r["label"], r["id"], r["repeat"]))
     for repeat in range(1, args.repeats + 1):
-        for qid, question in QUESTIONS:
+        for qid, question in SETS[args.set]:
             if (args.label, qid, repeat) in done:
                 continue
             record = {"label": args.label, "id": qid, "repeat": repeat, "question": question}
@@ -231,6 +259,7 @@ def main() -> None:
     parser.add_argument("results", type=Path)
     parser.add_argument("--label", default="after")
     parser.add_argument("--repeats", type=int, default=2)
+    parser.add_argument("--set", choices=list(SETS), default="first")
     args = parser.parse_args()
     run(args) if args.step == "run" else score(args)
 
