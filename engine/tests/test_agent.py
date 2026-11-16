@@ -519,3 +519,43 @@ def test_an_explanation_is_labelled_sentence_by_sentence():
     assert any("Olive leaves" in c for c in claims)
     assert not any("peaks in Dec" in c for c in claims)
     assert all(s["status"] == "unsourced" for s in final["uncited"])
+
+
+def test_an_explanation_of_the_data_routed_as_a_method_still_searches():
+    # "explain why the NDVI trend is not significant" went to the method route and was
+    # answered from memory (15 Nov, w10)
+    _, _, events = tools_seen("Explain why the NDVI trend is not significant in my orchard.")
+    assert [e for e in events if e["type"] == "search"]
+
+
+def test_a_method_question_is_not_taken_for_an_explanation_of_the_data():
+    _, _, events = tools_seen("Explain how a random forest works.")
+    assert not [e for e in events if e["type"] == "search"]
+
+
+def test_a_paper_made_elsewhere_is_named_where_the_answer_uses_it():
+    india = Paper(
+        "W9", "Drought and rice greenness in central India", ["A. Rao"], 2021, None, None,
+        "NDVI of rice under the monsoon in India responds to drought after two months.",
+        None, 3, [],
+    )
+    view = orchard_view()
+    view.context.append("The areas lie near 36.51° N, 8.56° E.")
+    model = Scripted(
+        ToolCall("search_papers", {"query": "drought NDVI delay"}),
+        "NDVI responds to drought after about two months [1].",
+    )
+    events = list(
+        answer(
+            model,
+            [{"role": "user", "content": "Why does NDVI respond to drought with a delay here?"}],
+            view=view,
+            search=lambda query: [india],
+            withdraw_unsupported=False,
+        )
+    )
+    final = events[-1]
+    assert "[1] (found in India, on rice)" in final["text"]
+    assert final["settings"][0]["cites"] == [1]
+    # and the model was told, with the paper, that it is not the researcher's setting
+    assert any("Not the researcher's setting" in str(m.get("content")) for m in model.seen)

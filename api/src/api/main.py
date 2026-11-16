@@ -10,7 +10,7 @@ from typing import Annotated, Literal
 
 import engine
 import pandas as pd
-from engine import assistant, facts, guardrails, layers, notebook
+from engine import assistant, facts, guardrails, layers, notebook, setting
 from engine.areas import AreaError, make_area
 from engine.board import Pinned
 from engine.catalogue import CATALOGUE, get_variable
@@ -1222,6 +1222,10 @@ def workspace_view(store: Store, workspace_id: int, view: View) -> facts.View:
         context.append(
             "Areas: " + ", ".join(f"{n} ({km2:.2f} km²)" for n, km2 in used.items()) + "."
         )
+        # where they lie, so that a paper made elsewhere can be told apart (setting.py)
+        placed = setting.where([a["geometry"] for a in areas.values() if a["name"] in used])
+        if placed:
+            context.append(placed)
     if view.series:
         first = view.series[0]
         last_month = (first.end - timedelta(days=1)).isoformat()[:7]

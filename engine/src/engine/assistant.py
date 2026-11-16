@@ -13,7 +13,7 @@ from urllib.request import Request, urlopen
 
 from dotenv import load_dotenv
 
-from engine import claims, honesty, interface
+from engine import claims, honesty, interface, setting
 from engine.awareness import earlier_papers, files_asked_about, restated, wants_literature
 from engine.awareness import listing as library_listing
 from engine.board import Pinned
@@ -241,7 +241,18 @@ def proposal_in_words(question: str, answer: str, areas: list[str]) -> dict | No
 EXPLAINS = re.compile(
     r"\b(why|explain\w*|interpret\w*|how come|reasons? (for|behind)|caused by|driven by|"
     r"due to|what (could|might|would|may) (cause|explain|drive|be behind)|"
-    r"what does (this|it|that) (mean|tell|say)|looks? like)\b",
+    r"what does (this|it|that) (mean|tell|say)|looks? like)\b"
+    # "what does the correlation between NDVI and SPEI tell me about my orchard?" (15 Nov, w12)
+    r"|\bwhat (does|do) (the|these|those|this|that) [\w\s-]{1,60}? (tell|say|imply|suggest|"
+    r"reveal|indicate)\b",
+    re.IGNORECASE,
+)
+# A question about the researcher's own data, in words a method question does not use:
+# "explain why the NDVI trend is not significant" was routed as a method question and
+# answered from memory, with no search (15 Nov, w04 and w10)
+OWN_DATA = re.compile(
+    r"\b(here|my|our|this (orchard|area|field|site|plot|series|record|region))\b"
+    r"|\b(the|this|that) ([\w-]+ )?(year|month|trend|peak|drop|minimum|maximum|correlation|lag)s?\b",
     re.IGNORECASE,
 )
 
@@ -559,14 +570,22 @@ DETAILED = (
 )
 
 
-def for_the_model(papers: list[Paper], first: int) -> str:
-    """Numbered papers as the model reads them; abstracts are shortened to save context."""
+def for_the_model(papers: list[Paper], first: int, here: setting.Setting | None = None) -> str:
+    """Numbered papers as the model reads them; abstracts are shortened to save context. With
+    the researcher's setting known, each paper's setting goes with it, and whether it differs."""
     if not papers:
         return "No papers were found. Try other keywords, or say that nothing was found."
     lines = ["Papers found. Cite them by number, e.g. [1]."]
     for n, paper in enumerate(papers, start=first):
         summary = (paper.abstract or "No abstract available.")[:700]
-        lines.append(f"[{n}] {paper.short}. {paper.title}. {paper.venue or ''}\n{summary}")
+        entry = f"[{n}] {paper.short}. {paper.title}. {paper.venue or ''}\n{summary}"
+        if (
+            here is not None
+            and here.known
+            and (said := setting.line(n, setting.compare(setting.of_paper(paper), here)))
+        ):
+            entry += f"\n{said}"
+        lines.append(entry)
     return "\n\n".join(lines)
 
 
@@ -650,10 +669,14 @@ def answer(
     # why the data look as they do: searched for, then every sentence checked or labelled
     explaining = (
         view is not None
-        and kind in ("data", "general")
         and not testing
         and bool(EXPLAINS.search(text))
+        and (kind in ("data", "general") or (kind == "method" and bool(OWN_DATA.search(text))))
     )
+    if explaining:
+        kind = "data"  # about their data, so the facts go with it
+    # where the researcher works and on what, against which each paper's setting is read
+    here = setting.of_workspace(view.context, areas) if view is not None else None
     # the researcher's own files: listed for every question, read when one is about them
     files = Uploads(library).all() if library is not None else []
     own = files_asked_about(text, files)
@@ -767,7 +790,7 @@ def answer(
         }
         messages[0]["content"] += (
             "\n\nPapers cited earlier in this conversation. When you mention one of them again, "
-            f"cite it by the number given here:\n{for_the_model(earlier, 1)}"
+            f"cite it by the number given here:\n{for_the_model(earlier, 1, here)}"
         )
     if judge is None and isinstance(provider, Ollama):
         judge = judge_with(provider.stream, (ProviderError, OSError))
@@ -988,7 +1011,7 @@ def answer(
                 "type": "papers",
                 "papers": [{"n": first + i, **p.to_dict()} for i, p in enumerate(found)],
             }
-            given = for_the_model(found, first)
+            given = for_the_model(found, first, here)
             if library is not None and any(p.pdf_url for p in found):
                 # the full text of the open-access papers, and its passages that answer
                 yield {"type": "reading", "count": sum(1 for p in found if p.pdf_url)}
@@ -1080,6 +1103,16 @@ def answer(
         )
         clock.add("support", since)
         event["uncited"] = [s.to_dict() for s in loose]
+    if here is not None and here.known and papers and kind != "chat":
+        # a paper made elsewhere, used without saying so: code names where it was made
+        matches = {
+            n: setting.compare(setting.of_paper(p), here)
+            for n, p in enumerate(papers, 1)
+            if not p.label  # the researcher's own files are theirs to place
+        }
+        final, named = setting.name_settings(final, matches)
+        if named:
+            event["settings"] = named
     since = time.monotonic()
     event["text"] = final
     # numbers are checked when there was something to check them against

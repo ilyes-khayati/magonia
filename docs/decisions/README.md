@@ -26,6 +26,7 @@ Numbered in order; superseded records are kept and marked as such.
 | [0019](0019-independent-verifier-measured-thresholds.md) | A separate verifier checks support, at thresholds measured on expert labels |
 | [0020](0020-claims-tested-on-the-researchers-data.md) | A claim from a paper is tested on the researcher's data, by code |
 | [0021](0021-explanations-from-papers-or-labelled.md) | An explanation of the researcher's data comes from papers, or is labelled as Magon's own |
+| [0022](0022-a-paper-made-elsewhere-says-where.md) | A paper made in another setting says where, and carries over in direction only |
 
 The reasoning behind each, with the alternatives and when they would win, is in the
 architecture document.
