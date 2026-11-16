@@ -136,6 +136,7 @@ def run(args) -> None:
                         record["uncited"] = event.get("uncited", [])
                         record["support"] = event.get("support", [])
                         record["withdrawn"] = event.get("withdrawn", [])
+                        record["settings"] = event.get("settings", [])
             except Exception as exc:  # noqa: BLE001 - a failed answer is recorded, not fatal
                 record["error"] = repr(exc)
             record["seconds"] = round(time.time() - start, 1)
@@ -227,6 +228,7 @@ def score(args) -> None:
         ("explanation sentences supported (independent scorer)", precision),
         ("'studies show' with no paper named, per answer", lambda rs: f"{statistics.mean(r['research_says'] for r in rs):.2f}"),
         ("sentences withdrawn by Magon, per answer", lambda rs: f"{statistics.mean(len(r.get('withdrawn', [])) for r in rs):.1f}"),
+        ("sentences where Magon named another setting, per answer", lambda rs: f"{statistics.mean(len(r.get('settings', [])) for r in rs):.2f}"),
         ("seconds per answer (mean)", mean_of("seconds")),
     ]  # fmt: skip
     for name, f in metrics:
