@@ -218,7 +218,8 @@ def test_magon_is_told_what_the_verdict_means():
 def test_the_explanations_in_an_answer_are_tested_on_the_data(orchard):
     text = (
         "**What it could mean here**: a hotter surface may lower NDVI one month later [2]. "
-        "Higher LST reduces NDVI one month later. Olive trees are evergreen."
+        "Higher LST reduces NDVI one month later. Olive trees are evergreen. To test these "
+        "possibilities, consider analyzing the correlation between SPEI and NDVI."
     )
     results = claims.tests_of(text, orchard)
     # the same claim twice is tested once; a sentence that is no claim is left out

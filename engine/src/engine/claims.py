@@ -394,6 +394,15 @@ def block(result: ClaimTest) -> str:
     )
 
 
+# advice to the researcher, not an explanation (seen 17 Nov: "To test these possibilities,
+# consider analyzing the correlation between LST and NDVI" was read as a claim)
+ADVICE = re.compile(
+    r"\b(consider|you (could|may|might|can|should)|we (suggest|recommend)|it would be (useful|"
+    r"worth)|to test (this|these|it)|further (analysis|research|study))\b",
+    re.IGNORECASE,
+)
+
+
 def tests_of(text: str, view: View, limit: int = 4) -> list[ClaimTest]:
     """The explanations in an answer that code can test, each tested once on the open data.
 
@@ -404,6 +413,8 @@ def tests_of(text: str, view: View, limit: int = 4) -> list[ClaimTest]:
 
     done: dict[str, ClaimTest] = {}
     for _, _, sentence in sentences(text):
+        if ADVICE.search(sentence):
+            continue  # "consider analysing NDVI against SPEI" proposes a test, it claims nothing
         claim = read(re.sub(r"\[[^\]]*\]|\*\*", "", sentence))
         if claim is None or claim.reading() in done:
             continue
