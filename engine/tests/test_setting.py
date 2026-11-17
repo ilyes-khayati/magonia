@@ -93,3 +93,10 @@ def test_a_crop_with_no_place_reads_found_on():
     assert found("on cereals") == "found on cereals"
     assert found("India, on rice") == "found in India, on rice"
     assert found("") == "found elsewhere"
+
+
+def test_subtropical_is_not_tropical():
+    assert (
+        "tropical" not in read("Growth typical of the subtropical climate of the Pampa.").climates
+    )
+    assert "tropical" in read("Forests of the humid tropics.").climates

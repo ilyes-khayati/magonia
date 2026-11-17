@@ -223,7 +223,7 @@ GLOBAL = re.compile(
 # Climates an abstract names, by the region whose climate it is
 CLIMATES: dict[str, str] = {
     r"monsoon\w*": "monsoon",
-    r"tropic(al|s)": "tropical",
+    r"\btropic(al|s)\b": "tropical",  # not "subtropical", a different climate
     r"boreal|sub-?arctic|tundra|permafrost": "boreal",
     r"mediterranean[- ]climate|mediterranean[- ]type": "Mediterranean",
 }
@@ -433,7 +433,7 @@ def named(sentence: str, s: Setting) -> bool:
 
 
 def found(said: str) -> str:
-    """"found in India, on rice", "found on cereals", or "found elsewhere" when nothing is known."""
+    """Where a paper was made, in words: found in India, on rice; found on cereals; found elsewhere."""
     if not said:
         return "found elsewhere"
     return f"found {said}" if said.startswith("on ") else f"found in {said}"
@@ -452,10 +452,7 @@ def name_settings(text: str, matches: dict[int, Match]) -> tuple[str, list[dict]
             away = [n for n in cited if n in matches and matches[n].elsewhere]
             if not away or any(named(sentence, matches[n].setting) for n in away):
                 continue
-            said = "; ".join(
-                found(matches[n].setting.describe())
-                for n in away
-            )
+            said = "; ".join(found(matches[n].setting.describe()) for n in away)
             at = start + m.end()
             out.append(text[last:at])
             out.append(f" ({said})")
