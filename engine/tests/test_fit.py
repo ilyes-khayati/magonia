@@ -92,3 +92,23 @@ def test_settings_are_read_as_labelled_by_hand_on_abstracts_not_used_to_write_th
         region += read == x["region"]
         vegetation += (s.covers[0] if s.covers else None) == x["vegetation"]
     assert region >= 22 and vegetation >= 29
+
+
+def test_a_far_paper_applied_to_the_researchers_area_is_marked_by_code():
+    text = (
+        "**What it could mean here**: [1] found a longer green season in Alaska. "
+        "NDVI in your orchard may fall in hot months [1]. Warming lengthens seasons there [1]."
+    )
+    out, flagged = fit.flag_transfers(text, {1: "North America, on tundra"}, ["Olive orchard"])
+    assert [f["sentence"] for f in flagged] == ["NDVI in your orchard may fall in hot months [1]."]
+    assert (
+        out.count("This applies a finding from a far setting ([1] North America, on tundra)") == 1
+    )
+    assert "[1] found a longer green season in Alaska." in out  # what was found there stays
+
+
+def test_an_area_named_by_the_researcher_counts_as_their_own_and_near_papers_are_not_marked():
+    text = "Olive orchard greens in March, as in Spain [2]. Olive orchard dries in July [1]."
+    out, flagged = fit.flag_transfers(text, {1: "Canada, on tundra"}, ["Olive orchard"])
+    assert len(flagged) == 1 and flagged[0]["cites"] == [1]
+    assert "[2]" in out and out.index("This applies") > out.index("[1]")

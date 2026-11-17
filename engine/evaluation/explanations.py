@@ -152,10 +152,15 @@ def run(args) -> None:
 CODE_PARTS = ("**Does the evidence fit your setting", "**Tested on your data**")
 
 
+# a mark code adds after a sentence that applies a far paper to the researcher's data
+TRANSFER_MARK = re.compile(r"\s*\*\(This applies a finding from a far setting.*?\)\*", re.DOTALL)
+
+
 def model_part(text: str) -> str:
+    """What the model wrote: the parts code writes, and the marks it adds, are left out."""
     for heading in CODE_PARTS:
         text = text.split(heading)[0]
-    return text
+    return TRANSFER_MARK.sub("", text)
 
 
 def explanation_sentences(record: dict) -> list[str]:
@@ -179,7 +184,10 @@ def evidence_for(sentence: str, cache: dict) -> list[str]:
     query = keywords(sentence)
     if query not in cache:
         try:
-            cache[query] = [p.abstract for p in search_papers(query, limit=5) if p.abstract]
+            # one index for every version scored: no Crossref fallback in the scorer
+            cache[query] = [
+                p.abstract for p in search_papers(query, limit=5, fallback=False) if p.abstract
+            ]
         except LiteratureError:
             cache[query] = None
             time.sleep(2)

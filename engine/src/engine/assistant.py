@@ -1128,6 +1128,17 @@ def answer(
         final, named = setting.name_settings(final, matches)
         if named:
             event["settings"] = named
+        # a far paper applied to the researcher's own data: shown by code, whatever the model did
+        far = {
+            n: fit.rate(record, here).paper
+            for n, p in enumerate(papers, 1)
+            if not p.label
+            for record in [fit.record_of(p)]
+            if fit.rate(record, here).level == "far"
+        }
+        final, transfers = fit.flag_transfers(final, far, areas)
+        if transfers:
+            event["transfers"] = transfers
     if explaining and here is not None and here.known and papers:
         # whether the evidence fits, written by code from each cited paper's record: the
         # comparison is shown, not a verdict of the model

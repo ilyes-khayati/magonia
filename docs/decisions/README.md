@@ -28,6 +28,7 @@ Numbered in order; superseded records are kept and marked as such.
 | [0021](0021-explanations-from-papers-or-labelled.md) | An explanation of the researcher's data comes from papers, or is labelled as Magon's own |
 | [0022](0022-a-paper-made-elsewhere-says-where.md) | A paper made in another setting says where, and carries over in direction only |
 | [0023](0023-evidence-rated-for-fit-and-explanations-tested.md) | Each paper is rated for how well it fits, and each explanation is tested on the data |
+| [0024](0024-far-transfers-marked-and-a-second-index.md) | A far paper applied to the researcher's data is marked by code; Crossref backs up OpenAlex |
 
 The reasoning behind each, with the alternatives and when they would win, is in the
 architecture document.

@@ -96,7 +96,11 @@ def to_paper(work: dict) -> Paper:
 
 
 def search_papers(
-    query: str, limit: int = 6, from_year: int | None = None, semantic: bool = False
+    query: str,
+    limit: int = 6,
+    from_year: int | None = None,
+    semantic: bool = False,
+    fallback: bool = True,
 ) -> list[Paper]:
     """The works that best match the query, by OpenAlex relevance: on the words of their title
     and abstract, or, semantic, on meaning (OpenAlex embeds titles, abstracts and venues;
@@ -119,20 +123,72 @@ def search_papers(
     try:
         with urlopen(request, timeout=30, context=CERTIFICATES) as response:
             found = json.load(response)
-    except HTTPError as exc:
-        if exc.code == 429:
-            if not key:  # for whoever runs Magonia, not for the researcher
-                log.warning("OpenAlex budget used up: a free key in OPENALEX_API_KEY gives its own")
-            raise LiteratureError(
-                "The literature search has reached its daily limit; it starts again at "
-                "midnight UTC. Answers from your data and your files still work."
-            ) from exc
-        raise LiteratureError("The literature search failed. Try again in a minute.") from exc
-    except (URLError, TimeoutError) as exc:
-        raise LiteratureError(
-            "The literature search cannot be reached right now. Try again in a minute."
-        ) from exc
+    except (HTTPError, URLError, TimeoutError) as exc:
+        # OpenAlex down or out of budget: Crossref, a second index, keeps the search working
+        # (by words only: Crossref has no search by meaning)
+        if fallback and not semantic and (backup := search_crossref(query, limit, from_year)):
+            log.warning("OpenAlex unavailable (%s); searched Crossref instead", exc)
+            return backup
+        return _openalex_failed(exc, key)
     return [to_paper(work) for work in found.get("results", [])]
+
+
+def _openalex_failed(exc: Exception, key: str | None) -> list[Paper]:
+    """The researcher's message for an OpenAlex failure that no backup could cover."""
+    if isinstance(exc, HTTPError) and exc.code == 429:
+        if not key:  # for whoever runs Magonia, not for the researcher
+            log.warning("OpenAlex budget used up: a free key in OPENALEX_API_KEY gives its own")
+        raise LiteratureError(
+            "The literature search has reached its daily limit; it starts again at "
+            "midnight UTC. Answers from your data and your files still work."
+        ) from exc
+    if isinstance(exc, HTTPError):
+        raise LiteratureError("The literature search failed. Try again in a minute.") from exc
+    raise LiteratureError(
+        "The literature search cannot be reached right now. Try again in a minute."
+    ) from exc
+
+
+CROSSREF = "https://api.crossref.org/works"
+
+
+def crossref_paper(item: dict) -> Paper:
+    """A Crossref record as a Paper. Crossref abstracts, when present, are JATS XML."""
+    doi = item.get("DOI")
+    text = re.sub(r"<[^>]+>", " ", item.get("abstract") or "")
+    text = re.sub(r"\s+", " ", text).strip()
+    text = re.sub(r"^Abstract\s+", "", text)
+    year = ((item.get("issued") or {}).get("date-parts") or [[None]])[0][0]
+    authors = [
+        " ".join(x for x in (a.get("given"), a.get("family")) if x) for a in item.get("author", [])
+    ]
+    return Paper(
+        id=f"doi:{doi.lower()}" if doi else f"crossref:{item.get('URL', '')}",
+        title=(item.get("title") or ["(untitled)"])[0],
+        authors=[a for a in authors if a],
+        year=year,
+        venue=(item.get("container-title") or [None])[0],
+        doi=doi.lower() if doi else None,
+        abstract=text or None,
+        open_access_url=None,
+        cited_by=item.get("is-referenced-by-count") or 0,
+        countries=[],
+    )
+
+
+def search_crossref(query: str, limit: int = 6, from_year: int | None = None) -> list[Paper]:
+    """The works Crossref ranks first for the query, journal articles only. Used when OpenAlex
+    cannot be reached; returns [] when Crossref cannot either."""
+    params = {"query.bibliographic": query, "rows": limit, "filter": "type:journal-article"}
+    if from_year:
+        params["filter"] += f",from-pub-date:{from_year}"
+    request = Request(f"{CROSSREF}?{urlencode(params)}", headers={"User-Agent": "Magonia"})
+    try:
+        with urlopen(request, timeout=30, context=CERTIFICATES) as response:
+            items = json.load(response).get("message", {}).get("items", [])
+    except (HTTPError, URLError, TimeoutError, ValueError):
+        return []
+    return [crossref_paper(item) for item in items if item.get("title")]
 
 
 # How many works to fetch before ranking; more finds better papers but takes longer

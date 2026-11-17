@@ -169,7 +169,7 @@ def measures(record: dict, papers: dict) -> dict:
 
     fit = {int(n): papers[pid]["gold"]["fit"] for n, pid in record.get("numbered", [])}
     text = model_part(record.get("answer", ""))
-    misapplied = cited_sentences = near = far = 0
+    misapplied = flagged = cited_sentences = near = far = 0
     for _, _, sentence in sentences(text):
         cited = {
             int(x)
@@ -185,8 +185,16 @@ def measures(record: dict, papers: dict) -> dict:
         far += sum(fit[n] not in FIT_NEAR for n in cited)
         if any(fit[n] == "indirect" for n in cited) and OWN.search(sentence):
             misapplied += 1
+            # whether code marked it for the researcher (added 17 Nov, before the run it scores)
+            raw = record.get("answer", "")
+            at = raw.find(sentence.strip())
+            after = (
+                raw[at + len(sentence.strip()) : at + len(sentence.strip()) + 60] if at >= 0 else ""
+            )
+            flagged += "This applies a finding from a far setting" in after
     return {
         "misapplied": misapplied,
+        "misapplied_flagged": flagged,
         "cited": cited_sentences,
         "near": near,
         "far": far,
@@ -236,6 +244,7 @@ def score(args) -> None:
         ("matched", "supported (independent scorer)", supported),
         ("matched", "sentences citing a paper, per answer", lambda rs: f"{statistics.mean(r['cited'] for r in rs):.1f}"),
         ("mismatched", "misapplied sentences, per answer", lambda rs: f"{statistics.mean(r['misapplied'] for r in rs):.2f}"),
+        ("mismatched", "misapplied sentences marked by code", lambda rs: f"{sum(r.get('misapplied_flagged', 0) for r in rs)}/{sum(r['misapplied'] for r in rs)}"),
         ("mismatched", "says the evidence falls short", lambda rs: f"{sum(r['abstains'] for r in rs)}/{len(rs)}"),
         ("off-topic", "sentences citing a paper, per answer", lambda rs: f"{statistics.mean(r['cited'] for r in rs):.1f}"),
         ("off-topic", "says the evidence falls short", lambda rs: f"{sum(r['abstains'] for r in rs)}/{len(rs)}"),

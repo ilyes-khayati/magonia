@@ -189,3 +189,43 @@ def summary(cited: dict[int, tuple[str, Record, Fit]], here: setting.Setting) ->
             "your data; at most they show what was found elsewhere."
         )
     return "\n".join(lines)
+
+
+# the researcher's own place or data, named in a sentence; their area names are added per answer
+YOURS = (
+    r"\b(your|my|this|the) (olive )?(orchard|grove|field|farm|area|site|data|record|series|pixel)s?\b"
+    r"|\bhere\b|\bin your\b"
+)
+TRANSFER = "This applies a finding from a far setting ({where}) to your data; it is not shown to hold here."
+
+
+def flag_transfers(text: str, far: dict[int, str], areas: list[str]) -> tuple[str, list[dict]]:
+    """Mark, by code, each sentence that cites a far paper and speaks of the researcher's own
+    area or data in the same breath: the model was told a far paper may only say what was found
+    there, and a small model does not always keep to it (2 of 8 answers in the controlled test of
+    17 Nov). Nothing is removed: the sentence is kept and the transfer is shown, as with an
+    unverified number. `far` maps a paper's number to where it was made."""
+    from engine.honesty import sentences
+
+    names = [re.escape(a) for a in areas if a and len(a) > 2]
+    yours = re.compile(YOURS + (r"|\b(" + "|".join(names) + r")\b" if names else ""), re.IGNORECASE)
+    flagged: list[dict] = []
+    out, last = [], 0
+    for start, end, sentence in sentences(text):
+        cited = {
+            int(x)
+            for group in setting.CITATION.findall(sentence)
+            for x in re.split(r"[,;]", group)
+            if x.strip().isdigit()
+        }
+        away = sorted(n for n in cited if n in far)
+        # a part's heading ("**What it could mean here**") is not the sentence speaking of the area
+        if not away or not yours.search(re.sub(r"\*\*[^*]+\*\*:?", "", sentence)):
+            continue
+        where = "; ".join(f"[{n}] {far[n]}" for n in away)
+        out.append(text[last:end].rstrip())
+        out.append(f" *({TRANSFER.format(where=where)})*")
+        last = end
+        flagged.append({"cites": away, "sentence": sentence.strip()})
+    out.append(text[last:])
+    return "".join(out), flagged
