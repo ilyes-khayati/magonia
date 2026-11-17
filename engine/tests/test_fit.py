@@ -75,3 +75,20 @@ def test_the_model_is_told_how_to_use_a_far_paper():
     said = fit.line(3, record, f)
     assert said.startswith("About [3]: made in")
     assert "never as an explanation of the researcher's data" in said
+
+
+def test_settings_are_read_as_labelled_by_hand_on_abstracts_not_used_to_write_the_reader():
+    # 30 abstracts sampled and labelled on 17 Nov, after the reader was written. Measured then:
+    # region 22/30 (the misses are mostly not read: towns, "Northern Europe", "NW ITALY" in
+    # capitals; one wrong: "countries such as China"), vegetation 29/30
+    import json
+    from pathlib import Path
+
+    data = json.loads((Path(__file__).parent / "data" / "fit_abstracts.json").read_text())
+    region = vegetation = 0
+    for x in data["abstracts"]:
+        s = fit.record_of(SimpleNamespace(title=x["title"], abstract=x["abstract"])).setting
+        read = sorted(s.regions)[0] if len(s.regions) == 1 else None
+        region += read == x["region"]
+        vegetation += (s.covers[0] if s.covers else None) == x["vegetation"]
+    assert region >= 22 and vegetation >= 29
