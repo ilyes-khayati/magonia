@@ -88,7 +88,7 @@ def test_settings_are_read_as_labelled_by_hand_on_abstracts_not_used_to_write_th
     region = vegetation = 0
     for x in data["abstracts"]:
         s = fit.record_of(SimpleNamespace(title=x["title"], abstract=x["abstract"])).setting
-        read = sorted(s.regions)[0] if len(s.regions) == 1 else None
+        read = min(s.regions) if len(s.regions) == 1 else None
         region += read == x["region"]
         vegetation += (s.covers[0] if s.covers else None) == x["vegetation"]
     assert region >= 22 and vegetation >= 29
