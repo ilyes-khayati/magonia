@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 from engine.literature import Paper
-from engine.setting import compare, name_settings, of_paper, of_workspace, read, where
+from engine.setting import compare, found, name_settings, of_paper, of_workspace, read, where
 
 DATA = Path(__file__).parent / "data"
 ORCHARD = of_workspace(
@@ -87,3 +87,9 @@ def test_a_sentence_that_already_says_where_is_left_alone():
 def test_where_is_the_mean_of_the_outlines():
     square = {"type": "Polygon", "coordinates": [[[8, 36], [9, 36], [9, 37], [8, 37], [8, 36]]]}
     assert where([square]) == "The areas lie near 36.40° N, 8.40° E."
+
+
+def test_a_crop_with_no_place_reads_found_on():
+    assert found("on cereals") == "found on cereals"
+    assert found("India, on rice") == "found in India, on rice"
+    assert found("") == "found elsewhere"

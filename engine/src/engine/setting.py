@@ -432,6 +432,13 @@ def named(sentence: str, s: Setting) -> bool:
     return any(re.search(rf"\b{re.escape(w)}", sentence, re.IGNORECASE) for w in words if w)
 
 
+def found(said: str) -> str:
+    """"found in India, on rice", "found on cereals", or "found elsewhere" when nothing is known."""
+    if not said:
+        return "found elsewhere"
+    return f"found {said}" if said.startswith("on ") else f"found in {said}"
+
+
 def name_settings(text: str, matches: dict[int, Match]) -> tuple[str, list[dict]]:
     """Add, after the citation of a paper made elsewhere, where it was made, in sentences that
     use it without saying so. Returns the text and what was added."""
@@ -446,7 +453,7 @@ def name_settings(text: str, matches: dict[int, Match]) -> tuple[str, list[dict]
             if not away or any(named(sentence, matches[n].setting) for n in away):
                 continue
             said = "; ".join(
-                f"found in {d}" if (d := matches[n].setting.describe()) else "found elsewhere"
+                found(matches[n].setting.describe())
                 for n in away
             )
             at = start + m.end()
