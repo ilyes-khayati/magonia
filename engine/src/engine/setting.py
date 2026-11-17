@@ -136,6 +136,7 @@ REGIONS: dict[str, tuple[str, ...]] = {
         "Canada",
         "Mexico",
         "California",
+        "Alaska",
         "Texas",
         "Great Plains",
         "Midwest",

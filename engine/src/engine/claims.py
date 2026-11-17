@@ -392,3 +392,35 @@ def block(result: ClaimTest) -> str:
         "only the numbers of these lines for the claim, not other facts. Say what was tested, "
         "and that it holds or not for this area and period, not for the paper's."
     )
+
+
+def tests_of(text: str, view: View, limit: int = 4) -> list[ClaimTest]:
+    """The explanations in an answer that code can test, each tested once on the open data.
+
+    An explanation offered for the researcher's data ("drought lowers NDVI two months later")
+    is a claim like one from a paper: read by code, tested with the same rules. Sentences that
+    are not a testable claim, or that need series that are not open, are left out."""
+    from engine.honesty import sentences
+
+    done: dict[str, ClaimTest] = {}
+    for _, _, sentence in sentences(text):
+        claim = read(re.sub(r"\[[^\]]*\]|\*\*", "", sentence))
+        if claim is None or claim.reading() in done:
+            continue
+        result = test(claim, view)
+        if result.verdict != "cannot test":
+            done[claim.reading()] = result
+        if len(done) >= limit:
+            break
+    return list(done.values())
+
+
+def tested_part(results: list[ClaimTest]) -> str:
+    """The part of the answer, written by code, that gives each explanation's test."""
+    if not results:
+        return ""
+    lines = ["**Tested on your data** (by code, on this area and period):"]
+    for r in results:
+        first = next((x for x in r.summary if not x.startswith("Tested:")), "")
+        lines.append(f"- {r.claim.reading()}: {r.verdict}. {first}".rstrip())
+    return "\n".join(lines)

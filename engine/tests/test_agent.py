@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 import pytest
 
 from engine.assistant import SEARCH_TOOL, Scripted, ToolCall, answer, tidy, written_calls
@@ -32,7 +34,9 @@ class Library:
 
 
 def ask(provider, question, search, **settings):
-    return list(answer(provider, [{"role": "user", "content": question}], search=search, **settings))
+    return list(
+        answer(provider, [{"role": "user", "content": question}], search=search, **settings)
+    )
 
 
 def test_model_searches_then_answers_with_checked_citations():
@@ -61,7 +65,9 @@ def test_invented_reference_never_reaches_the_researcher():
         "Olive NDVI lags drought by two months [1], as also shown in [5].",
     )
     # the support check is off: this is about the invented reference alone
-    events = ask(model, "Lag of olive NDVI?", Library([paper("Crespo", 2025)]), withdraw_unsupported=False)
+    events = ask(
+        model, "Lag of olive NDVI?", Library([paper("Crespo", 2025)]), withdraw_unsupported=False
+    )
 
     final = events[-1]
     assert final["removed"] == [5]
@@ -535,9 +541,16 @@ def test_a_method_question_is_not_taken_for_an_explanation_of_the_data():
 
 def test_a_paper_made_elsewhere_is_named_where_the_answer_uses_it():
     india = Paper(
-        "W9", "Drought and rice greenness in central India", ["A. Rao"], 2021, None, None,
+        "W9",
+        "Drought and rice greenness in central India",
+        ["A. Rao"],
+        2021,
+        None,
+        None,
         "NDVI of rice under the monsoon in India responds to drought after two months.",
-        None, 3, [],
+        None,
+        3,
+        [],
     )
     view = orchard_view()
     view.context.append("The areas lie near 36.51° N, 8.56° E.")
@@ -557,5 +570,50 @@ def test_a_paper_made_elsewhere_is_named_where_the_answer_uses_it():
     final = events[-1]
     assert "[1] (found in India, on rice)" in final["text"]
     assert final["settings"][0]["cites"] == [1]
-    # and the model was told, with the paper, that it is not the researcher's setting
-    assert any("Not the researcher's setting" in str(m.get("content")) for m in model.seen)
+    # and the model was told, with the paper, that it is far from the researcher's setting,
+    # and, as no paper found fits, to say so first
+    told = " ".join(str(m.get("content")) for m in model.seen)
+    assert "Fit to the researcher's setting: far" in told
+    assert "None of these papers was made in a setting like the researcher's" in told
+    assert any(e["type"] == "no_fitting_evidence" for e in events)
+    # the answer ends with whether the evidence fits, written by code
+    assert "**Does the evidence fit your setting" in final["text"]
+    assert "[1] Rao, 2021 (India, on rice) — far" in final["text"]
+    assert "none of them explains your data" in final["text"]
+    assert final["fit"]["1"]["level"] == "far"
+
+
+def test_a_paper_from_a_setting_like_the_researchers_is_offered_as_near():
+    tunisia = Paper(
+        "W8",
+        "Drought stress in olive groves of Tunisia",
+        ["B. Ali"],
+        2022,
+        None,
+        None,
+        "NDVI of rainfed olive trees in Tunisia falls in dry summers.",
+        None,
+        3,
+        [],
+    )
+    view = orchard_view()
+    view.context.append("The areas lie near 36.51° N, 8.56° E.")
+    view.series = [replace(s, area="Olive orchard") for s in view.series]
+    model = Scripted(
+        ToolCall("search_papers", {"query": "olive NDVI summer drought"}),
+        "Rainfed olive NDVI falls in dry summers [1].",
+    )
+    events = list(
+        answer(
+            model,
+            [{"role": "user", "content": "Why is NDVI lowest in summer in my olive orchard?"}],
+            view=view,
+            search=lambda query: [tunisia],
+            withdraw_unsupported=False,
+        )
+    )
+    told = " ".join(str(m.get("content")) for m in model.seen)
+    assert "Fit to the researcher's setting: near" in told
+    assert not any(e["type"] == "no_fitting_evidence" for e in events)
+    assert events[-1]["fit"]["1"]["level"] == "near"
+    assert "none of them explains" not in events[-1]["text"]

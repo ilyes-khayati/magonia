@@ -13,7 +13,7 @@ from urllib.request import Request, urlopen
 
 from dotenv import load_dotenv
 
-from engine import claims, honesty, interface, setting
+from engine import claims, fit, honesty, interface, setting
 from engine.awareness import earlier_papers, files_asked_about, restated, wants_literature
 from engine.awareness import listing as library_listing
 from engine.board import Pinned
@@ -257,11 +257,21 @@ OWN_DATA = re.compile(
 )
 
 EXPLAIN_RULES = """(Note from Magonia: this asks for an explanation. Magonia searches papers \
-on it and gives them to you. Keep two things apart. What the researcher's data show: from the facts, \
-as always. Why: only from the papers given, cited by number like [1], saying in what setting \
-each study was made. Where no paper given speaks to a point, say plainly that it is your own \
-reasoning, for example "My own reading, which no paper found confirms, is that…". Never \
-present your own reasoning as what research found.)"""
+on it and gives them to you, each with how far its setting is from the researcher's. Answer in \
+three short parts, with these headings:
+**What your data show**: from the facts, as always.
+**What the papers found**: each finding with its number like [1] and where it was found. A \
+paper rated far is only what was found there: never write that it explains the researcher's data.
+**What it could mean here**: possible explanations of the researcher's data, each one a \
+possibility to test, not a fact. Say which paper rated near or partly supports it, or that none \
+does and it is your own reasoning ("My own reading, which no paper found confirms, is that…").
+Never present your own reasoning as what research found.)"""
+
+# said with the papers when none of them was made in a setting like the researcher's
+NO_FITTING = """None of these papers was made in a setting like the researcher's ({target}). \
+Say so first, in one sentence. Then do not explain the researcher's data from these papers: \
+report at most what they found where they were made, and offer any explanation only as your own \
+reasoning, to be tested."""
 
 DATA_RULES = """How to use these facts:
 - If the question is about the researcher's areas or results, answer from the facts. Copy \
@@ -579,12 +589,9 @@ def for_the_model(papers: list[Paper], first: int, here: setting.Setting | None 
     for n, paper in enumerate(papers, start=first):
         summary = (paper.abstract or "No abstract available.")[:700]
         entry = f"[{n}] {paper.short}. {paper.title}. {paper.venue or ''}\n{summary}"
-        if (
-            here is not None
-            and here.known
-            and (said := setting.line(n, setting.compare(setting.of_paper(paper), here)))
-        ):
-            entry += f"\n{said}"
+        if here is not None and here.known and not paper.label:
+            record = fit.record_of(paper)
+            entry += f"\n{fit.line(n, record, fit.rate(record, here))}"
         lines.append(entry)
     return "\n\n".join(lines)
 
@@ -1012,6 +1019,14 @@ def answer(
                 "papers": [{"n": first + i, **p.to_dict()} for i, p in enumerate(found)],
             }
             given = for_the_model(found, first, here)
+            if explaining and here is not None and here.known and found:
+                # the evidence check, before anything is written: when no paper found was made
+                # in a setting like the researcher's, the model is told so with the papers
+                # (Joren et al. 2024; Chen et al. 2026)
+                rated = [fit.rate(fit.record_of(p), here) for p in found if not p.label]
+                if rated and not any(r.usable for r in rated):
+                    given += "\n\n" + NO_FITTING.format(target=here.describe())
+                    yield {"type": "no_fitting_evidence", "target": here.describe()}
             if library is not None and any(p.pdf_url for p in found):
                 # the full text of the open-access papers, and its passages that answer
                 yield {"type": "reading", "count": sum(1 for p in found if p.pdf_url)}
@@ -1113,6 +1128,35 @@ def answer(
         final, named = setting.name_settings(final, matches)
         if named:
             event["settings"] = named
+    if explaining and here is not None and here.known and papers:
+        # whether the evidence fits, written by code from each cited paper's record: the
+        # comparison is shown, not a verdict of the model
+        cited = sorted(
+            {
+                int(x)
+                for group in setting.CITATION.findall(final)
+                for x in re.split(r"[,;]", group)
+                if x.strip().isdigit()
+            }
+        )
+        records = {
+            n: (papers[n - 1].short, record, fit.rate(record, here))
+            for n in cited
+            if 0 < n <= len(papers) and not papers[n - 1].label
+            for record in [fit.record_of(papers[n - 1])]
+        }
+        if part := fit.summary(records, here):
+            final = f"{final.rstrip()}\n\n{part}"
+            event["fit"] = {str(n): f.to_dict() for n, (_, _, f) in records.items()}
+    if explaining and view is not None:
+        # each explanation that code can read as a claim is tested on the researcher's own
+        # series, with the rules of claim testing (#171): an explanation becomes a test of it
+        # (after Popper, Huang et al. 2025, arXiv 2502.09858), and its verdict is code's
+        tested = claims.tests_of(final.split(fit.HEADING)[0], view)
+        if part := claims.tested_part(tested):
+            final = f"{final.rstrip()}\n\n{part}"
+            event["tested"] = [t.to_dict() for t in tested]
+            sources += [("the test of an explanation", line) for t in tested for line in t.summary]
     since = time.monotonic()
     event["text"] = final
     # numbers are checked when there was something to check them against

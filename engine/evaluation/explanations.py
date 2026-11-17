@@ -145,10 +145,23 @@ def run(args) -> None:
             print(f"{args.label} {qid} #{repeat}: {record['seconds']} s", flush=True)
 
 
+# the parts of an answer that code writes: whether each cited paper fits (engine.fit.summary)
+# and each explanation's test on the data (engine.claims.tested_part):
+# not the model's explanation, so not scored as one (decided 17 Nov, before any version
+# producing it was scored)
+CODE_PARTS = ("**Does the evidence fit your setting", "**Tested on your data**")
+
+
+def model_part(text: str) -> str:
+    for heading in CODE_PARTS:
+        text = text.split(heading)[0]
+    return text
+
+
 def explanation_sentences(record: dict) -> list[str]:
     from engine.honesty import sentences
 
-    text = record.get("answer", "")
+    text = model_part(record.get("answer", ""))
     verified = [n for n in record.get("numbers", []) if n["status"] == "verified"]
     out = []
     for start, end, sentence in sentences(text):

@@ -29,6 +29,10 @@ Measures, per answer:
   conditions.
 - prefers the near evidence, in the mixed condition: of the citations to papers, the share to
   direct or partial ones. Higher is better.
+The part of an answer that code writes from the cited papers' records ("Does the evidence fit
+your setting?") is not the model's explanation: the first three measures and the scorer read
+the answer without it, and "says the evidence falls short" reads the whole answer, as the
+researcher does (decided 17 Nov, before any version producing that part was scored).
 - supported: explanation sentences the independent scorer finds supported (OpenAlex abstracts
   and MiniCheck, as evaluation/explanations.py). Expected highest in the matched condition.
 """
@@ -44,7 +48,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 from cases import DATA, jendouba_view
-from explanations import WHERE, evidence_for, explanation_sentences
+from explanations import WHERE, evidence_for, explanation_sentences, model_part
 
 from engine.assistant import Ollama, answer
 from engine.library import Library
@@ -164,7 +168,7 @@ def measures(record: dict, papers: dict) -> dict:
     from engine.honesty import sentences
 
     fit = {int(n): papers[pid]["gold"]["fit"] for n, pid in record.get("numbered", [])}
-    text = record.get("answer", "")
+    text = model_part(record.get("answer", ""))
     misapplied = cited_sentences = near = far = 0
     for _, _, sentence in sentences(text):
         cited = {
@@ -186,7 +190,7 @@ def measures(record: dict, papers: dict) -> dict:
         "cited": cited_sentences,
         "near": near,
         "far": far,
-        "abstains": bool(ABSTAINS.search(text)),
+        "abstains": bool(ABSTAINS.search(record.get("answer", ""))),
     }
 
 

@@ -213,3 +213,32 @@ def test_magon_is_told_what_the_verdict_means():
     # left to explain REPLICATES, Magon wrote that the data showed "the opposite of the claim"
     result = claims.ClaimTest(claims.read("Higher LST reduces NDVI one month later."), "replicates")
     assert "which means the researcher's data show what the claim says" in claims.block(result)
+
+
+def test_the_explanations_in_an_answer_are_tested_on_the_data(orchard):
+    text = (
+        "**What it could mean here**: a hotter surface may lower NDVI one month later [2]. "
+        "Higher LST reduces NDVI one month later. Olive trees are evergreen."
+    )
+    results = claims.tests_of(text, orchard)
+    # the same claim twice is tested once; a sentence that is no claim is left out
+    assert [r.claim.reading() for r in results] == ["NDVI falls with LST 1 month earlier"]
+    assert results[0].verdict == "replicates"
+    part = claims.tested_part(results)
+    assert part.startswith("**Tested on your data**")
+    assert "- NDVI falls with LST 1 month earlier: replicates." in part
+    assert claims.tested_part([]) == ""
+
+
+def test_magon_adds_the_tests_of_its_explanations(orchard):
+    model = Scripted("**What it could mean here**: higher LST reduces NDVI one month later.")
+    final = list(
+        answer(
+            model,
+            [{"role": "user", "content": "Why does NDVI fall in summer here?"}],
+            view=orchard,
+            search=lambda q: [],
+        )
+    )[-1]
+    assert "**Tested on your data**" in final["text"]
+    assert final["tested"][0]["verdict"] == "replicates"
