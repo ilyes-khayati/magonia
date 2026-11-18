@@ -8,6 +8,7 @@ but flagged as unverified.
 """
 
 import re
+import unicodedata
 from dataclasses import dataclass, field
 
 # [1]  [1, 3]  [2-4]  [2–4]  [1, p. 6]  [1 p.6]  [1, pp. 6-7]
@@ -69,26 +70,42 @@ ABBREVIATION = "".join(
 SENTENCE = re.compile(rf"(?:[^.!?\n]|\.(?=\d){ABBREVIATION})+(?:[.!?]|$)")
 
 
+def plain(text: str) -> str:
+    """Text without accents, so that "Martinez" matches "Martínez" (case is kept)."""
+    decomposed = unicodedata.normalize("NFKD", text)
+    return "".join(c for c in decomposed if not unicodedata.combining(c))
+
+
 def by_name(answer: str, papers: list) -> str:
     """A sentence that names a paper found ("Sghaier et al., 2022 assessed…", "as Sghaier et
     al. (2022) found") but cites no number gets that paper's number, so that its support is
     checked like any cited sentence. Measured: a small model often names a paper instead of
-    citing it, and those sentences went unchecked."""
+    citing it, and those sentences went unchecked.
+
+    A name counts only as a citation: the surname capitalised, with the year (one either side,
+    as online and print years differ) within a few words. Matching the surname as any word
+    attached a paper by "Long" to "the long-term trend" and one by "Rice" to "rice paddies"
+    (review of 18 Nov)."""
     names = {}
     for n, p in enumerate(papers, start=1):
-        if p.authors:
-            names.setdefault((p.authors[0].split()[-1].lower(), p.year), n)
+        if p.authors and p.year:
+            names.setdefault((plain(p.authors[0].split()[-1]), p.year), n)
     surnames = [s for s, _ in names]
 
     def cite(match: re.Match) -> str:
         sentence = match.group(0)
         if GROUP.search(sentence):
             return sentence
+        text = re.sub(
+            r"\b(et al|e\.g|i\.e|vs|cf)\.", r"\1", plain(sentence)
+        )  # their dots end nothing
         found = []
         for (surname, year), n in names.items():
-            named = re.search(rf"\b{re.escape(surname)}\b", sentence, re.IGNORECASE)
-            # the year must be there too, unless no other paper has that first author
-            if named and (str(year) in sentence or surnames.count(surname) == 1):
+            years = "|".join(str(y) for y in (year - 1, year, year + 1))
+            # "Sghaier et al." with no year names a paper only when no other has that author
+            alone = r"|\s+et al\b" if surnames.count(surname) == 1 else ""
+            cited_form = rf"\b{re.escape(surname)}\b([^.;]{{0,40}}?\b({years})\b{alone})"
+            if re.search(cited_form, text):
                 found.append(n)
         if not found:
             return sentence
@@ -126,9 +143,14 @@ def check(answer: str, papers: list, pages: dict[int, set[int]] | None = None) -
 
     result.text = GROUP.sub(keep_valid, answer)
 
-    known = {(p.authors[0].split()[-1].lower(), p.year) for p in papers if p.authors}
+    known = {
+        (plain(name.split()[-1]).lower(), p.year)
+        for p in papers
+        if p.authors and p.year
+        for name in p.authors
+    }
     for match in AUTHOR_YEAR.finditer(result.text):
-        surname, year = match.group(1).lower(), int(match.group(2))
-        if (surname, year) not in known:
+        surname, year = plain(match.group(1)).lower(), int(match.group(2))
+        if not any(surname == s and abs(year - y) <= 1 for s, y in known):
             result.unverified.append(match.group(0))
     return result

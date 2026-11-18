@@ -595,6 +595,7 @@ export type AnswerDetails = {
   board?: BoardGiven[]; // the pinned items it was given, [B1]…
   board_cited?: number[];
   claim_test?: ClaimTest; // a claim from a paper, tested on the researcher's own data
+  interrupted?: boolean; // the answer stopped before Magonia could check it
 };
 
 // A claim tested by code on the researcher's data, with the verdict fixed rules gave it

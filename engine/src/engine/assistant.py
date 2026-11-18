@@ -27,7 +27,7 @@ from engine.library import Library, Uploads
 from engine.library import for_the_model as passages_for_the_model
 from engine.literature import LiteratureError, Paper, find_papers, keywords
 from engine.models import LABELS, SETTABLE
-from engine.numbers import check_numbers
+from engine.numbers import check_numbers, from_data
 from engine.proposals import PROPOSE_TOOL, ProposalError, proposal
 from engine.proposals import WORDS as VARIABLE_WORDS
 from engine.proposals import describe as describe_proposal
@@ -238,6 +238,13 @@ def proposal_in_words(question: str, answer: str, areas: list[str]) -> dict | No
 # A question that asks why the data look as they do, or what they mean: answered from papers
 # found on the mechanism, not from what the model remembers. Asked "why so fast?", Magon said
 # olive leaves have a short lifespan, which is false, and nothing checked it (14 Nov)
+# a reason given for what the data show: such a sentence is an explanation to check
+CAUSAL = re.compile(
+    r"\b(because|due to|owing to|caused by|driven by|as a result of|explain\w*|reflects?|"
+    r"since the|attributed to|results? from|leads? to|led to)\b",
+    re.IGNORECASE,
+)
+
 EXPLAINS = re.compile(
     r"\b(why|explain\w*|interpret\w*|how come|reasons? (for|behind)|caused by|driven by|"
     r"due to|what (could|might|would|may) (cause|explain|drive|be behind)|"
@@ -429,6 +436,17 @@ class ProviderError(Exception):
     """The language model could not be reached or refused the request."""
 
 
+def _lines(response):
+    """Each JSON line of a streamed response; a broken stream becomes a ProviderError."""
+    try:
+        for line in response:
+            yield json.loads(line)
+    except (OSError, ValueError) as exc:
+        raise ProviderError(
+            "Magon stopped before finishing its answer. Ask again in a moment."
+        ) from exc
+
+
 class Provider(Protocol):
     """Anything that turns a conversation into the next answer, a piece at a time.
 
@@ -496,10 +514,12 @@ class Ollama:
                 "Magon is not available right now: its language model is not answering. "
                 "Try again in a minute."
             ) from exc
-        # Ollama sends one JSON object per line, each with the next piece of the answer
+        # Ollama sends one JSON object per line, each with the next piece of the answer. A
+        # dropped connection or a malformed line mid-answer is the same failure for the
+        # researcher as a refusal: the answer stops unchecked, and must say so (ADR 0011)
         with response:
-            for line in response:
-                piece = json.loads(line)
+            for line in _lines(response):
+                piece = line
                 if "error" in piece:
                     raise ProviderError(
                         "Magon stopped before finishing its answer. Ask again in a moment."
@@ -1107,9 +1127,19 @@ def answer(
         # as Magon's own reasoning
         computed = []
         if explaining:
-            computed = [n for n in check_numbers(final, sources) if n.status == "verified"]
+            # only numbers code computed from the researcher's data (cards, readings, tests),
+            # not from the question, the settings or a paper (ADR 0021; review of 18 Nov)
+            computed = [
+                n
+                for n in check_numbers(final, sources)
+                if n.status == "verified" and from_data(n.source or "")
+            ]
 
         def from_the_data(start: int, end: int) -> bool:
+            # a sentence that also gives a reason is an explanation, whatever numbers it has:
+            # "NDVI peaked at 0.62 in March, because olive leaves are short-lived"
+            if CAUSAL.search(final[start:end]):
+                return False
             return any(start <= n.start < end for n in computed)
 
         since = time.monotonic()

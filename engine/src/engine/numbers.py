@@ -188,6 +188,25 @@ def anchored(written: Found, sentence: str, years: set[str], question: str = "")
     return fits
 
 
+# Sources that are not the researcher's data: a number in them verifies only a sentence that
+# says it comes from them. An invented "NDVI fell by 10% in your orchard" was underlined as
+# verified from the Model page's settings (review of 18 Nov), breaking ADR 0006
+NOT_DATA = {
+    "your question": re.compile(
+        r"\b(you asked|your question|you mention\w*|as you (say|said))\b", re.IGNORECASE
+    ),
+    "the Model page's settings": re.compile(r"\b(settings?|model page|by default|default)\b", re.IGNORECASE),
+    "your library": re.compile(r"\b(library|files?|uploaded|upload)\b", re.IGNORECASE),
+}
+
+
+def from_data(label: str) -> bool:
+    """Whether a source is the researcher's data or a test of it, not text given alongside."""
+    return label not in NOT_DATA and not label.startswith(
+        ("paper [", "your file [", "Magonia's catalogue")
+    )
+
+
 def check_numbers(answer: str, sources: list[tuple[str, str]]) -> list[Number]:
     """Every number in the answer, with where it was found among the (label, text) sources."""
     given = given_numbers(sources)
@@ -198,7 +217,18 @@ def check_numbers(answer: str, sources: list[tuple[str, str]]) -> list[Number]:
         text = answer[match.start() : match.end()]
         sentence = sentence_at(answer, match.start())
         fits = anchored(written, sentence, years_in(answer) | years_in(question), question)
-        here = [(label, g) for label, g in given if fits(g)]
+        here = [
+            (label, g)
+            for label, g in given
+            # a sentence about the data (it names a variable) is verified only by the data;
+            # one about settings or the question, by them ("max_depth up to 15")
+            if fits(g)
+            and (
+                label not in NOT_DATA
+                or NOT_DATA[label].search(sentence)
+                or not variables_in(sentence)
+            )
+        ]
         if source := best_source(written, here):
             checked.append(Number(match.start(), match.end(), text, "verified", source))
             continue

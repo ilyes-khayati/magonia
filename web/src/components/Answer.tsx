@@ -434,6 +434,9 @@ export function Sources({ turn, anchor, onPinPassage }: { turn: Turn; anchor: st
           <ul>{others.map(card)}</ul>
         </details>
       )}
+      {turn.details.interrupted && (
+        <p className="removed">This answer stopped before Magonia could check its sources and numbers. Ask again for a checked answer.</p>
+      )}
       {turn.details.support && turn.details.support.length > 0 && <Support support={turn.details.support} />}
       {turn.details.withdrawn && turn.details.withdrawn.length > 0 && <Withdrawn withdrawn={turn.details.withdrawn} />}
       {turn.details.uncited && turn.details.uncited.length > 0 && <Uncited uncited={turn.details.uncited} />}

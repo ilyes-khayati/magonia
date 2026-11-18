@@ -1535,6 +1535,10 @@ def chat(
                     # the sentences that cite nothing: shown while streaming, and kept, or
                     # they vanished from the answer when the conversation was reopened
                     details["uncited"] = verdict["uncited"]
+            if not verdict:
+                # the stream stopped before the checks ran: what was said is kept, marked as
+                # unchecked, and never taken for a checked answer (review of 18 Nov)
+                details["interrupted"] = True
             text = verdict["text"] if verdict else "".join(said)
             store.add_message(conversation_id, "assistant", text, details)
 

@@ -83,6 +83,15 @@ DRIVER_MOVES = re.compile(
 DRIVER_DOWN = re.compile(r"^(lower|less|decreas\w*|falling|cooler|drier|weaker)$", re.IGNORECASE)
 
 
+SCALE = re.compile(
+    rf"\b({COUNT})[\s-]*months?[\s-]+(?:(?:long|accumulat\w*|cumulative|integrated)\s+)?"
+    r"(?=(SPEI|SPI|PDSI|drought index|(time[\s-]?)?scales?|timescales?|accumulat\w*|window)\b)"
+    r"|\b(SPEI|SPI)[\s_-]*\d{1,2}\b"
+    rf"|\b(?:time[\s-]?)?scales?\s+of\s+({COUNT})\s+months?\b",
+    re.IGNORECASE,
+)
+
+
 RAIN_FALLS = re.compile(r"\b(fell|falls?|fallen|falling)\b", re.IGNORECASE)
 DRY = re.compile(r"\b(drought|dry|drier|aridity|water deficit)\b", re.IGNORECASE)
 # Not a finding a series can test: a link denied ("was not observed in the 12-month range")
@@ -251,10 +260,14 @@ def read(text: str) -> Claim | None:
         return Claim(text, "trend", response, sign=effect, sign_from="claim" if effect else "")
 
     lag = None
-    if found := LAG.search(text):
+    # an accumulation scale is not a delay: "the 12-month SPEI", "SPEI-12", "at a 3-month
+    # time scale" say over how long drought is summed, not how late vegetation answers
+    # (review of 18 Nov: "NDVI correlates with the 12-month SPEI" was tested as a 12-month lag)
+    delays = SCALE.sub(" ", text)
+    if found := LAG.search(delays):
         low, high = count(found.group(1)), found.group(2)
         lag = round((low + count(high)) / 2) if high else low
-    elif YEAR_LAG.search(text):
+    elif YEAR_LAG.search(delays):
         lag = 12
     if lag is not None and not 1 <= lag <= MAX_LAG:
         lag = None

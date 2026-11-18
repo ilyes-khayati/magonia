@@ -1,3 +1,4 @@
+from engine import citations
 from engine.citations import check, numbers
 from engine.literature import Paper
 
@@ -66,6 +67,9 @@ def test_a_cited_page_is_kept_only_if_a_passage_came_from_it():
 
 
 def test_a_sentence_naming_a_paper_found_is_cited_by_its_number():
+    # a bare surname with no year and no "et al" ("Daiz showed it too") is not a citation
+    # since 18 Nov: surnames that are also words were taken for citations (see below); such
+    # a sentence is still checked, as a sentence that cites nothing
     result = check(
         "Sghaier et al., 2022 assessed drought in arid groves. As Crespo et al. (2025) found, "
         "irrigation helps. Daiz showed it too. Smith et al. (2019) disagree. Drought lowers "
@@ -74,13 +78,29 @@ def test_a_sentence_naming_a_paper_found_is_cited_by_its_number():
     )
     assert result.text == (
         "Sghaier et al., 2022 assessed drought in arid groves [1]. As Crespo et al. (2025) "
-        "found, irrigation helps [2]. Daiz showed it too [3]. Smith et al. (2019) disagree. "
+        "found, irrigation helps [2]. Daiz showed it too. Smith et al. (2019) disagree. "
         "Drought lowers NDVI [1]."
     )
-    assert result.cited == [1, 2, 3]
+    assert result.cited == [1, 2]
 
 
 def test_a_surname_shared_by_two_papers_needs_its_year():
     two = [paper("Sghaier", 2022), paper("Sghaier", 2024)]
     assert check("Sghaier et al. found a fall.", two).text == "Sghaier et al. found a fall."
     assert check("Sghaier et al. (2024) found a fall.", two).text.endswith("fall [2].")
+
+
+def test_a_surname_that_is_also_a_word_is_not_taken_for_a_citation():
+    # review of 18 Nov: "the long-term trend" was cited to a paper by Long, "rice paddies" to
+    # one by Rice
+    from types import SimpleNamespace
+
+    papers = [
+        SimpleNamespace(authors=["Wei Long"], year=2019),
+        SimpleNamespace(authors=["Ana Rice"], year=2020),
+    ]
+    assert citations.by_name(
+        "The long-term trend in your NDVI is not significant.", papers
+    ).endswith("significant.")
+    assert "[" not in citations.by_name("Rice paddies differ from olive groves.", papers)
+    assert citations.by_name("As Long et al., 2019 showed, NDVI rises.", papers).endswith("[1].")

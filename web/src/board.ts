@@ -82,6 +82,7 @@ export function trustOf(b: BoardItem): BoardTrust {
   if (b.now?.length) return "changed"; // its result is no longer what was pinned
   if (b.kind !== "answer") return "computed";
   const d = b.answer?.details;
+  if (d?.interrupted) return "failed"; // it stopped before the checks ran
   const failed =
     (d?.support ?? []).some((s) => s.status === "unsupported") ||
     (d?.numbers ?? []).some((n) => n.status !== "verified") ||

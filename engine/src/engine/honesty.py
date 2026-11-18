@@ -25,6 +25,7 @@ Magon did, or by the definition of the variable.
 import re
 
 from engine.citations import GROUP
+from engine.citations import plain as accentless
 from engine.support import NOT_AN_END, SENTENCE, Statement
 
 # A paper named by its first author and year, in the forms a model writes: "Ben Salah et al.
@@ -115,12 +116,16 @@ NOT_AUTHORS = {
 }
 
 # What Magon says it did: searched, read, looked something up
+# Not "found no" or "did not find" on their own: "the Mann-Kendall test found no significant
+# trend" is a correct statement about the researcher's data, and was withdrawn (review of
+# 18 Nov). Finding nothing counts as a search only when what was not found is literature.
+LITERATURE_WORDS = r"(papers?|studies|study|results?|references?|literature|articles?|sources?)"
 SEARCHED = re.compile(
-    r"\b(I|we)\s+(have\s+)?(searched|looked up|looked for|queried|ran a search|found no|"
-    r"did not find|didn't find|could not find|couldn't find)"
+    r"\b(I|we)\s+(have\s+)?(searched|looked up|looked for|queried|ran a search)"
     r"|\b(a|my|the|this|our)\s+(literature\s+)?search\b"
     r"|\bsearch(ing)?\s+(of\s+)?the\s+literature\b"
-    r"|\bdid not (yield|return|find)\b|\b(yielded|returned|found) no\b"
+    rf"|\b(did not|didn't|could not|couldn't)\s+(yield|return|find)\b[^.;]{{0,40}}?\b{LITERATURE_WORDS}\b"
+    rf"|\b(yielded|returned|found)\s+no\s+(\w+\s+)?{LITERATURE_WORDS}\b"
     # the tool written out as text: 'Search_papers("olive hail") yielded no results' (14 Nov)
     r"|\bsearch_papers\b",
     re.IGNORECASE,
@@ -133,7 +138,7 @@ SEARCHED = re.compile(
 RESEARCH = (
     r"(studies|research|researchers|scientists|the literature|previous work|prior work|"
     r"(a|an|one|another|previous|recent|earlier|several|many|some|other|numerous)\s+"
-    r"(\d{4}\s+)?(\w+\s+)?(study|studies|paper|papers|work|analysis|analyses|experiments?))"
+    r"(\d{4}\s+)?(\w+\s+)?(study|studies|paper|papers|work))"
 )
 FOUND = (
     r"(have\s+|has\s+|had\s+)?(shown|show|shows|found|find|finds|indicated?|indicates|"
@@ -144,9 +149,15 @@ RESEARCH_SAYS = re.compile(
     rf"\b{RESEARCH}\s+(\w+\s+){{0,6}}?{FOUND}\b"
     r"|\baccording\s+to\s+(the\s+|some\s+|several\s+|recent\s+|previous\s+)?"
     r"(literature|studies|research|researchers)\b"
-    r"|\bit\s+(has\s+been|is|was)\s+(well\s+)?(shown|found|reported|demonstrated|documented)\b",
+    r"|\bit\s+has\s+been\s+(well\s+)?(shown|found|reported|demonstrated|documented)\b",
     re.IGNORECASE,
 )
+# A sentence that names where in the workspace it comes from speaks of the researcher's data:
+# "A correlation analysis shows … (Correlation card)", "It is shown in the NDVI chart …"
+NAMES_THE_WORKSPACE = re.compile(
+    r"\b(card|chart|lag explorer|the board|your (data|series|workspace|area))\b", re.IGNORECASE
+)
+
 # "No studies have shown…", "few papers report…": a statement of absence, not a finding
 NO_RESEARCH = re.compile(
     r"\b(no|few|not any|none of the|neither)\s+(\w+\s+)?(studies|study|research|papers?|evidence|work)\b",
@@ -222,6 +233,18 @@ def sentences(answer: str) -> list[tuple[int, int, str]]:
     return out
 
 
+def plain(name: str) -> str:
+    """A surname without accents or case, so that "Martinez" matches "Martínez"."""
+    return accentless(name).lower()
+
+
+def found_in(mention: tuple[str, int], known: set[tuple[str, int]]) -> bool:
+    """Whether a named (surname, year) is a paper that was found: any author, the year within
+    one either side (online and print years differ)."""
+    name, year = plain(mention[0]), mention[1]
+    return any(name == n and abs(year - y) <= 1 for n, y in known if y is not None)
+
+
 def mentions(text: str) -> list[tuple[str, int]]:
     """The papers a text names by author and year: (surname, year)."""
     found = []
@@ -250,14 +273,17 @@ def withdrawn(
     the Kairouan governorate…"), so every following sentence that cites nothing goes with it,
     until the answer cites a paper that was found.
     """
-    known = {(p.authors[0].split()[-1].lower(), p.year) for p in papers if p.authors}
+    known = {(plain(name.split()[-1]), p.year) for p in papers if p.authors for name in p.authors}
     out = []
     tainted = ""  # the invented reference the sentences that follow are about
     for start, end, sentence in sentences(answer):
         why = ""
         named = mentions(sentence)
-        invented = [(n, y) for n, y in named if (n, y) not in known]
-        cites_found = bool(GROUP.search(sentence)) or any(m in known for m in named)
+        cites_found = bool(GROUP.search(sentence)) or any(found_in(m, known) for m in named)
+        # a sentence that cites a paper by number is about a paper that was found: its
+        # author-year may be spelled or dated a little differently ("Martinez" for
+        # "Martínez", the online year for the print year), and is not an invention
+        invented = [] if GROUP.search(sentence) else [m for m in named if not found_in(m, known)]
         if invented and not DENIAL.search(sentence):
             name, year = invented[0]
             tainted = f"{name.title()} ({year})"
@@ -274,6 +300,7 @@ def withdrawn(
         elif (
             not papers
             and RESEARCH_SAYS.search(sentence)
+            and not NAMES_THE_WORKSPACE.search(sentence)
             and not NO_RESEARCH.search(sentence)
             and not DENIAL.search(sentence)
         ):

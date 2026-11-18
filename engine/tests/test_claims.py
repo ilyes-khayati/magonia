@@ -264,3 +264,17 @@ def test_magon_adds_the_tests_of_its_explanations(orchard):
     )[-1]
     assert "**Tested on your data**" in final["text"]
     assert final["tested"][0]["verdict"] == "replicates"
+
+
+@pytest.mark.parametrize(
+    "text, lag",
+    [
+        ("NDVI correlates positively with the 12-month SPEI.", None),
+        ("NDVI responds to SPEI-12 with a lag of 2 months.", 2),
+        ("Drought at the 6-month scale lowers NDVI.", None),
+        ("Olive NDVI responds to drought with a lag of about 12 months.", 12),
+    ],
+)
+def test_an_accumulation_scale_is_not_read_as_a_delay(text, lag):
+    # review of 18 Nov: "the 12-month SPEI" was tested as a 12-month lag
+    assert claims.read(text).lag == lag

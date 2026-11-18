@@ -1,3 +1,5 @@
+import pytest
+
 """Failures found by a researcher testing Magon on 14 November 2026, each kept as a test.
 
 The texts are Magon's own answers from that session, cut to what each test needs.
@@ -329,3 +331,30 @@ def test_the_same_sentence_stands_for_the_other_checks_when_papers_were_found():
 def test_no_false_alarm_on_sentences_that_do_not_cite_research():
     for sentence in NOT_FROM_MEMORY:
         assert not honesty.withdrawn(sentence, [], searched=False), sentence
+
+
+# review of 18 Nov: correct statements about the researcher's data were withdrawn as if they
+# were claims about a literature search or about unnamed research
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "The Mann-Kendall test found no significant trend in your NDVI (Trend card).",
+        "The lag explorer did not find a lag beyond chance.",
+        "A correlation analysis shows that NDVI rises with SPEI (Correlation card).",
+        "It is shown in the NDVI chart that the peak comes in March.",
+    ],
+)
+def test_statements_about_the_researchers_own_data_are_not_withdrawn(sentence):
+    assert honesty.withdrawn(sentence, [], searched=False) == []
+
+
+def test_a_cited_paper_named_with_its_accent_or_print_year_is_not_taken_for_an_invention():
+    from types import SimpleNamespace
+
+    papers = [SimpleNamespace(authors=["José Martínez"], year=2019)]
+    assert (
+        honesty.withdrawn("Martinez et al. (2019) found NDVI fell [1].", papers, searched=True)
+        == []
+    )
+    assert honesty.withdrawn("Martinez et al. (2020) found NDVI fell.", papers, searched=True) == []
+    assert honesty.withdrawn("Smith et al. (2018) found NDVI fell.", papers, searched=True) != []
