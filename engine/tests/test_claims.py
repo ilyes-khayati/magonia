@@ -157,10 +157,31 @@ def test_verdicts_on_orchards_with_a_known_truth():
     rng = np.random.default_rng(0)
     none = verdicts(rng, 150, 0.0, 6, 1)
     assert none["replicates"] <= 0.05 and none["contradicts"] <= 0.05
+    # since 18 Nov a claim must survive four implications (falsify.py), which costs power:
+    # the plan (evaluation/falsification_plan.md) accepted that before the first run
     linked = verdicts(rng, 150, 0.35, 6, 1)
-    assert linked["replicates"] >= 0.6 and linked["contradicts"] == 0
+    assert linked["replicates"] >= 0.35 and linked["contradicts"] == 0
     opposite = verdicts(rng, 150, -0.35, 6, 1)
     assert opposite["contradicts"] >= 0.6 and opposite["replicates"] == 0
+
+
+def test_a_driver_that_only_follows_vegetation_is_not_taken_for_a_cause():
+    # feedback: this month's driver follows this month's vegetation, with no effect on it;
+    # last month's driver then shares the vegetation's memory and seems to lead it. The
+    # single correlation test confirmed such a link in 97.5% of 1,000 simulated records
+    sys.path.insert(0, str(Path(__file__).parent.parent / "evaluation"))
+    from falsification_calibration import as_series, record
+
+    rng = np.random.default_rng(1)
+    claim = claims.Claim("synthetic", "lag", "ndvi", "lst", -1, "claim", 1)
+    held = 0
+    for _ in range(100):
+        veg, drv = record(rng, "feedback", {"c": 0.6})
+        held += (
+            claims.lag_test(claim, as_series(veg, "ndvi"), as_series(drv, "lst")).verdict
+            == "replicates"
+        )
+    assert held <= 10
 
 
 REAL = json.loads((Path(__file__).parent / "data" / "real_claims.json").read_text())

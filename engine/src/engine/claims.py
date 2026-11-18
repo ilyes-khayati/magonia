@@ -13,10 +13,15 @@ analysis on the researcher's area, and given one of four verdicts by fixed rules
 Two kinds of claim are tested:
 
 - a driver acting on vegetation, perhaps with a delay ("drought lowers NDVI a year later"):
-  the correlation of the two series' anomalies at lags 1 to 12 months, or up to the claimed
-  lag, against a bound corrected for autocorrelation and for testing several lags (lags.py,
-  as in the paper's notebook 03). A claimed lag is matched within one month either side, and
-  the strongest of those lags is the one judged.
+  when the claim says which way the driver acts, it is tested by trying to falsify what it
+  implies (falsify.py): the anomalies are linked at the claimed lag, beyond the vegetation's
+  own memory of the month before, in both halves of the record, and not through a shared
+  trend. It replicates only if all four hold. On simulated records the single correlation
+  test this replaced confirmed a link that was only feedback (the driver following
+  vegetation) 97.5% of the time, and a shared trend 81.6%; the falsification test 3.7% and
+  1.9%, at the cost of power (evaluation/falsification_plan.md). With no direction stated, the
+  correlation of the anomalies at lags 1 to 12 months is judged against a bound corrected for
+  autocorrelation and for testing several lags (lags.py, as in the paper's notebook 03).
 - a long-term change ("NDVI has declined since 2000"): the Theil–Sen slope of the annual means
   and the Mann–Kendall test (trend.py).
 
@@ -34,6 +39,8 @@ from dataclasses import asdict, dataclass, field
 import numpy as np
 
 from engine.facts import Series, View, monthly_series
+from engine.falsify import falsify
+from engine.falsify import lines as falsification_lines
 from engine.lags import EXPECTED, deseasonalise, driver_evidence
 from engine.proposals import named
 from engine.trend import trend
@@ -312,6 +319,13 @@ def lag_test(claim: Claim, response: Series, driver: Series) -> ClaimTest:
         verdict = "contradicts"
     else:
         verdict = "undecided"
+    tried = falsify(y, x, claim.sign, claim.lag) if claim.sign else None
+    if tried is not None and tried.verdict != "cannot test":
+        verdict = {"holds": "replicates", "contradicted": "contradicts"}.get(
+            tried.verdict, "undecided"
+        )
+        at = tried.lag
+        value = r[at - 1] if at <= len(r) else value
     who = f"{response.area}: {response.title} anomalies and {driver.title} anomalies"
     where = f"{at} month{'s' if at > 1 else ''} earlier"
     stats = f"r = {value:.2f}, bound ±{found.bound:.2f} over lags 1 to {longest}"
@@ -322,7 +336,16 @@ def lag_test(claim: Claim, response: Series, driver: Series) -> ClaimTest:
         else (f" ({expected}, the physical expectation)" if expected else "")
     )
     lines = [f"Tested: {claim.reading()}{told}."]
-    if verdict == "replicates":
+    if tried is not None and tried.verdict != "cannot test":
+        lines.append(f"{who}, {where}: {verdict}.")
+        lines += falsification_lines(tried, response.title, driver.title)
+        failed = ", ".join(i.words for i in tried.failed)
+        if verdict == "undecided" and failed:
+            lines.append(f"Not shown: it fails {failed}.")
+        if verdict == "undecided" and found.decision == "stands out" and found.lag != at:
+            months = f"{found.lag} month{'s' if found.lag > 1 else ''}"
+            lines.append(f"The lag that does stand out is {months} (r = {found.best:.2f}).")
+    elif verdict == "replicates":
         lines.append(f"{who}: at {where} {stats}; beyond chance with the claimed sign.")
     elif verdict == "contradicts":
         lines.append(f"{who}: at {where} {stats}; beyond chance, with the opposite sign.")
@@ -350,6 +373,7 @@ def lag_test(claim: Claim, response: Series, driver: Series) -> ClaimTest:
             "response": response.title,
             "driver": driver.title,
             "months": int(y.notna().sum()),
+            "falsification": tried.to_dict() if tried is not None else None,
         },
     )
 

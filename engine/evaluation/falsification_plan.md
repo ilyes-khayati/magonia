@@ -54,4 +54,18 @@ Nothing in this plan will be changed after the first run. Any later change will 
 
 ## Changes after the first run
 
-(none yet)
+None to the plan. After the first run the test was also wired into claim testing (claims.lag_test), and the
+500-orchard calibration of ADR 0020 was re-run with it; both results are in ADR 0025.
+
+## Results of the first run (1,000 records per row, seed 20261118)
+
+| Scenario | Current test: replicates (95% CI) | Falsification: holds (95% CI) |
+|---|---|---|
+| S0 no link | 0.3% (0.1–0.9) | 0.1% (0.0–0.6) |
+| S1 link r = 0.25 | 35.4% (32.5–38.4) | 19.2% (16.9–21.8) |
+| S2 link r = 0.35 | 78.8% (76.2–81.2) | 55.4% (52.3–58.5) |
+| S3 feedback | 97.5% (96.3–98.3) | 3.7% (2.7–5.1) |
+| S4 shared trend | 81.6% (79.1–83.9) | 1.9% (1.2–2.9) |
+
+Pass criteria: S0, S3 and S4 are at or below 0.05 within Monte Carlo error (S3's upper bound, 5.1%, is within
+it). The loss of power in S1 and S2 is stated, as planned.
