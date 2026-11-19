@@ -9,6 +9,7 @@ the researcher clicks: the model can suggest, never act.
 import re
 
 from engine.catalogue import CATALOGUE
+from engine.models import LABELS
 
 KINDS = {
     "correlation": "Correlation and lag",
@@ -54,11 +55,10 @@ WORDS = {
     "rain": ("rain", "precipitation"),
     "spei": ("spei", "drought"),
 }
+# every model the Model page offers (models.LABELS), by any name a researcher may write
 MODELS = {
-    "ridge": "Ridge",
-    "randomforest": "RandomForest",
-    "random forest": "RandomForest",
-    "xgboost": "XGBoost",
+    **{key.lower(): key for key in LABELS},
+    **{label.lower(): key for key, label in LABELS.items()},
 }
 MONTH = re.compile(r"^(\d{4})(?:-(\d{2}))?$")
 
@@ -185,12 +185,9 @@ def proposal(arguments: dict, areas: list[str], question: str = "") -> dict:
     if kind == "experiment":
         names = [MODELS.get(str(m).lower()) for m in arguments.get("models") or []]
         if any(n is None for n in names):
-            raise ProposalError("models must be Ridge, Random Forest or XGBoost")
-        out["models"] = [n for n in ("Ridge", "RandomForest", "XGBoost") if n in names] or [
-            "Ridge",
-            "RandomForest",
-            "XGBoost",
-        ]
+            raise ProposalError(f"models must be among {', '.join(LABELS.values())}")
+        # in the Model page's order; none named, the three fast ones it starts with
+        out["models"] = [n for n in LABELS if n in names] or ["Ridge", "RandomForest", "XGBoost"]
         years = arguments.get("test_years")
         out["test_years"] = min(max(int(years), 1), 10) if str(years or "").isdigit() else 3
     # an experiment runs on the workspace's period; its test years are its own choice

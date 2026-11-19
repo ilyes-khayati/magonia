@@ -217,8 +217,11 @@ ADJECTIVES = {
 }
 ADJECTIVE = re.compile(r"\b(" + "|".join(ADJECTIVES) + r")\b(?!\s+(Ocean|Sea|Plate)\b)")
 # a study of the whole globe, or of a continent, is about no one setting
+# a study of the whole world, not "global warming" or a "continental climate" (review of 18 Nov)
 GLOBAL = re.compile(
-    r"\b(global(ly)?|worldwide|world-wide|across the globe|continental)\b", re.IGNORECASE
+    r"\b(global(ly)?|worldwide|world-wide|across the globe|continental)\b"
+    r"(?!\s+(warming|change|climate|climates|scale models?|circulation))",
+    re.IGNORECASE,
 )
 
 # Climates an abstract names, by the region whose climate it is

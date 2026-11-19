@@ -11,6 +11,8 @@ the assistant warns about what the card warns about. Nothing here changes a resu
 import numpy as np
 import pandas as pd
 
+from engine.models import LABELS
+
 # A series whose calendar-month means explain more than half its variance is seasonal
 SEASONAL = 0.5
 # Fewer months than this leave a correlation or a trend test with little power
@@ -95,17 +97,6 @@ def decomposition(area: str, title: str, years: float) -> list[str]:
         )
         return [why]
     return []
-
-
-LABELS = {
-    "Ridge": "Ridge",
-    "RandomForest": "Random Forest",
-    "XGBoost": "XGBoost",
-    "MLP": "MLP",
-    "LSTM": "LSTM",
-    "GRU": "GRU",
-    "TCN": "TCN",
-}
 
 
 def models(area: str, forecast: dict, warnings: list[str] | None = None) -> list[str]:

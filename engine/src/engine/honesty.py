@@ -278,6 +278,11 @@ def withdrawn(
     tainted = ""  # the invented reference the sentences that follow are about
     for start, end, sentence in sentences(answer):
         why = ""
+        # a part heading ("**What it could mean here**") starts afresh: what follows it is
+        # about the researcher's data, not the invented reference (review of 18 Nov). A list
+        # under the reference ("- **Study area**: …") still describes it
+        if sentence.startswith("**"):
+            tainted = ""
         named = mentions(sentence)
         cites_found = bool(GROUP.search(sentence)) or any(found_in(m, known) for m in named)
         # a sentence that cites a paper by number is about a paper that was found: its

@@ -89,13 +89,13 @@ def listing(files: list[dict]) -> str:
     """The library as the model reads it, so that it can say what is there."""
     if not files:
         return (
-            "The researcher's library (their own PDFs, added on the Library page and shared by "
-            "all workspaces) is empty: they have not added any files."
+            "The researcher's library for this workspace (their own PDFs, added on the Library "
+            "page) is empty: they have not added any files."
         )
     lines = [
         (
-            f"The researcher's library (their own PDFs, added on the Library page and shared "
-            f"by all workspaces) holds {len(files)} {'file' if len(files) == 1 else 'files'}:"
+            f"The researcher's library for this workspace (their own PDFs, added on the Library "
+            f"page) holds {len(files)} {'file' if len(files) == 1 else 'files'}:"
         )
     ]
     for f in files:

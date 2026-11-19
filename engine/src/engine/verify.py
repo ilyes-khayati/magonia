@@ -108,8 +108,17 @@ class Verifier:
                 padding=True,
                 return_tensors="pt",
             )
-        # MiniCheck reads one text: the passage, the end-of-text token, the claim
-        joined = [p + self.tokenizer.eos_token + c for p, c in pairs]
+        # MiniCheck reads one text: the passage, the end-of-text token, the claim. A long
+        # passage is shortened from its end, never the claim: cutting the joined text from
+        # the end dropped the claim it was asked to judge (review of 18 Nov)
+        room = MAX_TOKENS - 8
+        joined = []
+        for p, c in pairs:
+            claim = self.tokenizer.encode(self.tokenizer.eos_token + c, add_special_tokens=False)
+            passage = self.tokenizer.encode(p, add_special_tokens=False)[
+                : max(room - len(claim), 0)
+            ]
+            joined.append(self.tokenizer.decode(passage) + self.tokenizer.eos_token + c)
         return self.tokenizer(
             joined, truncation=True, max_length=MAX_TOKENS, padding=True, return_tensors="pt"
         )

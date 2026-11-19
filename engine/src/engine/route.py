@@ -61,6 +61,16 @@ CHAT = re.compile(
     r"who are you|ok(ay)?|great|cool)\b",
     re.IGNORECASE,
 )
+# what makes a message more than small talk once its greeting is set aside
+QUESTION = re.compile(
+    r"\?|\b(why|what|which|when|where|how|who|is|are|does|do|can|show|tell)\b", re.IGNORECASE
+)
+
+# questions that are themselves small talk
+SMALL_QUESTION = re.compile(
+    r"^[\s,!.]*(who are you|how are you( doing)?|what'?s up)\s*\??\s*$", re.IGNORECASE
+)
+
 # Small talk that stands on its own. "ok", "great" or "cool" usually carry the conversation
 # on ("ok I added it"), so a message starting with them is about what came before
 GREETING = re.compile(
@@ -109,7 +119,10 @@ def together(follow_up: str, earlier: str) -> str:
 
 def route(question: str, areas: list[str] = (), has_view: bool = False) -> Kind:
     """The kind of a question; areas are the names of the researcher's open areas."""
-    if CHAT.match(question) and len(question) <= 40:
+    # small talk only when nothing follows the greeting: "Hi, which year was driest?" is a
+    # question about the data (review of 18 Nov)
+    rest = SMALL_QUESTION.sub("", CHAT.sub("", question, 1))
+    if CHAT.match(question) and len(question) <= 40 and not QUESTION.search(rest):
         return "chat"
     named_area = any(a and a.lower() in question.lower() for a in areas)
     kinds = {
@@ -141,6 +154,13 @@ MODELS = {
     "xgboost": "XGBoost: trees added one after another, each correcting the errors of the "
     "previous ones; learning_rate shrinks each tree's step, subsample and colsample_bytree "
     "use a share of years and predictors per tree, min_child_weight stops tiny leaves.",
+    "mlp": "MLP: a small feed-forward neural network; hidden units combine the predictors "
+    "through a non-linear activation, and alpha penalises large weights so the fit stays smooth.",
+    "lstm": "LSTM: a recurrent neural network that reads the months in order and carries a memory "
+    "through gates; it needs many training months to learn that memory reliably.",
+    "gru": "GRU: a recurrent network like the LSTM with fewer gates, so fewer weights to fit.",
+    "tcn": "TCN: a temporal convolutional network; convolutions over past months, dilated so that "
+    "a few layers reach far back in the record.",
     "permutation importance": "Permutation importance: how much a model's error grows when "
     "one predictor's values are shuffled, breaking its link with the target.",
 }

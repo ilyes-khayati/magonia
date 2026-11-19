@@ -110,6 +110,10 @@ DRY = re.compile(r"\b(drought|dry|drier|aridity|water deficit)\b", re.IGNORECASE
 NOT_A_FINDING = re.compile(
     r"\b(not|no|never|neither|nor)\s+(\w+\s+){0,2}(observed|found|captured|detected|"
     r"significant|correlat\w*|affect\w*|related|linked)\b"
+    # a change denied: "your NDVI did not decline since 2002" is not a decline (review of 18 Nov)
+    r"|\b(did|does|do|has|have|had|was|were)\s*(not|n't)\s+(\w+\s+)?(declin\w*|decreas\w*|"
+    r"increas\w*|ris(e|en|ing)|f[ae]ll\w*|chang\w*|drop\w*|lower\w*|rais\w*)\b"
+    r"|\bno (significant |clear |detectable )?(trend|change|decline|increase|decrease)\b"
     r"|\b(metrics?|methods?|methodolog\w*|approach(es)?|insufficient|inappropriate)\b"
     r"|\b(was|were|is|are) (used|considered|applied|employed|derived|calculated|obtained)\b"
     r"|\bto (determine|assess|quantify|investigate|explore|understand|evaluate|examine)\b"

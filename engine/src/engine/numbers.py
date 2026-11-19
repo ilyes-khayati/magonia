@@ -15,6 +15,7 @@ variables, year and month agree with what its sentence names (or, for the year, 
 and the rest of the answer). Found only elsewhere, it is flagged as taken from elsewhere.
 """
 
+import math
 import re
 from dataclasses import asdict, dataclass
 
@@ -25,7 +26,8 @@ from engine.citations import GROUP
 NUMBER = re.compile(r"(?<![\w.])(?P<sign>[-+−])?(?P<digits>\d+(?:\.\d+)?)(?![\w])")
 DATE = re.compile(r"\b\d{4}-\d{2}(?:-\d{2})?\b")  # 2022-07: a date, not a measurement
 # a year names a time, not a measurement: marking it as checked would only add noise
-YEAR = re.compile(r"(?<![\w.\-−+])(19[5-9]\d|20\d\d)(?![\w.%]|\.\d)")
+# (a year may end a sentence, "lowest in 2003.", and close a range, "2002-2024")
+YEAR = re.compile(r"(?:(?<=\d[-–])|(?<![\w.\-−+]))(19[5-9]\d|20\d\d)(?![\w%]|\.\d)")
 MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
 MONTH = re.compile(r"\b(" + "|".join(MONTHS) + r")[a-z]*\b", re.IGNORECASE)
 # how each variable may be named, in a sentence or a source
@@ -135,7 +137,12 @@ def matches(written: Found, given: Found) -> bool:
     """The same number, or the given one rounded to as many decimals as were written."""
     if written.decimals > given.decimals:
         return False
-    return abs(round(given.value, written.decimals) - written.value) < 1e-9
+    # rounded half up as a person rounds (0.245 -> 0.25), not half to even on a binary float
+    # as round() does (0.245 -> 0.24); either reading of a half is accepted
+    scale = 10**written.decimals
+    near = given.value * scale
+    up, down = math.floor(near + 0.5 + 1e-9) / scale, math.ceil(near - 0.5 - 1e-9) / scale
+    return min(abs(up - written.value), abs(down - written.value)) < 1e-9
 
 
 def best_source(written: Found, given: list[tuple[str, Found]]) -> str | None:
@@ -195,7 +202,9 @@ NOT_DATA = {
     "your question": re.compile(
         r"\b(you asked|your question|you mention\w*|as you (say|said))\b", re.IGNORECASE
     ),
-    "the Model page's settings": re.compile(r"\b(settings?|model page|by default|default)\b", re.IGNORECASE),
+    "the Model page's settings": re.compile(
+        r"\b(settings?|model page|by default|default)\b", re.IGNORECASE
+    ),
     "your library": re.compile(r"\b(library|files?|uploaded|upload)\b", re.IGNORECASE),
 }
 

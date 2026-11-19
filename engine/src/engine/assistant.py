@@ -95,7 +95,7 @@ you cannot run analyses yourself: you can propose one, which the researcher adds
 # What the interface really has, so that Magon points to it instead of inventing buttons
 APP = interface.described()
 
-MODEL_SETTINGS = f"""- On the Model page the researcher chooses the models (Ridge, Random Forest, XGBoost), the \
+MODEL_SETTINGS = f"""- On the Model page the researcher chooses the models ({", ".join(LABELS.values())}), the \
 lags, the test years, the calendar and the rolling evaluation. A model given no settings is \
 tuned automatically on the training years; one given settings uses those, and the library's \
 defaults for the rest. The settings they can give: {SETTINGS}."""
@@ -120,7 +120,11 @@ MAX_PROPOSALS = 2
 # The researcher chooses what runs: proposing is offered only when the message asks for
 # something to be run, and never when it says not to
 RUN = re.compile(
-    r"\b(run|add|propose|compute|calculate|start|set up|build|fit|train)\b"
+    # bare "start", "fit", "add" or "build" are not requests: "when does green-up start?",
+    # "how well does the forest fit?", "can I add my own PDF?" (review of 18 Nov)
+    r"\b(run|propose|compute|calculate|set up)\b"
+    r"|\b(add|build|fit|train|start)\b\s+(an?|another|one more|new)\b"
+    r"|^\s*(please\s+)?(add|build|fit|train|start)\b"  # an imperative: "Add lags in Tunis"
     r"|\b(can you|could you|would you|please|let'?s|i'?d like( you)? to|i want( you)? to)\b"
     r".{0,20}\b(forecast|predict|decompose|split|separate|break (it |them )?down|detrend|"
     r"deseasonali[sz]e|correlate|do an?)\b"

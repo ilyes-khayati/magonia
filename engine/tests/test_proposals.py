@@ -49,7 +49,7 @@ def test_an_experiment_gets_its_area_models_and_defaults():
         ({"kind": "trend", "variable": "snow"}, "must be one of ndvi, savi"),
         ({"kind": "lags", "area": "Tunis"}, "no area is called 'Tunis'"),
         ({"kind": "trend", "start": "last year"}, "YYYY or YYYY-MM"),
-        ({"kind": "experiment", "models": ["LSTM"]}, "Ridge, Random Forest or XGBoost"),
+        ({"kind": "experiment", "models": ["Prophet"]}, "models must be among"),
     ],
 )
 def test_proposals_that_do_not_fit_are_refused_with_a_reason(arguments, message):
