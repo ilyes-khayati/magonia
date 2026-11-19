@@ -29,7 +29,7 @@ def test_the_area_share_is_read_from_its_own_pixels():
     pixels[1]["cycle"] = list(TREE)
     found = purity(pixels, SQUARE, "Orchard")
     assert found.area_share == pytest.approx(0.4, abs=0.01)
-    assert "40% annual crop" in found.summary[0]
+    assert "40% seasonal cover" in found.summary[0]
 
 
 def test_too_few_pixels_are_refused():

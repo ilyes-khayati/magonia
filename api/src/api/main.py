@@ -36,6 +36,7 @@ from engine.verify import judge_for
 from fastapi import Depends, FastAPI, HTTPException, Query, Response, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
+from starlette.concurrency import run_in_threadpool
 
 from api.jobs import Runner, cache_key, execute
 from api.store import Store, default_path
@@ -393,7 +394,7 @@ def area_purity(
     start: Annotated[str, Query(pattern=r"^\d{4}-\d{2}$")] = "2003-01",
     end: Annotated[str, Query(pattern=r"^\d{4}-\d{2}$")] = "2022-12",
 ) -> dict:
-    """How much of each MODIS pixel over and around an area is annual crop, from its average
+    """How much of each MODIS pixel over and around an area is seasonal cover, from its average
     year split between the most seasonal and the most even vegetated pixels nearby."""
     area = store.area(area_id)
     if not area:
@@ -1354,7 +1355,11 @@ async def add_file(
     if not data.startswith(b"%PDF"):
         raise HTTPException(400, f"{file.filename} is not a PDF.")
     try:
-        return Uploads(library.scoped(workspace_id)).add(file.filename or "file.pdf", data)
+        # reading and embedding a PDF takes seconds: done in a worker thread, so chat streams
+        # and job polls go on meanwhile (on the event loop they all waited; review of 18 Nov)
+        return await run_in_threadpool(
+            Uploads(library.scoped(workspace_id)).add, file.filename or "file.pdf", data
+        )
     except FullTextError as exc:
         raise HTTPException(400, str(exc)) from exc
 
@@ -1427,10 +1432,13 @@ def chat(
     """
     workspace_id = existing_conversation(store, conversation_id)["workspace_id"]
     # earlier answers carry the papers they cited, so that a follow-up can cite them again
+    # An answer that stopped before it was checked is not given back as it was written: a
+    # follow-up would build on sources and numbers no check has seen (review of 18 Nov)
+    unchecked = "(This earlier answer stopped before its sources and numbers were checked.)"
     history = [
         {
             "role": m["role"],
-            "content": m["content"],
+            "content": unchecked if m["details"].get("interrupted") else m["content"],
             "papers": m["details"].get("papers", []),
             "cited": m["details"].get("check", {}).get("cited", []),
         }
@@ -1503,6 +1511,10 @@ def chat(
         except assistant.ProviderError as exc:
             log.warning("chat stopped: %s", exc)
             yield json.dumps({"type": "error", "message": str(exc)}) + "\n"
+        except Exception:  # any other failure is said too, not a stream that just stops
+            log.exception("chat failed")
+            message = "Magonia hit an error while answering; what was written so far is kept."
+            yield json.dumps({"type": "error", "message": message}) + "\n"
         finally:  # keep what was said, even if the reader left early
             details = {"searches": searches, "papers": papers, "cards": cards, "reads": reads}
             if proposals:
