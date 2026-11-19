@@ -364,7 +364,7 @@ export type LagEvidence = {
   lag: number;
   best: number;
   expected: number | null;
-  decision: "stands out" | "not significant" | "implausible sign";
+  decision: "stands out" | "not significant" | "unexpected sign";
 };
 
 export type LagsResponse = {

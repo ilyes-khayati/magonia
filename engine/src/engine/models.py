@@ -262,10 +262,11 @@ def recommend_own_lags(y: pd.Series, most: int = 4) -> tuple[list[int], str]:
 def recommend_driver_lag(
     y: pd.Series, x: pd.Series, title: str, key: str
 ) -> tuple[int | None, str]:
-    """The driver's strongest lag if it stands out in the lag explorer's test."""
+    """The driver's strongest lag if it stands out in the lag explorer's test, whatever its
+    sign: a forecast uses what predicts, and an unexpected sign is said, not dropped."""
     found = driver_evidence(deseasonalise(y), deseasonalise(x), title, key)
     reason = f"lag {found.lag}: r = {found.best:.2f}, bound ±{found.bound:.2f}, {found.decision}"
-    return (found.lag if found.decision == "stands out" else None), reason
+    return (found.lag if found.decision != "not significant" else None), reason
 
 
 @dataclass

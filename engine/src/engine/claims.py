@@ -352,7 +352,7 @@ def lag_test(claim: Claim, response: Series, driver: Series, single: bool = Fals
     told = (
         f" ({expected}, as the claim says)"
         if claim.sign_from == "claim"
-        else (f" ({expected}, the physical expectation)" if expected else "")
+        else (f" ({expected}, the usual sign where water limits growth)" if expected else "")
     )
     lines = [f"Tested: {claim.reading()}{told}."]
     if tried is not None and tried.verdict != "cannot test":

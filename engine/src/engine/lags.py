@@ -24,9 +24,10 @@ MAX_OWN_LAG = 24
 MAX_DRIVER_LAG = 12
 ALPHA = 0.05
 
-# The sign a physically plausible link with vegetation has: hotter than usual is less green,
-# wetter than usual (higher SPEI) is greener
-# the sign a driver's correlation with vegetation is expected to have: heat dries, water greens
+# The sign a link with vegetation usually has where water limits growth: hotter than usual is
+# less green, wetter than usual (higher SPEI) is greener. It is recorded, not enforced, as in
+# the paper: where cold or light limits growth, or under a winter understory, heat can green
+# (review of 18 Nov)
 EXPECTED = {"lst": -1, "air_temperature": -1, "spei": +1, "rain": +1, "soil_moisture": +1}
 
 
@@ -62,14 +63,14 @@ class Evidence:
     bound: float
     lag: int  # the strongest
     best: float
-    expected: int | None  # the plausible sign, if known
+    expected: int | None  # the usual sign, if known
     decision: str = field(init=False)
 
     def __post_init__(self) -> None:
         if abs(self.best) <= self.bound:
             self.decision = "not significant"
         elif self.expected is not None and np.sign(self.best) != self.expected:
-            self.decision = "implausible sign"
+            self.decision = "unexpected sign"
         else:
             self.decision = "stands out"
 
@@ -143,10 +144,11 @@ def explore(
         if found.decision == "stands out":
             plausible = " with the expected sign" if found.expected is not None else ""
             verdict = f"stands out{plausible}"
-        elif found.decision == "implausible sign":
+        elif found.decision == "unexpected sign":
             verdict = (
-                "is beyond its bound but with the opposite sign to the physical expectation, so it "
-                "is not taken as a link"
+                "is beyond its bound, with the opposite sign to the usual one where water limits "
+                "growth; it may be real (growth limited by cold or light, a winter understory) "
+                "and is worth checking before it is read as a cause"
             )
         else:
             verdict = "does not stand out from chance"
