@@ -323,6 +323,7 @@ export default function AssistantCard(props: Props) {
       { role: "user", content: question, details: {} },
       { role: "assistant", content: "", details: {} },
     ]);
+    let started = false; // whether the server began answering, and so saved the question
     try {
       // a new conversation is saved with its first question
       let id = openId;
@@ -333,14 +334,29 @@ export default function AssistantCard(props: Props) {
         rememberOpen(workspaceId, id);
       }
       onDetach?.(); // asked: the next question is about whatever is open again
-      await ask(id, question, (event) =>
-        setTurns((t) => [...t.slice(0, -1), applyEvent(t[t.length - 1], event)]),
+      await ask(
+        id,
+        question,
+        (event) => {
+          started = true;
+          setTurns((t) => [...t.slice(0, -1), applyEvent(t[t.length - 1], event)]);
+        },
         view,
       );
     } catch (e) {
-      setTurns((t) => t.slice(0, -2));
-      setDraft(question);
-      setError(e instanceof Error ? e.message : String(e));
+      const message = e instanceof Error ? e.message : String(e);
+      if (started) {
+        // the server already saved the question and what was written: it stays on screen,
+        // marked as stopped, so that it is not sent twice (review of 18 Nov)
+        setTurns((t) => [
+          ...t.slice(0, -1),
+          { ...t[t.length - 1], error: `The answer stopped: ${message}`, details: { ...t[t.length - 1].details, interrupted: true } },
+        ]);
+      } else {
+        setTurns((t) => t.slice(0, -2));
+        setDraft(question);
+        setError(message);
+      }
     } finally {
       setBusy(false);
       refresh().catch(() => undefined);
