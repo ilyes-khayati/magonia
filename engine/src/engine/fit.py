@@ -224,7 +224,7 @@ def flag_transfers(text: str, far: dict[int, str], areas: list[str]) -> tuple[st
             continue
         where = "; ".join(f"[{n}] {far[n]}" for n in away)
         out.append(text[last:end].rstrip())
-        out.append(f" *({TRANSFER.format(where=where)})*")
+        out.append(f" ({TRANSFER.format(where=where)})")
         last = end
         flagged.append({"cites": away, "sentence": sentence.strip()})
     out.append(text[last:])

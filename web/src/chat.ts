@@ -104,6 +104,10 @@ export function applyEvent(turn: Turn, event: ChatEvent): Turn {
         details: { ...details, reads: [...(details.reads ?? []), { area, variable, year }] },
       };
     }
+    default:
+      // an event this version does not know (the engine adds them, as no_fitting_evidence) is
+      // ignored: returning nothing blanked the app (review of 18 Nov)
+      return turn;
   }
 }
 

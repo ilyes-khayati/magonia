@@ -278,7 +278,8 @@ function Statement({ s }: { s: SupportCheck }) {
 
 const TRUST_LABEL: Record<string, string> = {
   computed: "computed in this workspace",
-  checked: "an earlier answer whose checks passed",
+  checked: "an earlier answer whose checks ran and passed",
+  unchecked: "an earlier answer no check examined",
   passage: "a paper's words",
   note: "your note",
   changed: "computed here, but changed since it was pinned",
@@ -308,8 +309,8 @@ function Withdrawn({ withdrawn }: { withdrawn: SupportCheck[] }) {
   return (
     <details className="support">
       <summary className="meta">
-        Withdrawn from the answer: {withdrawn.length} {withdrawn.length === 1 ? "statement" : "statements"} the
-        cited papers did not support
+        Withdrawn from the answer: {withdrawn.length} {withdrawn.length === 1 ? "statement" : "statements"} that
+        failed a check (a cited paper did not support it, or what it names could not be found)
       </summary>
       <ul className="statements">
         {withdrawn.map((s, k) => (

@@ -153,7 +153,9 @@ CODE_PARTS = ("**Does the evidence fit your setting", "**Tested on your data**")
 
 
 # a mark code adds after a sentence that applies a far paper to the researcher's data
-TRANSFER_MARK = re.compile(r"\s*\*\(This applies a finding from a far setting.*?\)\*", re.DOTALL)
+TRANSFER_MARK = re.compile(
+    r"\s*\**\(This applies a finding from a far setting.*?\)\**", re.DOTALL
+)  # with or without the asterisks written before 19 Nov
 
 
 def model_part(text: str) -> str:
