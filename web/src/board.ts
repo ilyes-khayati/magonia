@@ -87,7 +87,11 @@ export function trustOf(b: BoardItem): BoardTrust {
     (d?.support ?? []).some((s) => s.status === "unsupported") ||
     (d?.numbers ?? []).some((n) => n.status !== "verified") ||
     (d?.app ?? []).some((m) => m.status === "unknown");
-  return failed ? "failed" : "checked";
+  if (failed) return "failed";
+  // "checked" only when a check ran and passed: an answer no check examined (small talk, an
+  // answer without sources or numbers) is not evidence (review of 18 Nov)
+  const ran = (d?.support ?? []).length + (d?.numbers ?? []).length + (d?.app ?? []).length > 0;
+  return ran ? "checked" : "unchecked";
 }
 
 export function boardForMagonia(board: BoardItem[]): { title: string; text: string; trust: BoardTrust; pinned: string }[] {

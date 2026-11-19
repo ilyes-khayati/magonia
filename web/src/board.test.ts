@@ -44,6 +44,8 @@ describe("board", () => {
     expect(trustOf(answer({ support: [{ status: "supported" }] }))).toBe("checked");
     expect(trustOf(answer({ support: [{ status: "unsupported" }] }))).toBe("failed");
     expect(trustOf(answer({ numbers: [{ status: "unmatched" }] }))).toBe("failed");
+    // no check ran: not "checked"
+    expect(trustOf(answer({}))).toBe("unchecked");
   });
 });
 

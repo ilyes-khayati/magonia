@@ -770,7 +770,10 @@ def answer(
         messages[-1] = {**messages[-1], "content": f"{meaning}\n\n{messages[-1]['content']}"}
     elif kind == "method" and (known := glossary(text)):
         sources.append(("Magonia's catalogue", known))
-        messages[-1] = {**messages[-1], "content": f"{known}\n\n---\nThe researcher asks: {text}"}
+        messages[-1] = {
+            **messages[-1],
+            "content": f"{known}\n\n---\nThe researcher asks: {messages[-1]['content']}",
+        }
     # what the researcher pinned, as evidence it can cite [B1]…; not for small talk
     shown = board_items(board or [], text) if kind != "chat" else []
     if shown:
@@ -784,10 +787,13 @@ def answer(
     # model answered from them instead of searching again (measured, f01)
     forced: list[ToolCall] = []
     if follow_up and kind == "research":
+        # appended, not rebuilt from the question: the board block and readings added above
+        # stay (review of 18 Nov)
         messages[-1] = {
             **messages[-1],
-            "content": f'{text}\n\n(This follows the earlier question: "{earlier_question}". '
-            "Answer it about what is asked now, from the papers of the new search.)",
+            "content": f"{messages[-1]['content']}\n\n(This follows the earlier question: "
+            f'"{earlier_question}". Answer it about what is asked now, from the papers of the '
+            "new search.)",
         }
         topic = together(text, earlier_question)
         forced = [ToolCall("search_papers", {"query": keywords(topic)})]

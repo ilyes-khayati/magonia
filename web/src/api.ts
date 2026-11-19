@@ -660,7 +660,7 @@ export type ChatMessage = {
 };
 
 // How far Magon may trust a pinned item; a failed answer is never given to it as evidence
-export type BoardTrust = "computed" | "checked" | "passage" | "note" | "failed" | "changed";
+export type BoardTrust = "computed" | "checked" | "unchecked" | "passage" | "note" | "failed" | "changed";
 export type BoardGiven = { n: number; title: string; trust: BoardTrust; pinned: string };
 
 export type ChatEvent =
