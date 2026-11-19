@@ -79,11 +79,14 @@ def rank(question: str, papers: list[Paper], keep: int, embed: Embed | None = No
         except (URLError, TimeoutError, KeyError, ValueError):
             similarity = None  # no embedding model: fall back to shared words
     most_cited = max(p.cited_by for p in papers)
+    on_topic: set[int] = set()  # papers whose similarity alone reaches the floor
     for i, (paper, text) in enumerate(zip(papers, texts, strict=True)):
         shared = asked & words(text)
         paper.matched = sorted(shared)
         if similarity is not None:
             relevance = similarity[i]
+            if relevance >= FLOOR:
+                on_topic.add(id(paper))
         else:
             relevance = len(shared) / len(asked) if asked else 0.0
         cited = math.log1p(paper.cited_by) / math.log1p(most_cited) if most_cited else 0.0
@@ -97,6 +100,9 @@ def rank(question: str, papers: list[Paper], keep: int, embed: Embed | None = No
             seen.add(title)
             unique.append(paper)
     if similarity is not None:
-        # an off-topic paper is worse than none: the model then says nothing was found
-        unique = [p for p in unique if p.relevance >= FLOOR]
+        # an off-topic paper is worse than none: the model then says nothing was found. The
+        # floor is on similarity alone; the citation bonus, scaled to the other candidates,
+        # let a much-cited off-topic paper through depending on its neighbours (review of
+        # 18 Nov)
+        unique = [p for p in unique if id(p) in on_topic]
     return unique[:keep]

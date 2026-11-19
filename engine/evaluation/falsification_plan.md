@@ -57,6 +57,19 @@ Nothing in this plan will be changed after the first run. Any later change will 
 None to the plan. After the first run the test was also wired into claim testing (claims.lag_test), and the
 500-orchard calibration of ADR 0020 was re-run with it; both results are in ADR 0025.
 
+Deviations and limits, recorded after a review on 18 November:
+- The plan was committed four minutes before the code and the first run: it fixed the design before any
+  result, but it was written by the person who then wrote the code, the same morning.
+- The plan names two driver memories (φ = 0.8 like SPEI, φ = 0.5 like LST). S0–S2 were run with φ = 0.8 only;
+  φ = 0.5 appears only as the driver's own noise in S3.
+- S3's 95% interval (2.7–5.1%) passes the criterion "at most 0.05 plus Monte Carlo error" only because its
+  upper end already contains that error; read strictly, S3 is at the 5% level, not clearly below it.
+- For a claimed lag of 1 month, the lags searched are 1 and 2 (no lag 0), so each implication is tested at
+  alpha / 2, not alpha / 3.
+- Wiring the test into claims.lag_test made the "current single test" column of the harness run the new
+  test too; claims.lag_test(single=True) now keeps the single test, and the harness uses it, so the table
+  above can be reproduced.
+
 ## Results of the first run (1,000 records per row, seed 20261118)
 
 | Scenario | Current test: replicates (95% CI) | Falsification: holds (95% CI) |

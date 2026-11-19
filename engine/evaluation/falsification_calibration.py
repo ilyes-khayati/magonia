@@ -107,7 +107,7 @@ def main() -> None:
         for _ in range(args.runs):
             veg, drv = record(rng, kind, p)
             response, driver = as_series(veg, "ndvi"), as_series(drv, "lst")
-            old += lag_test(claim, response, driver).verdict == "replicates"
+            old += lag_test(claim, response, driver, single=True).verdict == "replicates"
             y = deseasonalise(monthly_series(response))
             x = deseasonalise(monthly_series(driver))
             result = falsify(y, x, -1, 1)

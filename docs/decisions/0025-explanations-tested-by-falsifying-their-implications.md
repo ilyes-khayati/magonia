@@ -24,8 +24,9 @@ When an explanation says which way the driver acts, code tests four implications
 advance (engine/falsify.py): the anomalies are linked at the claimed lag; beyond the
 vegetation's own memory of the month before (partial correlation); in both halves of the
 record; and not through a shared linear trend. Each is a one-sided Fisher-z test on the
-effective sample size of Bretherton et al. (1999), at alpha divided by the lags searched (3
-around a claimed lag, 12 when none is claimed). The explanation replicates only if all four
+effective sample size of Bretherton et al. (1999), at alpha divided by the lags searched (the
+claimed lag and one month either side, so 2 for a claimed lag of 1 and 3 otherwise; 12 when none is
+claimed). The explanation replicates only if all four
 pass: an intersection-union test, of level alpha under any dependence (Berger and Hsu 1996).
 Merging e-values (Vovk and Wang 2021), as Popper does for an open sequence of generated tests,
 was not used: with a fixed set that must all hold, it would let one strong implication carry a

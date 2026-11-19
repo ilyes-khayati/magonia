@@ -316,7 +316,9 @@ def test(claim: Claim, view: View) -> ClaimTest:
     )
 
 
-def lag_test(claim: Claim, response: Series, driver: Series) -> ClaimTest:
+def lag_test(claim: Claim, response: Series, driver: Series, single: bool = False) -> ClaimTest:
+    """The claim tested on two series. single=True keeps the single correlation test that the
+    falsification test replaced (ADR 0025), so that the two can still be compared."""
     y = deseasonalise(monthly_series(response))
     x = deseasonalise(monthly_series(driver))
     longest = max(12, (claim.lag or 0) + NEAR)
@@ -336,7 +338,7 @@ def lag_test(claim: Claim, response: Series, driver: Series) -> ClaimTest:
         verdict = "contradicts"
     else:
         verdict = "undecided"
-    tried = falsify(y, x, claim.sign, claim.lag) if claim.sign else None
+    tried = falsify(y, x, claim.sign, claim.lag) if claim.sign and not single else None
     if tried is not None and tried.verdict != "cannot test":
         verdict = {"holds": "replicates", "contradicted": "contradicts"}.get(
             tried.verdict, "undecided"
