@@ -1,7 +1,7 @@
 import * as Plot from "@observablehq/plot";
 import { SPEI_SCALES, type Scales } from "../analyses";
 import type { SeriesOptions, SeriesPoint, Variable, VariableKey } from "../api";
-import { lagCorrelation, type Lag } from "../correlation";
+import { lagCorrelation, type Lag, searchedBand } from "../correlation";
 import { num } from "../format";
 import { PlotFrame } from "../plot/Chart";
 import { seriesKey } from "../settings";
@@ -147,14 +147,17 @@ export default function ScalesCard({ analysis, onChange, onRemove, variables, ti
               <li>
                 {name(analysis.response)} {analysis.deseasonalise ? "anomalies" : "values"} follow SPEI-{best.scale} from{" "}
                 {best.lag === 0 ? "the same month" : `${best.lag} month${best.lag === 1 ? "" : "s"} earlier`} most closely (r ={" "}
-                {num(best.r, 2)}, {best.n} months, chance ±{num(best.band, 2)})
-                {Math.abs(best.r) < best.band ? "; this does not stand out from chance." : "."}
+                {num(best.r, 2)}, {best.n} months; the strongest of {cells.length} cells must pass ±
+                {num(searchedBand(best, cells.length), 2)})
+                {Math.abs(best.r) < searchedBand(best, cells.length)
+                  ? "; this does not stand out from chance."
+                  : "; it stands out from chance."}
               </li>
             </ul>
           )}
           <span className="meta">
             Picking the best of {SCALES.length * (MAX_LAG + 1)} cells favours a high value by chance: read the outlined cell as a
-            lead to test, not a result. Faint numbers lie inside the band of chance.
+            lead to test, not a result. Faint numbers lie inside the band of chance for a single cell.
           </span>
         </>
       )}

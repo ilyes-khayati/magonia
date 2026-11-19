@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SeriesPoint } from "./api";
-import { anomalies, describeLink, lagCorrelation, monthly, pearson, correlationCautions } from "./correlation";
+import { anomalies, describeLink, lagCorrelation, monthly, pearson, correlationCautions, normalQuantile, searchedBand } from "./correlation";
 
 // Monthly points from 2010-01, one per value
 const series = (values: (number | null)[], start = 2010): SeriesPoint[] =>
@@ -109,5 +109,16 @@ describe("guardrails on a correlation", () => {
     expect(correlationCautions("Orchard", "NDVI", "LST", season.slice(0, 20), heat.slice(0, 20), true)).toEqual([
       "Orchard: only 20 months in common; a correlation needs about 36 to mean much.",
     ]);
+  });
+});
+
+describe("the strongest lag is tested as the best of several (review of 18 Nov)", () => {
+  it("matches the normal quantiles and the engine's bound", () => {
+    expect(normalQuantile(0.975)).toBeCloseTo(1.959964, 5);
+    expect(normalQuantile(1 - 0.05 / 26)).toBeCloseTo(2.8908, 3);
+    // r = 0.15 over 200 independent months passes one lag's band (0.139), not the best of 13
+    const lags = Array.from({ length: 13 }, (_, lag) => ({ lag, r: lag === 1 ? 0.15 : 0.01, n: 200, band: 1.96 / Math.sqrt(200), memory: [0, 0] as [number, number] }));
+    expect(searchedBand(lags[1], 13)).toBeCloseTo(0.2044, 3);
+    expect(describeLink("Area", "NDVI", "LST", lags, true)).toMatch(/no lag stands out from chance/);
   });
 });
