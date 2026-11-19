@@ -5,9 +5,9 @@ const paper = { id: "W1", doi: null, open_access_url: null, pdf_url: null, short
 
 describe("where a cited page is read", () => {
   it("opens the researcher's own file inside Magonia, at the page", () => {
-    expect(whereToRead({ ...paper, id: "U3", title: "Field notes" }, 6)).toEqual({
+    expect(whereToRead({ ...paper, id: "U3", title: "Field notes" }, 6, 2)).toEqual({
       title: "Field notes",
-      url: "/api/library/U3/pdf#page=6",
+      url: "/api/workspaces/2/library/U3/pdf#page=6",
       inside: true,
     });
   });

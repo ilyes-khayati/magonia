@@ -259,10 +259,12 @@ class Uploads:
     def get(self, upload_id: str, removed: bool = False) -> dict:
         """A file of the library, with whether its PDF is kept; a removed one only if asked."""
         with self.library.connect() as db:
+            # a workspace reaches only its own files: ids are short and easy to guess
+            # (U1, U2…), so another workspace's id is not enough (ADR 0017; review of 18 Nov)
             row = db.execute(
                 "SELECT id, title, filename, added, pages, sha FROM uploads "
-                "WHERE id = ? AND (deleted IS NULL OR ?)",
-                (upload_id, removed),
+                "WHERE id = ? AND (deleted IS NULL OR ?) AND (? IS NULL OR workspace = ?)",
+                (upload_id, removed, self.library.workspace, self.library.workspace),
             ).fetchone()
         if row is None:
             raise KeyError(upload_id)
@@ -300,13 +302,10 @@ class Uploads:
 
     def pdf(self, upload_id: str) -> Path | None:
         """The kept PDF of a file, if there is one (files added before 1.5 were not kept)."""
+        self.get(upload_id)  # raises KeyError for a file of another workspace
         with self.library.connect() as db:
-            row = db.execute(
-                "SELECT sha FROM uploads WHERE id = ? AND deleted IS NULL", (upload_id,)
-            ).fetchone()
-        if row is None:
-            raise KeyError(upload_id)
-        path = self.library.files / f"{row[0]}.pdf" if row[0] else None
+            (sha,) = db.execute("SELECT sha FROM uploads WHERE id = ?", (upload_id,)).fetchone()
+        path = self.library.files / f"{sha}.pdf" if sha else None
         return path if path and path.exists() else None
 
     def papers(self) -> list[Paper]:

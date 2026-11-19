@@ -707,10 +707,10 @@ export type LibraryFile = {
 // Each workspace has its own files; a file is then reached by its id
 export const listFiles = (workspaceId: number) =>
   call<LibraryFile[]>(`/workspaces/${workspaceId}/library`);
-export const removeFile = (id: string) =>
-  call<void>(`/library/${id}`, send("DELETE"));
-export const restoreFile = (id: string) =>
-  call<LibraryFile>(`/library/${id}/restore`, send("POST"));
+export const removeFile = (workspaceId: number, id: string) =>
+  call<void>(`/workspaces/${workspaceId}/library/${id}`, send("DELETE"));
+export const restoreFile = (workspaceId: number, id: string) =>
+  call<LibraryFile>(`/workspaces/${workspaceId}/library/${id}/restore`, send("POST"));
 export function addFile(workspaceId: number, file: File) {
   const body = new FormData();
   body.append("file", file);

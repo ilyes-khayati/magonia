@@ -5,9 +5,11 @@ import type { PaperCard } from "./api";
 // or the publisher's page in a new tab. #page=6 opens a PDF at page 6 in the browser's viewer.
 export type Readable = { title: string; url: string; inside: boolean };
 
-export function whereToRead(paper: Pick<PaperCard, "id" | "doi" | "open_access_url" | "pdf_url" | "short" | "title">, page?: number): Readable | null {
+// The researcher's own file is reached through its workspace (another workspace's is not found)
+export function whereToRead(paper: Pick<PaperCard, "id" | "doi" | "open_access_url" | "pdf_url" | "short" | "title">, page?: number, workspaceId?: number | null): Readable | null {
   const at = page ? `#page=${page}` : "";
-  if (/^U\d+$/.test(paper.id)) return { title: paper.title, url: `/api/library/${paper.id}/pdf${at}`, inside: true };
+  if (/^U\d+$/.test(paper.id))
+    return { title: paper.title, url: `/api/workspaces/${workspaceId ?? ""}/library/${paper.id}/pdf${at}`, inside: true };
   if (paper.pdf_url) return { title: paper.title, url: `${paper.pdf_url}${at}`, inside: false };
   if (paper.doi) return { title: paper.title, url: `https://doi.org/${paper.doi}`, inside: false };
   if (paper.open_access_url) return { title: paper.title, url: paper.open_access_url, inside: false };

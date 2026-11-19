@@ -1359,29 +1359,31 @@ async def add_file(
         raise HTTPException(400, str(exc)) from exc
 
 
-@app.delete("/library/{file_id}", status_code=204)
-def remove_file(file_id: str, library: LibraryDep) -> None:
+# A file is reached through its workspace: another workspace's file is "No such file" (ADR 0017)
+@app.delete("/workspaces/{workspace_id}/library/{file_id}", status_code=204)
+def remove_file(workspace_id: int, file_id: str, library: LibraryDep) -> None:
     """Remove a file from the library; it can be restored for 30 days."""
     try:
-        Uploads(library).remove(file_id)
+        Uploads(library.scoped(workspace_id)).remove(file_id)
     except KeyError as exc:
         raise HTTPException(404, "No such file.") from exc
 
 
-@app.post("/library/{file_id}/restore")
-def restore_file(file_id: str, library: LibraryDep) -> dict:
+@app.post("/workspaces/{workspace_id}/library/{file_id}/restore")
+def restore_file(workspace_id: int, file_id: str, library: LibraryDep) -> dict:
     try:
-        return Uploads(library).restore(file_id)
+        return Uploads(library.scoped(workspace_id)).restore(file_id)
     except KeyError as exc:
         raise HTTPException(404, "No such file.") from exc
 
 
-@app.get("/library/{file_id}/pdf")
-def read_file(file_id: str, library: LibraryDep) -> FileResponse:
+@app.get("/workspaces/{workspace_id}/library/{file_id}/pdf")
+def read_file(workspace_id: int, file_id: str, library: LibraryDep) -> FileResponse:
     """The file itself, shown in the browser (#page=6 opens it at page 6)."""
+    uploads = Uploads(library.scoped(workspace_id))
     try:
-        path = Uploads(library).pdf(file_id)
-        title = Uploads(library).get(file_id)["filename"]
+        path = uploads.pdf(file_id)
+        title = uploads.get(file_id)["filename"]
     except KeyError as exc:
         raise HTTPException(404, "No such file.") from exc
     if path is None:

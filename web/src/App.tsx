@@ -182,11 +182,11 @@ export default function App() {
   const [reading, setReading] = useState<Readable | null>(null);
   // a paper opens inside Magonia when it is the researcher's own, else in a new tab
   const read = useCallback((paper: PaperCard, page?: number) => {
-    const where = whereToRead(paper, page);
+    const where = whereToRead(paper, page, workspaceId);
     if (!where) return;
     if (where.inside) setReading(where);
     else window.open(where.url, "_blank", "noreferrer");
-  }, []);
+  }, [workspaceId]);
   const closeReader = useCallback(() => setReading(null), []);
   const saving = useRef<number | undefined>(undefined);
   const linked = useRef(initial.current.has("at"));
