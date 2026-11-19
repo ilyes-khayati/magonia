@@ -26,6 +26,7 @@ import re
 
 from engine.citations import GROUP
 from engine.citations import plain as accentless
+from engine.setting import ADJECTIVES, PLACE
 from engine.support import NOT_AN_END, SENTENCE, Statement
 
 # A paper named by its first author and year, in the forms a model writes: "Ben Salah et al.
@@ -167,9 +168,13 @@ NO_RESEARCH = re.compile(
 # Between the variable and the word that would invert it, a contrast means the sentence gives
 # both directions: "positive SPEI values indicate wetter conditions, while negative values
 # indicate drier ones" is right, and was withdrawn as wrong (14 Nov)
+# A verb of relief turns the direction too: "higher SPEI reduces drought stress" is right, and
+# so is a second clause joined by "and" ("higher LST in summer and cooler surfaces in winter");
+# both were withdrawn (review of 18 Nov)
 CONTRAST = re.compile(
-    r"\b(wet|wetter|dry|drier|while|whereas|but|negative|positive|lower|low|higher|high|"
-    r"less|more|conversely|opposite|hotter|warmer)\b|;",
+    r"\b(wet|wetter|dry|drier|while|whereas|but|and|negative|positive|lower|low|higher|high|"
+    r"less|fewer|more|conversely|opposite|hotter|warmer|cooler|reduc\w*|eas(e|es|ed|ing)|"
+    r"reliev\w*|alleviat\w*|mitigat\w*|prevent\w*|avoid\w*|offset\w*|buffer\w*|against)\b|;",
     re.IGNORECASE,
 )
 
@@ -251,7 +256,9 @@ def mentions(text: str) -> list[tuple[str, int]]:
     for m in MENTION.finditer(text):
         name = m.group("name") or m.group("name2")
         year = m.group("year") or m.group("year2")
-        if name in NOT_AUTHORS or name.isupper():
+        # a place and a year is not a reference, wherever the place is: the list of places is
+        # the setting's gazetteer, not one country (review of 18 Nov)
+        if name in NOT_AUTHORS or name.isupper() or PLACE.fullmatch(name) or name in ADJECTIVES:
             continue
         found.append((name.lower(), int(year)))
     return found

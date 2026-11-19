@@ -358,3 +358,10 @@ def test_a_cited_paper_named_with_its_accent_or_print_year_is_not_taken_for_an_i
     )
     assert honesty.withdrawn("Martinez et al. (2020) found NDVI fell.", papers, searched=True) == []
     assert honesty.withdrawn("Smith et al. (2018) found NDVI fell.", papers, searched=True) != []
+
+
+def test_places_and_relief_are_not_mistaken_review_of_18_nov():
+    # a governorate and a year is not a reference; a relief verb is not an inverted definition
+    assert honesty.mentions("Hail in Jendouba (2019) lowered NDVI.") == []
+    assert honesty.upside_down("Higher SPEI values reduce drought stress on the trees.") == ""
+    assert honesty.upside_down("Higher SPEI values mean drier conditions.") != ""
