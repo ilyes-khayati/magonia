@@ -178,20 +178,23 @@ def explanation_sentences(record: dict) -> list[str]:
     return out
 
 
-def evidence_for(sentence: str, cache: dict) -> list[str]:
+def evidence_for(sentence: str, cache: dict) -> list[str] | None:
+    """Abstracts for a sentence, or None when the search failed. A failure is not cached: it
+    was cached as "no evidence", so the sentence counted as unsupported for good, and the
+    version scored after the search budget ran out was penalised (review of 18 Nov)."""
     from engine.literature import LiteratureError, keywords, search_papers
 
     query = keywords(sentence)
-    if query not in cache:
+    if cache.get(query) is None:
         try:
             # one index for every version scored: no Crossref fallback in the scorer
             cache[query] = [
                 p.abstract for p in search_papers(query, limit=5, fallback=False) if p.abstract
             ]
         except LiteratureError:
-            cache[query] = None
             time.sleep(2)
-    return cache[query] or []
+            return None
+    return cache[query]
 
 
 def score(args) -> None:
@@ -211,9 +214,12 @@ def score(args) -> None:
         scored = []
         for sentence in explanation_sentences(r):
             abstracts = evidence_for(sentence, cache)
+            label = next((v for k, v in own.items() if k and (k in sentence or sentence in k)), "")
+            if abstracts is None:  # not searched: left out of the shares, and counted
+                scored.append({"sentence": sentence, "supported": None, "label": label})
+                continue
             verdicts = [judge(sentence, a) for a in abstracts]
             supported = "yes" in verdicts
-            label = next((v for k, v in own.items() if k and (k in sentence or sentence in k)), "")
             scored.append({"sentence": sentence, "supported": supported, "label": label})
         r["scored"] = scored
         r["research_says"] = len(RESEARCH_SAYS.findall(r.get("answer", "")))
@@ -231,13 +237,19 @@ def score(args) -> None:
     def cell(label, f):
         return f(by(label)) if by(label) else "–"
 
+    def judged(r):  # the sentences the scorer could search for
+        return [x for x in r["scored"] if x["supported"] is not None]
+
     def precision(rs):
-        s = [x["supported"] for r in rs for x in r["scored"]]
-        per = [
-            sum(x["supported"] for x in r["scored"]) / len(r["scored"]) for r in rs if r["scored"]
-        ]
+        s = [x["supported"] for r in rs for x in judged(r)]
+        missed = sum(x["supported"] is None for r in rs for x in r["scored"])
+        per = [sum(x["supported"] for x in judged(r)) / len(judged(r)) for r in rs if judged(r)]
         sd = statistics.stdev(per) if len(per) > 1 else 0
-        return f"{sum(s)}/{len(s)} ({100 * sum(s) / max(len(s), 1):.0f}%), per answer sd {sd:.2f}"
+        unsearched = f"; {missed} not searched (search failed)" if missed else ""
+        return (
+            f"{sum(s)}/{len(s)} ({100 * sum(s) / max(len(s), 1):.0f}%), per answer sd {sd:.2f}"
+            f"{unsearched}"
+        )
 
     def mean_of(key):
         return lambda rs: f"{statistics.mean(r[key] for r in rs):.1f}"
@@ -256,7 +268,9 @@ def score(args) -> None:
         lines.append(f"| {name} | {cell('before', f)} | {cell('after', f)} |")
 
     # agreement of the new version's own labels with the independent scorer
-    labelled = [x for r in by("after") for x in r["scored"] if x["label"]]
+    labelled = [
+        x for r in by("after") for x in r["scored"] if x["label"] and x["supported"] is not None
+    ]
     if labelled:
         own = [x for x in labelled if x["label"] == "unsourced"]
         backed = [x for x in labelled if x["label"] == "supported"]
