@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Map as MapLibre, ScaleControl, type GeoJSONSource, type LngLatBoundsLike, type RasterTileSource } from "maplibre-gl";
+import { Map as MapLibre, ScaleControl, type GeoJSONSource, type LngLatBoundsLike, type LineLayerSpecification, type RasterTileSource } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import {
   TerraDraw,
@@ -22,6 +22,10 @@ import { FitIcon } from "./Icons";
 export type Tool = "polygon" | "rectangle" | "measure" | "inspect" | null;
 
 export type MapArea = { id: number; geometry: GeoJSON.Geometry; colour: string };
+
+// How an area's outline is drawn: its colour on a white casing, so it reads on any basemap
+const AREA_CASING: LineLayerSpecification["paint"] = { "line-color": "#ffffff", "line-width": 5, "line-opacity": 0.9 };
+const AREA_LINE: LineLayerSpecification["paint"] = { "line-color": ["get", "colour"], "line-width": 2.5 };
 
 // Where the map should move to; `key` changes to repeat the same move
 export type Target = { key: number; center?: [number, number]; bounds?: LngLatBoundsLike; zoom?: number };
@@ -124,8 +128,10 @@ export default function MapView(props: Props) {
       instance.addSource("inspected", { type: "geojson", data: empty });
       instance.addLayer({ id: "pixels-line", type: "line", source: "pixels", paint: { "line-color": "#ffffff", "line-width": 0.8, "line-opacity": 0.85, "line-dasharray": [2, 2] } });
       instance.addLayer({ id: "areas-fill", type: "fill", source: "areas", paint: { "fill-color": ["get", "colour"], "fill-opacity": 0.08 } });
-      instance.addLayer({ id: "areas-halo", type: "line", source: "areas", paint: { "line-color": "#000000", "line-width": 3.5, "line-opacity": 0.35 } });
-      instance.addLayer({ id: "areas-line", type: "line", source: "areas", paint: { "line-color": ["get", "colour"], "line-width": 1.75 } });
+      // a light casing under each outline: the area colours are the colours of fields, and on
+      // satellite imagery of fields a bare outline in them disappears
+      instance.addLayer({ id: "areas-halo", type: "line", source: "areas", paint: AREA_CASING });
+      instance.addLayer({ id: "areas-line", type: "line", source: "areas", paint: AREA_LINE });
       instance.addLayer({
         id: "inspected",
         type: "circle",
@@ -269,7 +275,8 @@ export default function MapView(props: Props) {
     main.on("move", follow);
     second.on("load", () => {
       second.addSource("areas", { type: "geojson", data: (main.getSource("areas") as GeoJSONSource).serialize().data as GeoJSON.FeatureCollection });
-      second.addLayer({ id: "areas-line", type: "line", source: "areas", paint: { "line-color": ["get", "colour"], "line-width": 1.75 } });
+      second.addLayer({ id: "areas-halo", type: "line", source: "areas", paint: AREA_CASING });
+      second.addLayer({ id: "areas-line", type: "line", source: "areas", paint: AREA_LINE });
       showLayer(second, layer, compare, () => {});
     });
     right.current = second;
