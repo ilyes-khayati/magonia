@@ -15,7 +15,10 @@ export function useAnalysis<B, T>(requests: { key: string; body: B }[], run: (bo
       save({ status: "loading" });
       run(body)
         .then((data) => save({ status: "done", data }))
-        .catch((error: Error) => save({ status: "failed", error: error.message }));
+        .catch((error: Error) => {
+          started.current.delete(key); // a passing failure is retried on the next change, as useSeries does
+          save({ status: "failed", error: error.message });
+        });
     }
   }, [requests, run]);
 
