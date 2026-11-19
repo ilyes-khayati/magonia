@@ -7,6 +7,7 @@ from collections.abc import Iterator
 from datetime import date, timedelta
 from functools import cache
 from typing import Annotated, Literal
+from urllib.parse import quote
 
 import engine
 import pandas as pd
@@ -35,7 +36,7 @@ from engine.verify import installed as verifier_installed
 from engine.verify import judge_for
 from fastapi import Depends, FastAPI, HTTPException, Query, Response, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from starlette.concurrency import run_in_threadpool
 
 from api.jobs import Runner, cache_key, execute
@@ -707,10 +708,14 @@ def export_notebook(body: NotebookRequest, store: StoreDep) -> Response:
         )
     nb = notebook.notebook(body.title, body.kind, body.options, used)
     name = "".join(c if c.isalnum() else "-" for c in body.title.lower()).strip("-") or "magonia"
+    # a header is Latin-1: a title in Arabic or Chinese goes in the RFC 5987 form, with a plain
+    # fallback, or the export failed with a server error (review of 18 Nov)
+    plain = "".join(c if c.isascii() else "-" for c in name).strip("-") or "magonia"
+    disposition = f"attachment; filename=\"{plain}.ipynb\"; filename*=UTF-8''{quote(name)}.ipynb"
     return Response(
         notebook.dumps(nb),
         media_type="application/x-ipynb+json",
-        headers={"Content-Disposition": f'attachment; filename="{name}.ipynb"'},
+        headers={"Content-Disposition": disposition},
     )
 
 
@@ -1291,14 +1296,20 @@ def forecast_facts(store: Store, view: View, areas: dict[int, dict]) -> list[fac
                 for k in ("models", "params", "calendar", "rolling")
                 if analysis.get(k) is not None
             }
-            body = ModelsRequest(
-                response=mine[analysis["response"]],
-                drivers=[mine[k] for k in analysis.get("drivers", []) if k in mine],
-                own_lags=analysis.get("own_lags"),
-                driver_lags=analysis.get("driver_lags"),
-                test_years=analysis.get("test_years", 3),
-                **later,
-            )
+            try:
+                body = ModelsRequest(
+                    response=mine[analysis["response"]],
+                    drivers=[mine[k] for k in analysis.get("drivers", []) if k in mine],
+                    own_lags=analysis.get("own_lags"),
+                    driver_lags=analysis.get("driver_lags"),
+                    test_years=analysis.get("test_years", 3),
+                    **later,
+                )
+            except ValidationError:
+                # a card saved by an older version, or no longer valid, is left out of what
+                # Magon reads; it failed every chat in its workspace (review of 18 Nov)
+                log.warning("forecast card %s left out of the view: no longer valid", n)
+                continue
             name = analysis.get("name") or f"Models {n}"
             card = f"{name}: {analysis['response'].upper()} forecast"
             key = models_key(body, store)

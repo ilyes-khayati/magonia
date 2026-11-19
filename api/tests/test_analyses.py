@@ -435,8 +435,14 @@ def test_an_analysis_is_exported_as_a_notebook_with_its_data(client, store):
     }
     reply = client.post("/notebook", json=body)
     assert reply.status_code == 200
-    assert reply.headers["content-disposition"] == 'attachment; filename="orchard-trend.ipynb"'
+    assert reply.headers["content-disposition"].startswith(
+        'attachment; filename="orchard-trend.ipynb"'
+    )
     nb = reply.json()
+    # a title in Arabic no longer fails the export
+    arabic = client.post("/notebook", json={**body, "title": "زيتون"})
+    assert arabic.status_code == 200
+    assert "filename*=UTF-8''" in arabic.headers["content-disposition"]
     assert nb["nbformat"] == 4 and nb["metadata"]["magonia"]["kind"] == "trend"
     sources = ["".join(c["source"]) for c in nb["cells"]]
     assert any("MODIS Terra MOD13Q1" in s for s in sources)
