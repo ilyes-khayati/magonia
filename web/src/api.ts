@@ -103,8 +103,21 @@ export function errorText(body: { detail?: unknown }, status: number): string {
     : `The request was refused (error ${status}).`;
 }
 
+// A server that cannot be reached is said in plain words, not as the browser's "Failed to fetch"
+// or "Load failed" (review of 18 Nov)
+export const UNREACHABLE = "Magonia's server cannot be reached. Check that it is running, then try again.";
+
+async function reach(input: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") throw e;
+    throw new Error(UNREACHABLE);
+  }
+}
+
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`/api${path}`, {
+  const response = await reach(`/api${path}`, {
     ...init,
     // a file upload (FormData) sets its own content type
     headers:
@@ -792,7 +805,7 @@ export async function ask(
   onEvent: (event: ChatEvent) => void,
   view?: View,
 ) {
-  const response = await fetch(`/api/conversations/${conversationId}/chat`, {
+  const response = await reach(`/api/conversations/${conversationId}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ content, view }),
