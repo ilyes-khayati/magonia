@@ -313,9 +313,18 @@ def design(
     """The predictors, the target, why each predictor is there, and the first test month."""
     title, _, y = target
     y = y.rename(title)
+    # Lags are recommended on the training years only, as the paper screens them: chosen on the
+    # whole record, they would have seen the test years (review of 18 Nov). The test starts
+    # test_years before the last month a forecast can be made for: the response's last month,
+    # or the month after a driver's last, whichever is earlier
+    last = y.dropna().index.max()
+    for _, _, x in drivers:
+        last = min(last, x.dropna().index.max() + pd.DateOffset(months=1))
+    cut = last - pd.DateOffset(years=test_years) + pd.DateOffset(months=1)
+    y_train = y[y.index < cut]
     chosen = []
     if own_lags is None:
-        own_lags, why = recommend_own_lags(y)
+        own_lags, why = recommend_own_lags(y_train)
     else:
         why = "chosen by the researcher"
     chosen += [{"name": f"{title} lag {k}", "reason": why} for k in own_lags]
@@ -324,7 +333,7 @@ def design(
         if driver_lags is not None and dkey in driver_lags:
             lags, why = driver_lags[dkey], "chosen by the researcher"
         else:
-            best, why = recommend_driver_lag(y, x, name, dkey)
+            best, why = recommend_driver_lag(y_train, x[x.index < cut], name, dkey)
             lags = [best] if best else []
             if not lags:
                 chosen.append({"name": f"{name}", "reason": f"left out: {why}"})
@@ -466,7 +475,8 @@ def forecast(
                 f"(±{fmt(np.std([w['RMSE'] for w in f.rolling]))})"
                 for f in fitted
             )
-            + "."
+            + ". The settings were tuned once, on the years before the last window, which "
+            "include the earlier windows: their scores are somewhat optimistic."
         )
     return Forecast(
         chosen,
