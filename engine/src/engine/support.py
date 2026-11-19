@@ -150,8 +150,11 @@ def judge_with(stream: Callable, errors: tuple[type[Exception], ...] = (OSError,
             )
         except errors:  # the model could not be asked: the statement stays unclear
             return "partly"
-        first = (re.findall(r"[a-z]+", said.lower()) or ["no"])[0]
-        return first if first in ("yes", "partly", "no") else "no"
+        # the first of the three words it uses, wherever it comes ("Based on the passage,
+        # yes"); a reply with none of them is unclear, not a "no" that would withdraw a
+        # sentence (withdrawing a true statement costs more, ADR 0019; review of 18 Nov)
+        words = re.findall(r"\b(yes|partly|no)\b", said.lower())
+        return words[0] if words else "partly"
 
     return judge
 
@@ -326,7 +329,9 @@ def check_uncited(
         near = [(s, t) for score, s, t in sorted(scored, reverse=True) if score >= low]
         near = near[:CANDIDATES]
         best = near[0] if near else ("", "")
-        statement = Statement(start, end, claim, [], "unclear" if near else "unsourced", best[1], best[0])
+        statement = Statement(
+            start, end, claim, [], "unclear" if near else "unsourced", best[1], best[0]
+        )
         if judge is not None and calls < MAX_UNCITED:
             candidates = list(near)
             if more is not None and papers:
@@ -358,7 +363,9 @@ ABSENCE = re.compile(
     re.IGNORECASE,
 )
 
-BULLET = re.compile(r"^\s*(?:[-*•]|\d+[.)])?\s*$")  # what is left of a line once its sentence is gone
+BULLET = re.compile(
+    r"^\s*(?:[-*•]|\d+[.)])?\s*$"
+)  # what is left of a line once its sentence is gone
 
 
 def withdraw(

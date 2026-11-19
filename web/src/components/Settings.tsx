@@ -402,7 +402,6 @@ function MagonSection() {
           >
             <option value="minicheck-roberta">MiniCheck RoBERTa (default)</option>
             <option value="minicheck-deberta">MiniCheck DeBERTa</option>
-            <option value="nli">Inference model (DeBERTa NLI)</option>
             <option value="model">The chat model</option>
           </select>
         </label>

@@ -49,7 +49,9 @@ def numbers(group: str) -> list[int]:
 # A first sentence that only announces the answer: "Based on the literature, here is what is
 # known about…:". It carries nothing, and the support check counts it as a claim.
 FRAMING = re.compile(
-    r"^\s*(based on (the )?(literature|studies|research|papers|sources|the papers found)[^.\n]*|"
+    # only an announcement ending in a colon: "Based on the studies found, drought lowers NDVI
+    # by 10% [1]." is a claim, and was deleted (review of 18 Nov)
+    r"^\s*(based on (the )?(literature|studies|research|papers|sources|the papers found)[^.\n\[]*(?=:)|"
     r"here (is|are) (what|some|a summary)[^.\n]*|"
     r"(the )?(literature|research|studies) (suggests?|shows?|indicates?) the following[^.\n]*)"
     r"[:.]\s*\n*",
