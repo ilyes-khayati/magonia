@@ -35,16 +35,32 @@ ORDER = (
 )  # the paper's, then networks
 
 
-def family(feature: str) -> str:
+def family(feature: str, own: str | None = None) -> str:
+    """The family of an input: the response's own lags, LST, drought (SPEI), the calendar, or
+    any other driver under its own name. Before 18 Nov every other input (rainfall, air
+    temperature, soil moisture) was counted as own history. own is the response's title; the
+    inputs are named "<title>_lag<k>" (models.features)."""
     if feature == "noise_probe":
         return "noise probe"
-    if feature.startswith(("LST", "Land surface")):
-        return "LST"
-    if feature.startswith("SPEI"):
-        return "drought"
     if feature.startswith("month"):
         return "calendar"
-    return "own history"
+    source = feature.rsplit("_lag", 1)[0]
+    if source == own:
+        return "own history"
+    if source.startswith(("LST", "Land surface")):
+        return "LST"
+    if source.startswith("SPEI"):
+        return "drought"
+    # without the response's title (a table not made by models.design), as before
+    return "own history" if own is None else source
+
+
+FAMILY_ORDER = {"own history": 0, "LST": 1, "drought": 2, "calendar": 9, "noise probe": 10}
+
+
+def own_of(y: pd.Series) -> str | None:
+    """The response's title, as models.design names the target."""
+    return str(y.name) if y.name not in (None, "target") else None
 
 
 def oof_permutation(name: str, params: dict, X: pd.DataFrame, y: pd.Series, seed: int) -> pd.Series:
@@ -66,7 +82,7 @@ def oof_permutation(name: str, params: dict, X: pd.DataFrame, y: pd.Series, seed
 
 def family_permutation(model, X: pd.DataFrame, y: pd.Series, rng, repeats: int = 10) -> pd.Series:
     """Increase in MSE when a whole family is shuffled with one row order."""
-    families = pd.Series({c: family(c) for c in X.columns})
+    families = pd.Series({c: family(c, own_of(y)) for c in X.columns})
     base = np.mean((y - model.predict(X)) ** 2)
     out = {}
     for name, columns in families.groupby(families).groups.items():
@@ -203,8 +219,9 @@ def drop_family(name: str, params: dict, X: pd.DataFrame, y: pd.Series) -> dict[
     every = list(X.columns)
     base = oof_rmse(every)
     out = {}
-    for fam in dict.fromkeys(family(c) for c in every):
-        rest = [c for c in every if family(c) != fam]
+    own = own_of(y)
+    for fam in dict.fromkeys(family(c, own) for c in every):
+        rest = [c for c in every if family(c, own) != fam]
         if rest:
             out[fam] = (oof_rmse(rest) - base) / base
     return out
@@ -231,10 +248,10 @@ def native(name: str, model, X: pd.DataFrame) -> tuple[str, pd.Series]:
     return "gradient × input", pd.Series(np.abs(model.gradients(X)).mean(axis=0), index=X.columns)
 
 
-def timeline(model, X: pd.DataFrame) -> list[dict]:
+def timeline(model, X: pd.DataFrame, own: str | None = None) -> list[dict]:
     """For every month, how much the forecast moves when one family of inputs is set to its
     average: positive when that family pushed the forecast up that month."""
-    families = pd.Series({c: family(c) for c in X.columns})
+    families = pd.Series({c: family(c, own) for c in X.columns})
     full = model.predict(X)
     out = pd.DataFrame(index=X.index)
     for name, columns in families.groupby(families).groups.items():
@@ -308,7 +325,7 @@ def explain(X: pd.DataFrame, y: pd.Series, params: dict[str, dict], seeds: int =
             "importance": values.to_dict(),
             "tau": tau(shuffled.clip(lower=0), values),
         }
-        months[name] = timeline(model, X)
+        months[name] = timeline(model, X, own_of(y))
     return Explanation(
         importance,
         {m: f.to_dict() for m, f in families.items()},
@@ -344,7 +361,8 @@ def describe(area: str, explained: Explanation) -> list[str]:
     details, lines = lines, []
     names = [n for n in ORDER if n in explained.families]
     if len(names) > 1:
-        for fam in ("own history", "LST", "drought", "calendar"):
+        every = dict.fromkeys(f for n in names for f in explained.families[n])
+        for fam in sorted(every, key=lambda f: FAMILY_ORDER.get(f, len(FAMILY_ORDER))):
             share = {n: explained.families[n].get(fam, 0.0) for n in names}
             if max(share.values()) < 0.10:
                 continue

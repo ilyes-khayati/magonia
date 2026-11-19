@@ -350,7 +350,8 @@ def design(
     if X.empty:
         raise ForecastError("Choose at least one predictor: a lag, a driver or the calendar.")
     table = pd.concat([X, y.rename("target")], axis=1).dropna()
-    X, y = table.drop(columns="target"), table["target"]
+    # the target keeps its title, so that explain can tell its own history from the drivers
+    X, y = table.drop(columns="target"), table["target"].rename(title)
     end = y.index.max()
     test_start = (end - pd.DateOffset(years=test_years) + pd.DateOffset(months=1)).strftime(
         "%Y-%m-01"
