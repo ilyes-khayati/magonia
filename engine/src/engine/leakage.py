@@ -188,10 +188,19 @@ def describe(area, title, rows, placebo, base, best) -> list[str]:
         f"{row['trend_whole']:.2f} when the whole record is decomposed at once and "
         f"{row['trend_causal']:.2f} when each month is decomposed from the past only."
     )
+    # the conclusion follows the numbers, not the other way round (review of 18 Nov); it rests
+    # on one draw of noise and on Ridge alone, and says so
+    if placebo["whole"] - placebo["causal"] >= 0.1:
+        reading = (
+            "on noise, whole-record parts score higher, so that much of a whole-record trend "
+            "score comes from later months, not skill"
+        )
+    else:
+        reading = "on this draw the two do not differ much, so the placebo shows no clear leak"
     noise = (
-        f"{area}: on white noise, where nothing can be forecast, the same recipe reaches trend "
-        f"R² {placebo['whole']:.2f} with whole-record parts and {placebo['causal']:.2f} with "
-        "causal ones: what the whole-record trend score adds comes from later months, not skill."
+        f"{area}: on white noise, where nothing can be forecast, the same recipe (one draw, "
+        f"Ridge) reaches trend R² {placebo['whole']:.2f} with whole-record parts and "
+        f"{placebo['causal']:.2f} with causal ones: {reading}."
     )
     value = (
         f"{area}: for {title} itself, the parts added back give RMSE {row['whole']:.4f} "
