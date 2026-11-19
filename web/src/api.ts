@@ -305,6 +305,7 @@ export type DecompositionResponse = {
   level: number;
   cadence_days: number;
   semi_period_days: number;
+  trend_from_days: number; // the trend keeps cycles longer than this
   interpolated: number;
   area_id: number;
   points: {

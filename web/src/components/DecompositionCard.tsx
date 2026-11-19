@@ -58,7 +58,7 @@ export default function DecompositionCard({ analysis, onChange, onRemove, variab
           <CardTitle name={analysis.name} fallback="Trend and season" onRename={(name) => onChange({ name })} />
           <span className="meta">
             {method
-              ? `Discrete Meyer wavelet, level ${method.level} on ${Math.round(method.cadence_days)}-day steps · trend keeps cycles longer than ~${Math.round(method.semi_period_days)} days`
+              ? `Discrete Meyer wavelet, level ${method.level} on ${Math.round(method.cadence_days)}-day steps · trend keeps cycles longer than ~${Math.round(method.trend_from_days)} days`
               : "Discrete Meyer wavelet at the product's own time step"}
           </span>
         </div>

@@ -21,7 +21,7 @@ from engine.models import baselines, estimator, scores
 
 ORDER = ("Ridge", "RandomForest", "XGBoost")
 
-LEVEL = 4  # monthly: the trend keeps cycles longer than about a year, as decompose chooses
+LEVEL = 4  # monthly, as decompose chooses: the trend keeps cycles longer than about 2.7 years
 WARMUP = 48  # months decomposed before the first causal value is trusted
 LAGS = (1, 2, 3, 6, 12)
 MIN_MONTHS = 96

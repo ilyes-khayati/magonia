@@ -13,7 +13,7 @@ import pandas as pd
 
 from engine import guardrails
 from engine.catalogue import large
-from engine.decompose import DecompositionError, decompose
+from engine.decompose import DecompositionError, decompose, trend_from
 from engine.lags import explore
 
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
@@ -439,7 +439,9 @@ def decomposition_facts(card: str, s: Series) -> list[Fact]:
             card,
             f"{who}: discrete Meyer wavelet at level {result.level} on {s.title}'s "
             f"{result.cadence_days:.0f}-day steps, so the trend keeps cycles longer than about "
-            f"{result.semi_period_days:.0f} days; {result.interpolated} empty dates were filled by "
+            f"{trend_from(result.level, result.cadence_days):.0f} days and the seasonal part "
+            "carries the year-to-year variation shorter than that as well as the yearly cycle; "
+            f"{result.interpolated} empty dates were filled by "
             "straight lines first. The filter uses later data too, so the trend describes the "
             "past and is not a forecast.",
         ),

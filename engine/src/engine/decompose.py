@@ -2,7 +2,7 @@
 
 The method of Bounouh et al. (2024) and of the 2026 paper: multiresolution analysis with the
 discrete Meyer wavelet, at the series' own cadence, with the boundary between trend and
-season set nearest one year. The series is mirrored at both ends to soften edge effects, the
+level set as the paper sets it: the one whose band boundary falls nearest one year. The series is mirrored at both ends to soften edge effects, the
 trend is the lowest-frequency component, and the seasonal part is what remains, so the two
 add back exactly to the series. Results are then averaged by month.
 
@@ -20,13 +20,22 @@ import pywt
 from engine.catalogue import CADENCE_DAYS, get_variable
 
 WAVELET = "dmey"
-TARGET_DAYS = 365.25  # the trend keeps cycles longer than about a year
+TARGET_DAYS = 365.25  # the paper's choice of level: its detail band's boundary nearest a year
 PAD = 0.5  # share of the series mirrored at each end
 
 
 def semi_period(level: int, cadence_days: float) -> float:
-    """Days of the boundary between the trend and the rest, at a given level."""
+    """Days of the boundary the paper sets near a year: the centre of the level's detail band.
+    The trend (the approximation below it) begins at about twice this, see trend_from."""
     return 2**level * cadence_days / (2 * pywt.central_frequency(WAVELET))
+
+
+def trend_from(level: int, cadence_days: float) -> float:
+    """Days from which the trend keeps a cycle: about 2^(level+1) steps. Measured with split()
+    on pure cycles (review of 18 Nov): at level 5 on 16-day steps the trend keeps 1% of a
+    one-year cycle, 4% of a two-year one, 24% at 900 days and all of it from about 1,100. So
+    the seasonal part also carries the variation from one to about three years."""
+    return 2 ** (level + 1) * cadence_days
 
 
 def level_for(cadence_days: float) -> int:
@@ -65,6 +74,7 @@ class Decomposition:
             "level": self.level,
             "cadence_days": self.cadence_days,
             "semi_period_days": round(self.semi_period_days, 1),
+            "trend_from_days": round(trend_from(self.level, self.cadence_days), 1),
             "interpolated": self.interpolated,
             "points": [
                 {
