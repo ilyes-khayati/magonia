@@ -118,7 +118,7 @@ export default function ModelPage(props: Props) {
       <div className="page-head">
         <h1>Model</h1>
         <div className="row">
-          <button onClick={() => add({ ...structuredClone(RESEARCH), area: firstArea }, "Reproduction: notebook 04")}>
+          <button className="button" onClick={() => add({ ...structuredClone(RESEARCH), area: firstArea }, "Reproduction: notebook 04")}>
             Reproduce the research
           </button>
           <button className="primary row" onClick={() => add()}>

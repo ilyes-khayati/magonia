@@ -897,8 +897,8 @@ def fit_forecast(store: Store, key: str, response: facts.Series, drivers: list[f
     try:
         found = forecast(
             response.area,
-            (response.title, response.key, facts.monthly_series(response)),
-            [(d.title, d.key, facts.monthly_series(d)) for d in drivers],
+            (response.title, response.key, facts.monthly_series(response, body.research)),
+            [(d.title, d.key, facts.monthly_series(d, body.research)) for d in drivers],
             body.own_lags,
             body.driver_lags,
             body.test_years,
@@ -949,12 +949,13 @@ def models(body: ModelsRequest, store: StoreDep, runner: RunnerDep, reply: Respo
 def explain_forecast(store, key, models_result, response, drivers, body) -> None:
     try:
         X, y, _, test_start = design(
-            (response.title, response.key, facts.monthly_series(response)),
-            [(d.title, d.key, facts.monthly_series(d)) for d in drivers],
+            (response.title, response.key, facts.monthly_series(response, body.research)),
+            [(d.title, d.key, facts.monthly_series(d, body.research)) for d in drivers],
             body.own_lags,
             body.driver_lags,
             body.test_years,
             body.calendar,
+            body.research,
         )
         train = X.index < test_start
         params = {m["name"]: m["params"] for m in models_result["models"]}
@@ -1015,12 +1016,13 @@ def explanations(body: ModelsRequest, store: StoreDep, runner: RunnerDep, reply:
 def check_stability(store, key, models_result, response, drivers, body) -> None:
     try:
         X, y, _, test_start = design(
-            (response.title, response.key, facts.monthly_series(response)),
-            [(d.title, d.key, facts.monthly_series(d)) for d in drivers],
+            (response.title, response.key, facts.monthly_series(response, body.research)),
+            [(d.title, d.key, facts.monthly_series(d, body.research)) for d in drivers],
             body.own_lags,
             body.driver_lags,
             body.test_years,
             body.calendar,
+            body.research,
         )
         params = {m["name"]: m["params"] for m in models_result["models"]}
         held = stability(response.area, X, y, params, test_start)

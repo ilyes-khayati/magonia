@@ -251,16 +251,16 @@ async function fakeApi(page: Page, connected = true) {
     return route.fulfill({ json: library });
   });
   let removed: typeof library = [];
-  await page.route("**/api/library/*", (route) => {
+  await page.route("**/api/workspaces/1/library/*", (route) => {
     removed = library.filter((f) => route.request().url().endsWith(`/${f.id}`));
     library = library.filter((f) => !route.request().url().endsWith(`/${f.id}`));
     return route.fulfill({ status: 204 });
   });
-  await page.route("**/api/library/*/restore", (route) => {
+  await page.route("**/api/workspaces/1/library/*/restore", (route) => {
     library = [...library, ...removed];
     return route.fulfill({ json: removed[0] });
   });
-  await page.route("**/api/library/*/pdf", (route) =>
+  await page.route("**/api/workspaces/1/library/*/pdf", (route) =>
     route.fulfill({ contentType: "application/pdf", body: Buffer.from("%PDF-1.4\n%%EOF") }),
   );
   await page.route("**/api/workspaces/1/instructions", (route) => {
@@ -1507,7 +1507,7 @@ test("the library takes the researcher's PDFs and their instructions for Magonia
   // read inside Magonia, then removed and brought back
   await page.getByRole("button", { name: "field survey", exact: true }).click();
   const reader = page.getByRole("dialog", { name: "Reading field survey" });
-  await expect(reader.locator("iframe")).toHaveAttribute("src", "/api/library/U1/pdf");
+  await expect(reader.locator("iframe")).toHaveAttribute("src", "/api/workspaces/1/library/U1/pdf");
   await page.keyboard.press("Escape");
   await expect(reader).toHaveCount(0);
   await page.getByRole("button", { name: "Remove field survey from the library" }).click();
