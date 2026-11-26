@@ -273,7 +273,7 @@ const familiesOf = (data: ExplanationResponse) => {
 // Share of each model's importance by family of inputs, and how far the models agree
 function Explanations({ data }: { data: ExplanationResponse }) {
   const models = (
-    ["XGBoost", "RandomForest", "Ridge", "MLP", "LSTM", "GRU", "TCN"] as const
+    ["XGBoost", "RandomForest", "Ridge", "SVR", "MLP", "LSTM", "GRU", "TCN"] as const
   ).filter((m) => data.families[m]);
   return (
     <>

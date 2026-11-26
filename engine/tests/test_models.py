@@ -239,3 +239,39 @@ def test_lags_are_recommended_on_the_training_years_only():
     )
     assert test_start == "2020-01-01"
     assert [c["name"] for c in chosen if c["name"].startswith("LST")] == ["LST"]  # left out
+
+
+def test_svr_is_offered_as_in_the_research_and_fits_the_same_every_time():
+    from engine.explain import explain
+    from engine.models import forecast
+
+    d = pd.read_csv(
+        DATA / "reference_decomposition.csv", index_col="date", parse_dates=True
+    ).asfreq("MS")
+    found = forecast(
+        "Orchard",
+        ("NDVI", "ndvi", d.NDVI),
+        [],
+        [1, 12],
+        seeds=3,
+        models=["SVR", "Ridge"],
+        params={"SVR": {"C": 10, "gamma": 0.1, "epsilon": 0.05}},
+        rolling=False,
+    )
+    svr = next(m for m in found.models if m.name == "SVR")
+    assert svr.params == {
+        "regressor__svr__C": 10.0,
+        "regressor__svr__gamma": 0.1,
+        "regressor__svr__epsilon": 0.05,
+    }
+    assert svr.seeds["runs"] == 1  # no randomness: one fit says it all
+    assert svr.test["R2"] > 0.5
+
+    table = pd.read_csv(
+        DATA / "reference_features_original.csv", index_col="date", parse_dates=True
+    )
+    train = table[table["split"] == "train"].iloc[:120]
+    X, y = train.drop(columns=["target", "split"]), train["target"]
+    explained = explain(X, y, {"SVR": {"regressor__svr__C": 10.0}}, seeds=2)
+    assert "SVR" in explained.families  # explained by shuffling
+    assert "SVR" not in explained.native  # it has no importance of its own

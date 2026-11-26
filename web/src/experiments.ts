@@ -4,8 +4,8 @@ import type { Area, ModelsBody, SeriesOptions, VariableKey } from "./api";
 // Forecasting experiments on the Model page. Each is a recipe the researcher edits and the
 // recipe it last ran: results always belong to a run, so nothing refits while editing.
 
-export type ModelName = "Ridge" | "RandomForest" | "XGBoost" | "MLP" | "LSTM" | "GRU" | "TCN";
-export const MODEL_NAMES: ModelName[] = ["Ridge", "RandomForest", "XGBoost", "MLP", "LSTM", "GRU", "TCN"];
+export type ModelName = "Ridge" | "RandomForest" | "XGBoost" | "SVR" | "MLP" | "LSTM" | "GRU" | "TCN";
+export const MODEL_NAMES: ModelName[] = ["Ridge", "RandomForest", "XGBoost", "SVR", "MLP", "LSTM", "GRU", "TCN"];
 // the paper's three, chosen for a new experiment; the networks are added by choice
 export const DEFAULT_MODELS: ModelName[] = ["Ridge", "RandomForest", "XGBoost"];
 export const DEEP: ModelName[] = ["MLP", "LSTM", "GRU", "TCN"];
@@ -14,6 +14,7 @@ export const MODEL_KIND: Record<ModelName, string> = {
   Ridge: "Linear regression with an L2 penalty",
   RandomForest: "Bagged decision trees",
   XGBoost: "Gradient-boosted trees",
+  SVR: "Support vector regression, RBF kernel",
   MLP: "Feed-forward network over the lag window",
   LSTM: "Recurrent network over the lag sequence",
   GRU: "Recurrent network, lighter than the LSTM",
@@ -23,6 +24,7 @@ export const MODEL_LABEL: Record<ModelName, string> = {
   Ridge: "Ridge",
   RandomForest: "Random Forest",
   XGBoost: "XGBoost",
+  SVR: "SVR",
   MLP: "MLP",
   LSTM: "LSTM",
   GRU: "GRU",
@@ -54,6 +56,11 @@ export const SETTABLE: Record<ModelName, Setting[]> = {
     { key: "subsample", label: "Row subsample", min: 0.1, max: 1, step: 0.05, fallback: "1.0" },
     { key: "colsample_bytree", label: "Column subsample per tree", min: 0.1, max: 1, step: 0.05, fallback: "1.0" },
     { key: "min_child_weight", label: "Minimum child weight", min: 0, max: 50, step: 1, fallback: "1" },
+  ],
+  SVR: [
+    { key: "C", label: "Error penalty (C)", min: 0.001, max: 10000, step: 0.1, fallback: "1.0" },
+    { key: "gamma", label: "Kernel width (gamma)", min: 0.00001, max: 10, step: 0.001, fallback: "scale" },
+    { key: "epsilon", label: "Ignored error band (epsilon)", min: 0.0001, max: 10, step: 0.01, fallback: "0.1" },
   ],
   MLP: NEURAL,
   LSTM: NEURAL,

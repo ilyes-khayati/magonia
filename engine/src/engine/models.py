@@ -14,12 +14,14 @@ import numpy as np
 import pandas as pd
 from scipy.stats import loguniform, randint, uniform
 from sklearn.base import clone
+from sklearn.compose import TransformedTargetRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import Ridge
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, TimeSeriesSplit
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVR
 from xgboost import XGBRegressor
 
 from engine.catalogue import large
@@ -28,14 +30,20 @@ from engine.lags import acf, deseasonalise, driver_evidence
 
 SEED = 0
 NAMES = ("Ridge", "RandomForest", "XGBoost")  # the paper's models, chosen by default
+KERNEL = ("SVR",)  # the research's support vector regression, chosen by the researcher
 DEEP = ("MLP", "LSTM", "GRU", "TCN")  # small neural networks, chosen by the researcher
-ALL = NAMES + DEEP
+ALL = NAMES + KERNEL + DEEP
+FIXED = ("Ridge", "SVR")  # fit the same whatever the seed
 
 # the paper's estimators and search spaces
 ESTIMATORS = {
     "XGBoost": XGBRegressor(random_state=SEED, n_jobs=1),
     "RandomForest": RandomForestRegressor(random_state=SEED, n_jobs=1),
     "Ridge": make_pipeline(StandardScaler(), Ridge()),
+    # as in the research notebooks: inputs and target standardised, an RBF kernel
+    "SVR": TransformedTargetRegressor(
+        make_pipeline(StandardScaler(), SVR()), transformer=StandardScaler()
+    ),
     "MLP": DeepRegressor(kind="mlp", random_state=SEED),
     "LSTM": DeepRegressor(kind="lstm", random_state=SEED),
     "GRU": DeepRegressor(kind="gru", random_state=SEED),
@@ -62,12 +70,18 @@ SPACES = {
         "max_features": ["sqrt", 0.5, 1.0],
     },
     "Ridge": {"ridge__alpha": np.logspace(-4, 3, 50)},
+    "SVR": {
+        "regressor__svr__C": loguniform(1e-2, 1e3),
+        "regressor__svr__gamma": loguniform(1e-4, 1),
+        "regressor__svr__epsilon": loguniform(1e-3, 1),
+    },
     **{name: NEURAL for name in DEEP},
 }
 
 # What a researcher may set by hand instead of tuning, by its plain name, with its range
 SETTABLE = {
     "Ridge": {"alpha": (1e-6, 1e6)},
+    "SVR": {"C": (1e-3, 1e4), "gamma": (1e-5, 10.0), "epsilon": (1e-4, 10.0)},
     "RandomForest": {
         "n_estimators": (10, 2000),
         "max_depth": (1, 50),
@@ -106,7 +120,8 @@ def manual_params(name: str, given: dict) -> dict:
         if not low <= float(value) <= high:
             raise ForecastError(f"{LABELS[name]} {key} must be between {low:g} and {high:g}.")
         value = int(value) if key in INTEGER else float(value)
-        out["ridge__alpha" if name == "Ridge" else key] = value
+        prefix = {"Ridge": "ridge__", "SVR": "regressor__svr__"}.get(name, "")
+        out[prefix + key] = value
     return out
 
 
@@ -133,7 +148,7 @@ def features(
 
 def estimator(name: str, params: dict, seed: int = SEED):
     model = clone(ESTIMATORS[name]).set_params(**params)
-    if name != "Ridge":
+    if name not in FIXED:
         model.set_params(random_state=seed)
     return model
 
@@ -208,10 +223,8 @@ def evaluate(
             scores(
                 y[test], estimator(name, params[name], s).fit(X[train], y[train]).predict(X[test])
             )
-            # Ridge fits the same every time; a network's seeds are fewer, as it costs more
-            for s in (
-                [SEED] if name == "Ridge" else range(min(seeds, 5) if name in DEEP else seeds)
-            )
+            # Ridge and SVR fit the same every time; a network's seeds are fewer, as it costs more
+            for s in ([SEED] if name in FIXED else range(min(seeds, 5) if name in DEEP else seeds))
         ]
         f.seeds = {
             "runs": len(runs),
@@ -237,6 +250,7 @@ LABELS = {
     "Ridge": "Ridge",
     "RandomForest": "Random Forest",
     "XGBoost": "XGBoost",
+    "SVR": "SVR",
     "MLP": "MLP",
     "LSTM": "LSTM",
     "GRU": "GRU",
@@ -438,7 +452,7 @@ def forecast(
         + "."
     )
     summary = [span, ranking]
-    trees = [f for f in fitted if f.name != "Ridge"]
+    trees = [f for f in fitted if f.name not in FIXED]
     if trees and len(order) > 1:
         floor = max(f.seeds["RMSE_sd"] for f in trees)
         gap = order[1].test["RMSE"] - order[0].test["RMSE"]

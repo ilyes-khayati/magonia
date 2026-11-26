@@ -28,6 +28,7 @@ ORDER = (
     "XGBoost",
     "RandomForest",
     "Ridge",
+    "SVR",
     "MLP",
     "LSTM",
     "GRU",
@@ -234,9 +235,12 @@ NATIVE = {
 }
 
 
-def native(name: str, model, X: pd.DataFrame) -> tuple[str, pd.Series]:
+def native(name: str, model, X: pd.DataFrame) -> tuple[str, pd.Series] | None:
     """Each model's own account of its inputs, in its own terms: what a researcher would get
-    from the library without Magonia. Mean absolute size per input."""
+    from the library without Magonia. Mean absolute size per input. An RBF support vector
+    regression has none, so it is explained by shuffling alone."""
+    if name == "SVR":
+        return None
     if name == "Ridge":
         ridge = model[-1]
         return NATIVE[name], pd.Series(np.abs(ridge.coef_), index=X.columns)
@@ -318,13 +322,13 @@ def explain(X: pd.DataFrame, y: pd.Series, params: dict[str, dict], seeds: int =
         for column in leading:
             if curve := ale(model, X, column):
                 effects[column][name] = curve
-        method, values = native(name, model, X)
-        shuffled = pd.Series(importance[name])
-        own[name] = {
-            "method": method,
-            "importance": values.to_dict(),
-            "tau": tau(shuffled.clip(lower=0), values),
-        }
+        if (found := native(name, model, X)) is not None:
+            method, values = found
+            own[name] = {
+                "method": method,
+                "importance": values.to_dict(),
+                "tau": tau(pd.Series(importance[name]).clip(lower=0), values),
+            }
         months[name] = timeline(model, X, own_of(y))
     return Explanation(
         importance,
