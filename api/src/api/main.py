@@ -844,9 +844,9 @@ class ModelsRequest(BaseModel):
     own_lags: list[int] | None = Field(None, max_length=12)  # None: recommended by code
     driver_lags: dict[str, list[int]] | None = None  # by variable; a driver left out: recommended
     test_years: int = Field(3, ge=1, le=10)
-    models: list[Literal["Ridge", "RandomForest", "XGBoost", "MLP", "LSTM", "GRU", "TCN"]] = Field(
-        ["Ridge", "RandomForest", "XGBoost"], min_length=1
-    )
+    models: list[
+        Literal["Ridge", "RandomForest", "XGBoost", "SVR", "MLP", "LSTM", "GRU", "TCN"]
+    ] = Field(["Ridge", "RandomForest", "XGBoost"], min_length=1)
     params: dict[str, dict[str, float]] | None = None  # by model; a model left out is tuned
     calendar: bool = True
     rolling: bool = True  # also test on earlier windows
@@ -1179,6 +1179,7 @@ def list_messages(conversation_id: int, store: StoreDep) -> list[ChatMessage]:
 
 MASKING = {
     "pixel": "cloudy pixels removed",
+    "strict": "only good pixels kept, dates under half good removed",
     "date": "cloudy dates removed",
     "none": "no cloud filter",
 }

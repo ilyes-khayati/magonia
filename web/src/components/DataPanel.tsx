@@ -72,6 +72,7 @@ const RESOLUTIONS: [Resolution, string][] = [
 
 const CLOUD_FILTERS: [Masking, string][] = [
   ["pixel", "Remove cloudy pixels"],
+  ["strict", "Strict, as in the research"],
   ["date", "Remove cloudy dates"],
   ["none", "No cloud filter"],
 ];
@@ -79,6 +80,7 @@ const CLOUD_FILTERS: [Masking, string][] = [
 // Why each recommended step is on by default (PREP-01)
 const REASONS = {
   pixel: "Recommended: drops cloudy pixels and keeps the clear part of the area.",
+  strict: "Keeps only good-quality pixels (marginal ones too are dropped) and drops a date when fewer than half its pixels are good: the rule of the research notebooks.",
   date: "Drops a whole date when half the area or more is cloudy.",
   none: "Raw values: clouds will appear as sudden drops.",
   fill: "Recommended: fills short gaps by straight lines in time; longer gaps stay empty.",

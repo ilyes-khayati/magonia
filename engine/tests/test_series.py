@@ -52,6 +52,14 @@ def test_date_masking_drops_mostly_flagged_dates():
     assert table["n_pixels"][1] == 0
 
 
+def test_strict_masking_drops_dates_with_fewer_than_half_their_pixels_good():
+    # the research notebooks' rule: a date with exactly half its pixels good is kept
+    features = [properties(5804, flagged=0.5), properties(2300, flagged=0.6)]
+    table = to_table(features, NDVI, masking="strict")
+    assert list(table["masked"]) == [False, True]
+    assert table["n_pixels"][1] == 0
+
+
 def test_no_masking_keeps_flagged_dates():
     table = to_table([properties(2300, flagged=1)], NDVI, masking="none")
     assert table["value"][0] == pytest.approx(0.23)
