@@ -1,0 +1,21 @@
+branch,model,family,share
+original,RandomForest,LST,0.6060810355765872
+original,RandomForest,calendar,0.004566351053442273
+original,RandomForest,drought,0.0045739049152759
+original,RandomForest,noise probe,0.0
+original,RandomForest,own history,0.3847787084546947
+original,Ridge,LST,0.05090663376945178
+original,Ridge,calendar,0.018702025200458473
+original,Ridge,drought,0.017484850518531065
+original,Ridge,noise probe,0.0015325881952648625
+original,Ridge,own history,0.9113739023162938
+original,SVR,LST,0.13556555312974822
+original,SVR,calendar,0.08389993740348684
+original,SVR,drought,0.013053241721044705
+original,SVR,noise probe,0.0024480439664992235
+original,SVR,own history,0.765033223779221
+original,XGBoost,LST,0.38748533403385665
+original,XGBoost,calendar,0.004095874046233115
+original,XGBoost,drought,0.009612890181578352
+original,XGBoost,noise probe,0.0008599624698554937
+original,XGBoost,own history,0.5979459392684764

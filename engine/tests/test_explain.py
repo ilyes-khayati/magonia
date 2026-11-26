@@ -1,4 +1,6 @@
-"""The explanations must reproduce the 2026 paper's (notebook 05, original branch)."""
+"""The explanations must reproduce the research's (notebook 05, original branch, run of November
+2026), given its features and tuned hyperparameters: Ridge, Random Forest, XGBoost and SVR. The
+research's MLP is scikit-learn's, not Magonia's network, so it is left out of the comparison."""
 
 import json
 
@@ -9,36 +11,45 @@ from test_models import PAPERS_MACHINE
 
 from engine.explain import allocation, explain, family, shares, tau
 
+# results/05_importance.csv, 05_family_shares.csv and 05_agreement.csv, original branch, without
+# the MLP: permutation importance out of fold on the training years, five seeds
+IMPORTANCE = "reference_importance_2026-11.csv"
+FAMILY_SHARES = "reference_family_shares_2026-11.csv"
+AGREEMENT = "reference_agreement_2026-11.csv"
+
 
 @pytest.fixture(scope="module")
 def explained():
-    table = pd.read_csv(
-        DATA / "reference_features_original.csv", index_col="date", parse_dates=True
-    )
-    params = json.loads((DATA / "reference_best_params.json").read_text())
+    table = pd.read_csv(DATA / "reference_features_2026-11.csv", index_col="date", parse_dates=True)
+    params = json.loads((DATA / "reference_best_params_2026-11.json").read_text())
     train = table[table["split"] == "train"]
     return explain(train.drop(columns=["target", "split"]), train["target"], params, seeds=5)
 
 
 def close(name):
-    # tree models move a little on other processors (see test_models); Ridge never does
-    return 1e-12 if PAPERS_MACHINE or name == "Ridge" else 0.05
+    # On the research's kind of machine (Apple silicon) the results agree to rounding (about
+    # 1e-16). Elsewhere the tree models move a little (see test_models), SVR's solver by about
+    # 1e-5, and Ridge not at all; shares are compared there, since a small input can move by
+    # several percent of itself.
+    if PAPERS_MACHINE or name == "Ridge":
+        return 1e-12
+    return 1e-3 if name == "SVR" else 0.05
 
 
 def test_reproduces_the_papers_permutation_importance(explained):
-    paper = pd.read_csv(DATA / "reference_importance.csv")
+    paper = pd.read_csv(DATA / IMPORTANCE)
+    assert set(paper["model"]) == set(explained.importance)
     for model, rows in paper.groupby("model"):
         theirs = rows.set_index("feature")["importance"]
         ours = pd.Series(explained.importance[model])[theirs.index]
         if PAPERS_MACHINE or model == "Ridge":
             assert ours.tolist() == pytest.approx(theirs.tolist(), rel=1e-12, abs=1e-12)
         else:
-            # a single small input can move by several percent, so compare the shares
             assert (shares(ours) - shares(theirs)).abs().max() < close(model)
 
 
 def test_reproduces_the_papers_family_shares(explained):
-    paper = pd.read_csv(DATA / "reference_family_shares.csv")
+    paper = pd.read_csv(DATA / FAMILY_SHARES)
     for row in paper.itertuples():
         assert explained.families[row.model][row.family] == pytest.approx(
             row.share, abs=close(row.model)
@@ -46,11 +57,16 @@ def test_reproduces_the_papers_family_shares(explained):
 
 
 def test_reproduces_the_papers_agreement(explained):
-    paper = pd.read_csv(DATA / "reference_agreement.csv").set_index("pair")
+    paper = pd.read_csv(DATA / AGREEMENT).set_index("pair")
+    assert len(explained.agreement) == len(paper)
+    exact = 1e-12 if PAPERS_MACHINE else 0.05
     for pair in explained.agreement:
-        row = paper.loc[pair.pair]
-        exact = 1e-12 if PAPERS_MACHINE else 0.05
-        assert (pair.tau, pair.dist) == pytest.approx((row.tau, row.dist), abs=exact)
+        # the notebook lists SVR before Ridge; both measures are symmetric
+        name = pair.pair if pair.pair in paper.index else " vs ".join(pair.pair.split(" vs ")[::-1])
+        row = paper.loc[name]
+        columns = ["tau", "tau_lo", "tau_hi", "dist", "dist_lo", "dist_hi"]
+        ours = [getattr(pair, c) for c in columns]
+        assert ours == pytest.approx(row[columns].tolist(), abs=exact)
         if pair.separable is not None:
             assert pair.separable == bool(row.separable)
 
@@ -168,7 +184,7 @@ def test_effects_are_described_with_their_direction(explained):
 
     assert explained.effects
     for curves in explained.effects.values():
-        assert set(curves) <= {"XGBoost", "RandomForest", "Ridge"}
+        assert set(curves) <= {"XGBoost", "RandomForest", "Ridge", "SVR"}
     lines = describe("Orchard", explained)
     assert any("(accumulated local effects)" in line for line in lines)
 
