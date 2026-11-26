@@ -1507,7 +1507,7 @@ test("the library takes the researcher's PDFs and their instructions for Magonia
   // read inside Magonia, then removed and brought back
   await page.getByRole("button", { name: "field survey", exact: true }).click();
   const reader = page.getByRole("dialog", { name: "Reading field survey" });
-  await expect(reader.locator("iframe")).toHaveAttribute("src", "/api/library/U1/pdf");
+  await expect(reader.locator("iframe")).toHaveAttribute("src", "/api/workspaces/1/library/U1/pdf");
   await page.keyboard.press("Escape");
   await expect(reader).toHaveCount(0);
   await page.getByRole("button", { name: "Remove field survey from the library" }).click();
