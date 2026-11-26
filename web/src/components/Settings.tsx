@@ -400,19 +400,19 @@ function MagonSection() {
             value={form.verifier}
             onChange={(e) => set({ verifier: e.target.value as MagonSettings["verifier"] })}
           >
-            <option value="minicheck-roberta">MiniCheck RoBERTa (default)</option>
-            <option value="minicheck-deberta">MiniCheck DeBERTa</option>
-            <option value="model">The chat model</option>
+            <option value="minicheck-roberta">Standard checker (recommended)</option>
+            <option value="minicheck-deberta">Larger checker, slower</option>
+            <option value="model">The model that answers</option>
           </select>
         </label>
         <p className="settings-help">
-          A separate model trained only to tell whether a passage supports a sentence, instead of
-          asking the model that wrote the answer. Runs on this computer; needs the verify extra.
+          A separate model trained only to tell whether a passage supports a sentence (MiniCheck),
+          instead of asking the model that wrote the answer. It runs on this computer.
         </p>
         {saved && saved.verifier !== "model" && inUse.verifier === "model" && (
           <p className="settings-help" role="status">
-            Not installed on this computer, so the chat model checks instead. Install it with{" "}
-            <code>uv sync --extra verify</code> in <code>api/</code>.
+            The checker is not installed on this computer, so the model that answers checks instead.
+            The installation guide (README) says how to add it.
           </p>
         )}
       </div>
