@@ -82,7 +82,8 @@ Significant technical choices get a short record in `docs/decisions/`.
 
 ## Troubleshooting
 
-`ModuleNotFoundError: No module named 'engine'` on macOS: iCloud Desktop sync
-marks files in `.venv` as hidden, and Python 3.13 skips hidden `.pth` files.
-Each `.venv` is a symlink to `.venv.nosync`, which iCloud ignores. To recreate one:
+`ModuleNotFoundError: No module named 'engine'` on macOS, only when the repository sits in a
+folder synced by iCloud (such as the Desktop): iCloud marks files in `.venv` as hidden, and
+Python skips hidden `.pth` files. Keep the repository outside iCloud, or make `.venv` a symlink
+to `.venv.nosync`, which iCloud ignores:
 `rm -rf .venv && mkdir .venv.nosync && ln -s .venv.nosync .venv && uv sync`.

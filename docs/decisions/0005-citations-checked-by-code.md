@@ -1,6 +1,6 @@
 # 0005. Citations are checked by code, not trusted from the model
 
-Status: accepted
+Status: accepted; refined by 0019 (an unsupported statement is withdrawn by default, not only flagged)
 
 ## Context
 Language models invent references: plausible authors, years and titles that do

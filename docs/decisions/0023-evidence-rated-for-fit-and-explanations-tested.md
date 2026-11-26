@@ -1,6 +1,6 @@
 # 0023. Each paper is rated for how well it fits, and each explanation is tested on the data
 
-Status: accepted
+Status: accepted; the explanation tests are refined by 0025
 
 ## Context
 Naming where a paper was made (0022) made misapplied evidence visible but did not raise the

@@ -31,5 +31,3 @@ Numbered in order; superseded records are kept and marked as such.
 | [0024](0024-far-transfers-marked-and-a-second-index.md) | A far paper applied to the researcher's data is marked by code; Crossref backs up OpenAlex |
 | [0025](0025-explanations-tested-by-falsifying-their-implications.md) | An explanation is tested by trying to falsify what it implies |
 
-The reasoning behind each, with the alternatives and when they would win, is in the
-architecture document.

@@ -4,11 +4,11 @@
 
 | | |
 |---|---|
-| Version | 0.2, draft for supervisor review |
-| Date | 8 October 2026 |
+| Version | 1.0, as built |
+| Date | 8 October 2026; updated 26 November 2026 |
 | Author | Ilyes Khayati |
 | Supervisor | Dr. Oumayma Bounouh |
-| Status | Requirements gathering. Not yet approved for development |
+| Status | Version 1 built: single-user, on the researcher's own computer. Section 8.4 records what shipped and what moves to version 2 |
 
 ---
 
@@ -128,10 +128,10 @@ Farmers, agribusinesses and consumers. A simplified product for them is a separa
 
 | ID | Requirement | Priority |
 |---|---|---|
-| ACC-01 | The user can sign in with a Google account. | Must |
+| ACC-01 | The user can sign in with a Google account. | Must (v2) |
 | ACC-02 | The user can sign in with an institutional account (university single sign-on). | Could |
 | ACC-03 | The user can sign in with ORCID. | Could |
-| ACC-04 | The user can connect their own Google Earth Engine project, and the platform uses it for all data requests made on their behalf. | Must |
+| ACC-04 | The user can connect their own Google Earth Engine project, and the platform uses it, with this computer's Earth Engine sign-in, for all data requests. | Must |
 | ACC-05 | A user without an Earth Engine account can explore a demo mode built on pre-computed sample areas. | Should |
 | ACC-06 | The user can create, rename, save, reopen and delete workspaces. | Must |
 | ACC-07 | A workspace stores its areas, analysis chains, parameters and results. | Must |
@@ -199,12 +199,12 @@ Farmers, agribusinesses and consumers. A simplified product for them is a separa
 
 | ID | Requirement | Priority |
 |---|---|---|
-| MOD-01 | The user can fit machine-learning models, starting with Random Forest, XGBoost and Ridge regression, to forecast a chosen variable from chosen predictors and lags. The model catalogue is extensible (for example linear models, support vector regression, gradient-boosting variants). | Should |
+| MOD-01 | The user can fit machine-learning models, starting with Random Forest, XGBoost and Ridge regression, to forecast a chosen variable from chosen predictors and lags. The model catalogue is extensible; version 1 adds support vector regression and SARIMAX, the research's seasonal reference. | Should |
 | MOD-02 | Training and test periods are split by time, never at random; the default leaves the most recent period for testing. | Should |
 | MOD-03 | Results report RMSE, R² and MAE against persistence and climatology baselines. | Should |
 | MOD-04 | Results report a noise floor from repeated fits with different random seeds. | Should |
 | MOD-05 | Hyperparameters can be left at tuned defaults or set manually. | Should |
-| MOD-06 | Deep-learning models for time series (for example LSTM, GRU, temporal convolutional networks, transformers). | Could |
+| MOD-06 | Deep-learning models for time series (for example LSTM, GRU, temporal convolutional networks, transformers). Version 1 has MLP, LSTM, GRU and TCN. | Could |
 
 ### 4.8 Explanations and trust (XAI)
 
@@ -301,19 +301,19 @@ The assistant is optional and appears only when the user opens it.
 
 | ID | Requirement |
 |---|---|
-| NFR-S1 | Authentication uses standard protocols (OAuth 2.0 / OpenID Connect). |
-| NFR-S2 | Earth Engine credentials are stored encrypted and used only for the owner's requests. |
-| NFR-S3 | Workspaces and uploaded data are private unless the owner shares them. |
-| NFR-S4 | Users can delete their account and all associated data. |
+| NFR-S1 | Authentication uses standard protocols (OAuth 2.0 / OpenID Connect). Version 2, with sign-in. |
+| NFR-S2 | Magonia stores no Earth Engine credentials: it uses the computer's own Earth Engine sign-in and keeps only the project id. |
+| NFR-S3 | Workspaces and uploaded data are private unless the owner shares them. Version 1 is single-user: everything stays on the owner's computer. |
+| NFR-S4 | Users can delete their account and all associated data. Version 2, with accounts; in version 1 the owner deletes workspaces, kept 30 days for undo. |
 
 ### 5.5 Portability and deployment (NFR-D)
 
 | ID | Requirement |
 |---|---|
-| NFR-D1 | The platform runs as a web application in the cloud. |
+| NFR-D1 | The platform runs as a web application in the cloud. Version 2. |
 | NFR-D2 | The platform can also be installed and run on a researcher's own computer. |
 | NFR-D4 | All functionality is available through a documented API, so the platform can be used programmatically as well as through the interface. The API may be built first (open question O-10). |
-| NFR-D3 | All components are containerised. |
+| NFR-D3 | All components are containerised. Version 2, with cloud deployment. |
 
 ### 5.6 Maintainability (NFR-M)
 
@@ -321,7 +321,7 @@ The assistant is optional and appears only when the user opens it.
 |---|---|
 | NFR-M1 | The analysis engine is a separate package with a documented interface, used by the interface and by exported notebooks alike. |
 | NFR-M2 | New blocks can be added without changing existing ones. |
-| NFR-M3 | The data layer is abstracted so that sources other than Earth Engine can be added. |
+| NFR-M3 | The data layer can be replaced: extraction goes through one fetch step, so another source can be added there. A full data-source interface is left for when a second source is added. |
 
 ### 5.7 Licensing and compliance (NFR-L)
 
@@ -329,7 +329,7 @@ The assistant is optional and appears only when the user opens it.
 |---|---|
 | NFR-L1 | Earth Engine is used under its terms; non-commercial use requires each user's own registered project. |
 | NFR-L2 | Each data product's licence and required citation are displayed and included in exports. |
-| NFR-L3 | Literature in the librarian corpus is used only within its licence. Open-access papers may be indexed; closed-access papers are only referenced (AI-09) unless the user supplies them (AI-10). |
+| NFR-L3 | Literature in the librarian corpus is used only within its licence. Open-access papers may be indexed; closed-access papers are only referenced (AI-09), from their OpenAlex abstract, unless the user supplies them (AI-10). |
 
 ---
 
@@ -401,6 +401,12 @@ Sign-in (ACC-01), decomposition, correlation and lag analysis, models with expla
 ### 8.3 Later
 
 Librarian, tutor, further data products, phenology, sharing, institutional sign-in, user data uploads, and a separate product for farmers and agribusiness.
+
+### 8.4 What version 1 shipped (26 November 2026)
+
+Version 1 runs on the researcher's own computer for one user. Beyond the plan of 8.1 it includes much of 8.2 and 8.3: wavelet decomposition, correlation, memory and lags, coherence, phenology, the models of MOD-01 and MOD-06 with explanations and noise floors, the assistant with checked citations (AI-01 to AI-10), the personal library, and notebook export.
+
+Moved to version 2: sign-in and accounts (ACC-01, NFR-S1, NFR-S4), cloud deployment and containers (NFR-D1, NFR-D3), and comparison of periods on one chart (the area comparison of ANA-02 and VIS-02 exists). Load testing (NFR-P4) is not done; the area limit is fixed at 10,000 km².
 
 ---
 
