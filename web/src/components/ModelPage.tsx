@@ -17,6 +17,7 @@ import type { Source } from "../board";
 import { useRun } from "../useRun";
 import Results from "./Results";
 import { large } from "../variables";
+import { waitingFor } from "../inputs";
 
 type Props = {
   experiments: Experiment[];
@@ -184,6 +185,10 @@ export default function ModelPage(props: Props) {
 }
 
 // Whether the series a run needs have been extracted for its area
+function waitingOf(r: RecipeT, entries: Props["entries"], name: (key: VariableKey) => string): string {
+  return waitingFor([r.response, ...r.drivers].map((k) => ({ name: name(k), state: entries(k).find((e) => e.area.id === r.area)?.state })));
+}
+
 function readyFor(r: RecipeT | null, entries: Props["entries"]): boolean {
   if (!r || r.area === null) return false;
   return [r.response, ...r.drivers].every(
@@ -306,7 +311,12 @@ function ExperimentView(props: ViewProps) {
             label={variables.find((v) => v.key === ran.response) ? title(variables.find((v) => v.key === ran.response)!) : ran.response}
           />
         ) : (
-          <p className="placeholder">Waiting for the series of this area to load.</p>
+          <p className="placeholder">
+            {waitingOf(ran, entries, (k) => {
+              const v = variables.find((x) => x.key === k);
+              return v ? title(v) : k;
+            })}
+          </p>
         ))}
     </section>
   );
@@ -333,7 +343,7 @@ function Compare({ pair, resolve, options, entries, areas, name, onExplain }: Co
       </p>
       <div className="compare-grid">
         {pair.map((e) => (
-          <CompareColumn key={e.id} experiment={e} recipe={resolve(e.ran)!} options={options} entries={entries} onExplain={() => onExplain(e.id)} />
+          <CompareColumn key={e.id} experiment={e} recipe={resolve(e.ran)!} options={options} entries={entries} name={name} onExplain={() => onExplain(e.id)} />
         ))}
       </div>
     </section>
@@ -345,9 +355,10 @@ function CompareColumn(props: {
   recipe: RecipeT;
   options: Props["options"];
   entries: Props["entries"];
+  name: (key: VariableKey) => string;
   onExplain: () => void;
 }) {
-  const { experiment: e, recipe, options, entries, onExplain } = props;
+  const { experiment: e, recipe, options, entries, name, onExplain } = props;
   const ready = readyFor(recipe, entries);
   const { fit, why } = useRun(ready ? bodyOf(recipe, options) : null, e.explain);
   return (
@@ -356,7 +367,7 @@ function CompareColumn(props: {
       {ready ? (
         <Results fit={fit} why={why} explain={e.explain} onExplain={onExplain} digits={large(recipe.response) ? 2 : 4} compact />
       ) : (
-        <p className="placeholder">Waiting for the series of this area to load.</p>
+        <p className="placeholder">{waitingOf(recipe, entries, name)}</p>
       )}
     </section>
   );

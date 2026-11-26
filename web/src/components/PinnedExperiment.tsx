@@ -5,6 +5,7 @@ import type { Entry } from "./ChartCard";
 import { CloseIcon } from "./Icons";
 import Results from "./Results";
 import { large } from "../variables";
+import { waitingFor } from "../inputs";
 
 type Props = {
   experiment: Experiment;
@@ -45,7 +46,7 @@ export default function PinnedExperiment({ experiment: e, onChange, onRemove, ar
       {!ran ? (
         <p className="placeholder">This experiment had not run when it was pinned.</p>
       ) : !ready ? (
-        <p className="placeholder">Waiting for the series of this area to load.</p>
+        <p className="placeholder">{waitingFor([ran.response, ...ran.drivers].map((k) => ({ name: name(k), state: entries(k).find((x) => x.area.id === ran.area)?.state })))}</p>
       ) : (
         <Results
           fit={fit}

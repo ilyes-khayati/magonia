@@ -9,6 +9,7 @@ import { large } from "../variables";
 import type { Entry } from "./ChartCard";
 import CardTitle from "./CardTitle";
 import { CloseIcon } from "./Icons";
+import { waitingFor } from "../inputs";
 
 type Props = {
   analysis: Leakage;
@@ -32,6 +33,7 @@ export default function LeakageCard({ analysis, onChange, onRemove, variables, t
   };
   const areas = entries(analysis.response).map((e) => e.area);
   const areaId = areas.some((a) => a.id === analysis.area) ? analysis.area! : (areas[0]?.id ?? null);
+  const inputs = [analysis.response].map((k) => ({ name: name(k), state: entries(k).find((e) => e.area.id === areaId)?.state }));
   const ready = entries(analysis.response).find((e) => e.area.id === areaId)?.state?.status === "done";
   const body: LeakageBody | null = areaId !== null && ready && !seasonal ? { response: options(areaId, analysis.response), test_years: analysis.test_years } : null;
   const signature = JSON.stringify(body);
@@ -106,7 +108,7 @@ export default function LeakageCard({ analysis, onChange, onRemove, variables, t
         <p className="placeholder">{result.error}</p>
       ) : !found ? (
         <p className="placeholder" role="status">
-          {body ? "Decomposing every month from its past, then fitting each model both ways…" : `Waiting for ${name(analysis.response)} to load.`}
+          {body ? "Decomposing every month from its past, then fitting each model both ways…" : waitingFor(inputs)}
         </p>
       ) : (
         <>

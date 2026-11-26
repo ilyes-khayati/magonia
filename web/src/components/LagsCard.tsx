@@ -10,6 +10,7 @@ import Cautions from "./Cautions";
 import { CloseIcon } from "./Icons";
 import { PlotFrame } from "../plot/Chart";
 import { num, oneArea } from "../format";
+import { waitingFor } from "../inputs";
 
 type Props = {
   analysis: Lags;
@@ -36,6 +37,7 @@ export default function LagsCard(props: Props) {
   // asked for once the response and every driver of this area have been extracted
   const done = (key: VariableKey) =>
     entries(key).find((e) => e.area.id === areaId)?.state?.status === "done";
+  const inputs = [analysis.response, ...analysis.drivers].map((k) => ({ name: name(k), state: entries(k).find((e) => e.area.id === areaId)?.state }));
   const ready = areaId !== null && !seasonal && [analysis.response, ...analysis.drivers].every(done);
   const body: LagsBody | null = ready
     ? {
@@ -178,7 +180,7 @@ export default function LagsCard(props: Props) {
       ) : result?.status === "failed" ? (
         <p className="placeholder">{result.error}</p>
       ) : !found ? (
-        <p className="placeholder">Waiting for the series to load.</p>
+        <p className="placeholder">{waitingFor(inputs)}</p>
       ) : (
         <>
           <span className="meta">

@@ -9,6 +9,7 @@ import { useSeries } from "../useSeries";
 import type { Entry } from "./ChartCard";
 import CardTitle from "./CardTitle";
 import { CloseIcon } from "./Icons";
+import { waitingFor } from "../inputs";
 
 const SCALES = SPEI_SCALES;
 const MAX_LAG = 6;
@@ -133,7 +134,7 @@ export default function ScalesCard({ analysis, onChange, onRemove, variables, ti
       {seasonal ? (
         <p className="placeholder">Lags are in months. Change the time step on the left to native or monthly.</p>
       ) : !area || response?.status !== "done" ? (
-        <p className="placeholder">Waiting for {name(analysis.response)} to load.</p>
+        <p className="placeholder">{waitingFor([{ name: name(analysis.response), state: response }])}</p>
       ) : (
         <>
           <PlotFrame title="Drought scale and lag" options={chart} height={260} />

@@ -10,6 +10,7 @@ import { large } from "../variables";
 import { TimeChart, type TimeSeries } from "../plot/Chart";
 import { yLabel } from "../plot/series";
 import { num, signed } from "../format";
+import { waitingFor } from "../inputs";
 
 type Props = {
   analysis: Trend;
@@ -33,6 +34,8 @@ export default function TrendCard({ analysis, onChange, onRemove, variables, tit
     [signature],
   );
   const results = useAnalysis(requests, trendOf);
+  // a trend that could not be computed is said, not waited for
+  const failed = [...results.values()].find((r) => r.status === "failed");
   const done = entries.flatMap((e) => {
     const r = results.get(JSON.stringify(options(e.area.id)));
     return r?.status === "done" ? [{ ...e, data: r.data }] : [];
@@ -76,7 +79,9 @@ export default function TrendCard({ analysis, onChange, onRemove, variables, tit
       </label>
 
       {!done.length ? (
-        <p className="placeholder">Waiting for the series to load.</p>
+        <p className="placeholder">
+          {failed?.status === "failed" ? failed.error : waitingFor(entries.map((e) => ({ name, state: e.state })))}
+        </p>
       ) : (
         <>
           <TimeChart title={`${name} trend`} series={chart} height={210} y={{ label: variable ? yLabel(variable) : name, digits: digits - 1 }} />
