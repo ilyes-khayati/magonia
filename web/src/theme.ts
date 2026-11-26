@@ -14,9 +14,12 @@ export const areaColour = (theme: Theme, index: number) =>
   PALETTE[theme][index % PALETTE[theme].length];
 
 // Each model keeps one colour on every chart, whatever its rank: the trees in straw and river,
-// Ridge in heather, set apart from both
-const MODEL_SLOT: Record<string, number> = { XGBoost: 1, RandomForest: 2, Ridge: 4, SVR: 0, MLP: 5, LSTM: 3, GRU: 0, SARIMAX: 2 };
-export const modelColour = (theme: Theme, model: string) => areaColour(theme, MODEL_SLOT[model] ?? 3);
+// Ridge in heather, set apart from both; SARIMAX, the reference, in a neutral grey as in the
+// research's figures
+const MODEL_SLOT: Record<string, number> = { XGBoost: 1, RandomForest: 2, Ridge: 4, SVR: 0, MLP: 5, LSTM: 3, GRU: 0, TCN: 3 };
+const REFERENCE: Record<Theme, string> = { light: "#6b6f68", dark: "#b4b8b0" };
+export const modelColour = (theme: Theme, model: string) =>
+  model === "SARIMAX" ? REFERENCE[theme] : areaColour(theme, MODEL_SLOT[model] ?? 3);
 
 export function initialTheme(): ThemeChoice {
   try {
