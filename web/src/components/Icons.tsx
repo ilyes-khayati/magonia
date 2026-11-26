@@ -52,18 +52,7 @@ export const LayersIcon = (p: IconProps) => (
   </Svg>
 );
 
-export const MoonIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
-  </Svg>
-);
 
-export const SunIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <circle cx="12" cy="12" r="4" />
-    <path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M5 19l1.5-1.5M17.5 6.5L19 5" />
-  </Svg>
-);
 
 export const PlusIcon = (p: IconProps) => (
   <Svg {...p}>
@@ -251,18 +240,7 @@ export const RulerIcon = (p: IconProps) => (
   </Svg>
 );
 
-export const GridIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M4 4h16v16H4zM4 9.33h16M4 14.67h16M9.33 4v16M14.67 4v16" />
-  </Svg>
-);
 
-export const SwipeIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M4 4h16v16H4zM12 2v20" />
-    <path d="M8 10l-2 2 2 2M16 10l2 2-2 2" />
-  </Svg>
-);
 
 export const CoordinatesIcon = (p: IconProps) => (
   <Svg {...p}>
@@ -271,19 +249,7 @@ export const CoordinatesIcon = (p: IconProps) => (
   </Svg>
 );
 
-export const UndoIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M9 14L4 9l5-5" />
-    <path d="M4 9h10a6 6 0 010 12h-3" />
-  </Svg>
-);
 
-export const RedoIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M15 14l5-5-5-5" />
-    <path d="M20 9H10a6 6 0 000 12h3" />
-  </Svg>
-);
 
 export const SettingsIcon = (p: IconProps) => (
   <Svg {...p}>

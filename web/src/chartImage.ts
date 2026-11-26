@@ -77,13 +77,3 @@ export async function saveChartImage(card: HTMLElement, title: string, subtitle 
   URL.revokeObjectURL(link.href);
 }
 
-// A small picture of a card for the board: JPEG at screen resolution, as a data URL
-export async function chartSnapshot(card: HTMLElement, title: string): Promise<string | undefined> {
-  const blob = await chartImage(card, title, "", { scale: 1, type: "image/jpeg", quality: 0.82 });
-  if (!blob) return undefined;
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.readAsDataURL(blob);
-  });
-}

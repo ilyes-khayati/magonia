@@ -151,8 +151,6 @@ export const layerTiles = (
   call<Tiles>(
     `/layers/${variable}/tiles?month=${month}${scale ? `&scale=${scale}` : ""}`,
   );
-export const layerLegend = (variable: VariableKey) =>
-  call<Legend>(`/layers/${variable}/legend`);
 
 export type PointSeries = {
   variable: VariableKey;
