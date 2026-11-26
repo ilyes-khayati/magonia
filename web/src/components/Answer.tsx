@@ -248,7 +248,7 @@ const VERDICT: Record<SupportCheck["status"], { mark: string; label: string }> =
   supported: { mark: "✓", label: "Supported" },
   unclear: { mark: "?", label: "Partly or not clearly supported" },
   unsupported: { mark: "✗", label: "Not supported" },
-  unsourced: { mark: "–", label: "No source named, and no paper found bears it out" },
+  unsourced: { mark: "–", label: "Magon's own reasoning: no source named, and no paper found bears it out" },
 };
 
 function Statement({ s }: { s: SupportCheck }) {
@@ -278,7 +278,8 @@ function Statement({ s }: { s: SupportCheck }) {
 
 const TRUST_LABEL: Record<string, string> = {
   computed: "computed in this workspace",
-  checked: "an earlier answer whose checks passed",
+  checked: "an earlier answer whose checks ran and passed",
+  unchecked: "an earlier answer no check examined",
   passage: "a paper's words",
   note: "your note",
   changed: "computed here, but changed since it was pinned",
@@ -308,8 +309,8 @@ function Withdrawn({ withdrawn }: { withdrawn: SupportCheck[] }) {
   return (
     <details className="support">
       <summary className="meta">
-        Withdrawn from the answer: {withdrawn.length} {withdrawn.length === 1 ? "statement" : "statements"} the
-        cited papers did not support
+        Withdrawn from the answer: {withdrawn.length} {withdrawn.length === 1 ? "statement" : "statements"} that
+        failed a check (a cited paper did not support it, or what it names could not be found)
       </summary>
       <ul className="statements">
         {withdrawn.map((s, k) => (
@@ -329,7 +330,7 @@ function Uncited({ uncited }: { uncited: SupportCheck[] }) {
     <details className="support">
       <summary className="meta">
         {uncited.length} {uncited.length === 1 ? "statement cites" : "statements cite"} nothing: {backed} borne out by a
-        paper found, {loose} unsourced
+        paper found, {loose} Magon's own reasoning
       </summary>
       <ul className="statements">
         {uncited.map((s, k) => (
@@ -433,6 +434,9 @@ export function Sources({ turn, anchor, onPinPassage }: { turn: Turn; anchor: st
           </summary>
           <ul>{others.map(card)}</ul>
         </details>
+      )}
+      {turn.details.interrupted && (
+        <p className="removed">This answer stopped before Magonia could check its sources and numbers. Ask again for a checked answer.</p>
       )}
       {turn.details.support && turn.details.support.length > 0 && <Support support={turn.details.support} />}
       {turn.details.withdrawn && turn.details.withdrawn.length > 0 && <Withdrawn withdrawn={turn.details.withdrawn} />}

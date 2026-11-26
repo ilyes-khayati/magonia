@@ -69,7 +69,7 @@ def test_a_lagged_driver_with_the_wrong_sign_is_not_a_finding():
     green = heat.shift(3) * 0.8 + pd.Series(rng.normal(0, 0.5, 240), index=index)
     assert driver_evidence(green, heat, "LST", "spei").decision == "stands out"
     found = driver_evidence(green, heat, "LST", "lst")
-    assert (found.lag, found.decision) == (3, "implausible sign")
+    assert (found.lag, found.decision) == (3, "unexpected sign")
 
 
 def test_autocorrelation_and_deseasonalising():
@@ -86,7 +86,7 @@ def test_the_explorer_describes_memory_and_each_driver(train):
         "Orchard", ("NDVI", "ndvi", train["NDVI"]), [("SPEI-6", "spei", train["SPEI_6"])]
     )
     assert found.summary[0].startswith("Orchard: NDVI anomalies remember themselves at")
-    assert found.drivers[0].decision in ("stands out", "not significant", "implausible sign")
+    assert found.drivers[0].decision in ("stands out", "not significant", "unexpected sign")
     assert found.summary[1].startswith("Orchard: SPEI-6 ")
     assert len(found.acf) == 24 and len(found.drivers[0].r) == 12
 

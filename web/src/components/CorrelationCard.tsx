@@ -142,8 +142,8 @@ export default function CorrelationCard({ analysis, onChange, onRemove, variable
           </ul>
           <Cautions items={areas.flatMap((a) => a.cautions)} />
           <span className="meta">
-            Grey band: the 95% range expected by chance. It assumes independent months, so with autocorrelated
-            series it is somewhat too narrow.
+            Grey band: the 95% range expected by chance for one lag, assuming independent months. The verdict
+            above tests the strongest lag as the best of all the lags shown, on the effective number of months.
             {!deseasonalise && " With the seasonal cycle kept, any two seasonal variables look correlated."}
           </span>
         </>

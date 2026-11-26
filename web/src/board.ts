@@ -82,11 +82,16 @@ export function trustOf(b: BoardItem): BoardTrust {
   if (b.now?.length) return "changed"; // its result is no longer what was pinned
   if (b.kind !== "answer") return "computed";
   const d = b.answer?.details;
+  if (d?.interrupted) return "failed"; // it stopped before the checks ran
   const failed =
     (d?.support ?? []).some((s) => s.status === "unsupported") ||
     (d?.numbers ?? []).some((n) => n.status !== "verified") ||
     (d?.app ?? []).some((m) => m.status === "unknown");
-  return failed ? "failed" : "checked";
+  if (failed) return "failed";
+  // "checked" only when a check ran and passed: an answer no check examined (small talk, an
+  // answer without sources or numbers) is not evidence (review of 18 Nov)
+  const ran = (d?.support ?? []).length + (d?.numbers ?? []).length + (d?.app ?? []).length > 0;
+  return ran ? "checked" : "unchecked";
 }
 
 export function boardForMagonia(board: BoardItem[]): { title: string; text: string; trust: BoardTrust; pinned: string }[] {

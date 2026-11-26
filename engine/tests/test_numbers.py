@@ -121,3 +121,15 @@ def test_a_number_of_another_variable_or_month_does_not_count():
     assert statuses("NDVI is lowest in August, at 0.27.", AVERAGE_AND_A_YEAR) == [
         ("0.27", "elsewhere", "NDVI chart")
     ]
+
+
+def test_a_number_from_the_settings_or_the_question_does_not_verify_a_claim_about_the_data():
+    # review of 18 Nov: "NDVI fell by 10% in your orchard" was verified from the settings
+    sources = [
+        ("the Model page's settings", "Papers per search: 10."),
+        ("NDVI chart", "NDVI peaks at 0.70 in March."),
+    ]
+    found = check_numbers("NDVI fell by 10% in your orchard.", sources)
+    assert [n.status for n in found] != ["verified"]
+    said = check_numbers("By default, Magon reads 10 papers per search.", sources)
+    assert [n.status for n in said] == ["verified"]

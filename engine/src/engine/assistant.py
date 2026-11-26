@@ -13,7 +13,7 @@ from urllib.request import Request, urlopen
 
 from dotenv import load_dotenv
 
-from engine import claims, honesty, interface
+from engine import claims, fit, honesty, interface, setting
 from engine.awareness import earlier_papers, files_asked_about, restated, wants_literature
 from engine.awareness import listing as library_listing
 from engine.board import Pinned
@@ -27,7 +27,7 @@ from engine.library import Library, Uploads
 from engine.library import for_the_model as passages_for_the_model
 from engine.literature import LiteratureError, Paper, find_papers, keywords
 from engine.models import LABELS, SETTABLE
-from engine.numbers import check_numbers
+from engine.numbers import check_numbers, from_data
 from engine.proposals import PROPOSE_TOOL, ProposalError, proposal
 from engine.proposals import WORDS as VARIABLE_WORDS
 from engine.proposals import describe as describe_proposal
@@ -95,7 +95,7 @@ you cannot run analyses yourself: you can propose one, which the researcher adds
 # What the interface really has, so that Magon points to it instead of inventing buttons
 APP = interface.described()
 
-MODEL_SETTINGS = f"""- On the Model page the researcher chooses the models (Ridge, Random Forest, XGBoost), the \
+MODEL_SETTINGS = f"""- On the Model page the researcher chooses the models ({", ".join(LABELS.values())}), the \
 lags, the test years, the calendar and the rolling evaluation. A model given no settings is \
 tuned automatically on the training years; one given settings uses those, and the library's \
 defaults for the rest. The settings they can give: {SETTINGS}."""
@@ -120,7 +120,11 @@ MAX_PROPOSALS = 2
 # The researcher chooses what runs: proposing is offered only when the message asks for
 # something to be run, and never when it says not to
 RUN = re.compile(
-    r"\b(run|add|propose|compute|calculate|start|set up|build|fit|train)\b"
+    # bare "start", "fit", "add" or "build" are not requests: "when does green-up start?",
+    # "how well does the forest fit?", "can I add my own PDF?" (review of 18 Nov)
+    r"\b(run|propose|compute|calculate|set up)\b"
+    r"|\b(add|build|fit|train|start)\b\s+(an?|another|one more|new)\b"
+    r"|^\s*(please\s+)?(add|build|fit|train|start)\b"  # an imperative: "Add lags in Tunis"
     r"|\b(can you|could you|would you|please|let'?s|i'?d like( you)? to|i want( you)? to)\b"
     r".{0,20}\b(forecast|predict|decompose|split|separate|break (it |them )?down|detrend|"
     r"deseasonali[sz]e|correlate|do an?)\b"
@@ -234,6 +238,51 @@ def proposal_in_words(question: str, answer: str, areas: list[str]) -> dict | No
                     return None
     return None
 
+
+# A question that asks why the data look as they do, or what they mean: answered from papers
+# found on the mechanism, not from what the model remembers. Asked "why so fast?", Magon said
+# olive leaves have a short lifespan, which is false, and nothing checked it (14 Nov)
+# a reason given for what the data show: such a sentence is an explanation to check
+CAUSAL = re.compile(
+    r"\b(because|due to|owing to|caused by|driven by|as a result of|explain\w*|reflects?|"
+    r"since the|attributed to|results? from|leads? to|led to)\b",
+    re.IGNORECASE,
+)
+
+EXPLAINS = re.compile(
+    r"\b(why|explain\w*|interpret\w*|how come|reasons? (for|behind)|caused by|driven by|"
+    r"due to|what (could|might|would|may) (cause|explain|drive|be behind)|"
+    r"what does (this|it|that) (mean|tell|say)|looks? like)\b"
+    # "what does the correlation between NDVI and SPEI tell me about my orchard?" (15 Nov, w12)
+    r"|\bwhat (does|do) (the|these|those|this|that) [\w\s-]{1,60}? (tell|say|imply|suggest|"
+    r"reveal|indicate)\b",
+    re.IGNORECASE,
+)
+# A question about the researcher's own data, in words a method question does not use:
+# "explain why the NDVI trend is not significant" was routed as a method question and
+# answered from memory, with no search (15 Nov, w04 and w10)
+OWN_DATA = re.compile(
+    r"\b(here|my|our|this (orchard|area|field|site|plot|series|record|region))\b"
+    r"|\b(the|this|that) ([\w-]+ )?(year|month|trend|peak|drop|minimum|maximum|correlation|lag)s?\b",
+    re.IGNORECASE,
+)
+
+EXPLAIN_RULES = """(Note from Magonia: this asks for an explanation. Magonia searches papers \
+on it and gives them to you, each with how far its setting is from the researcher's. Answer in \
+three short parts, with these headings:
+**What your data show**: from the facts, as always.
+**What the papers found**: each finding with its number like [1] and where it was found. A \
+paper rated far is only what was found there: never write that it explains the researcher's data.
+**What it could mean here**: possible explanations of the researcher's data, each one a \
+possibility to test, not a fact. Say which paper rated near or partly supports it, or that none \
+does and it is your own reasoning ("My own reading, which no paper found confirms, is that…").
+Never present your own reasoning as what research found.)"""
+
+# said with the papers when none of them was made in a setting like the researcher's
+NO_FITTING = """None of these papers was made in a setting like the researcher's ({target}). \
+Say so first, in one sentence. Then do not explain the researcher's data from these papers: \
+report at most what they found where they were made, and offer any explanation only as your own \
+reasoning, to be tested."""
 
 DATA_RULES = """How to use these facts:
 - If the question is about the researcher's areas or results, answer from the facts. Copy \
@@ -391,6 +440,17 @@ class ProviderError(Exception):
     """The language model could not be reached or refused the request."""
 
 
+def _lines(response):
+    """Each JSON line of a streamed response; a broken stream becomes a ProviderError."""
+    try:
+        for line in response:
+            yield json.loads(line)
+    except (OSError, ValueError) as exc:
+        raise ProviderError(
+            "Magon stopped before finishing its answer. Ask again in a moment."
+        ) from exc
+
+
 class Provider(Protocol):
     """Anything that turns a conversation into the next answer, a piece at a time.
 
@@ -458,10 +518,12 @@ class Ollama:
                 "Magon is not available right now: its language model is not answering. "
                 "Try again in a minute."
             ) from exc
-        # Ollama sends one JSON object per line, each with the next piece of the answer
+        # Ollama sends one JSON object per line, each with the next piece of the answer. A
+        # dropped connection or a malformed line mid-answer is the same failure for the
+        # researcher as a refusal: the answer stops unchecked, and must say so (ADR 0011)
         with response:
-            for line in response:
-                piece = json.loads(line)
+            for line in _lines(response):
+                piece = line
                 if "error" in piece:
                     raise ProviderError(
                         "Magon stopped before finishing its answer. Ask again in a moment."
@@ -542,14 +604,19 @@ DETAILED = (
 )
 
 
-def for_the_model(papers: list[Paper], first: int) -> str:
-    """Numbered papers as the model reads them; abstracts are shortened to save context."""
+def for_the_model(papers: list[Paper], first: int, here: setting.Setting | None = None) -> str:
+    """Numbered papers as the model reads them; abstracts are shortened to save context. With
+    the researcher's setting known, each paper's setting goes with it, and whether it differs."""
     if not papers:
         return "No papers were found. Try other keywords, or say that nothing was found."
     lines = ["Papers found. Cite them by number, e.g. [1]."]
     for n, paper in enumerate(papers, start=first):
         summary = (paper.abstract or "No abstract available.")[:700]
-        lines.append(f"[{n}] {paper.short}. {paper.title}. {paper.venue or ''}\n{summary}")
+        entry = f"[{n}] {paper.short}. {paper.title}. {paper.venue or ''}\n{summary}"
+        if here is not None and here.known and not paper.label:
+            record = fit.record_of(paper)
+            entry += f"\n{fit.line(n, record, fit.rate(record, here))}"
+        lines.append(entry)
     return "\n\n".join(lines)
 
 
@@ -630,6 +697,17 @@ def answer(
     testing = view is not None and claims.asks_to_test(text)
     if testing:
         kind = "data"
+    # why the data look as they do: searched for, then every sentence checked or labelled
+    explaining = (
+        view is not None
+        and not testing
+        and bool(EXPLAINS.search(text))
+        and (kind in ("data", "general") or (kind == "method" and bool(OWN_DATA.search(text))))
+    )
+    if explaining:
+        kind = "data"  # about their data, so the facts go with it
+    # where the researcher works and on what, against which each paper's setting is read
+    here = setting.of_workspace(view.context, areas) if view is not None else None
     # the researcher's own files: listed for every question, read when one is about them
     files = Uploads(library).all() if library is not None else []
     own = files_asked_about(text, files)
@@ -692,7 +770,10 @@ def answer(
         messages[-1] = {**messages[-1], "content": f"{meaning}\n\n{messages[-1]['content']}"}
     elif kind == "method" and (known := glossary(text)):
         sources.append(("Magonia's catalogue", known))
-        messages[-1] = {**messages[-1], "content": f"{known}\n\n---\nThe researcher asks: {text}"}
+        messages[-1] = {
+            **messages[-1],
+            "content": f"{known}\n\n---\nThe researcher asks: {messages[-1]['content']}",
+        }
     # what the researcher pinned, as evidence it can cite [B1]…; not for small talk
     shown = board_items(board or [], text) if kind != "chat" else []
     if shown:
@@ -706,13 +787,21 @@ def answer(
     # model answered from them instead of searching again (measured, f01)
     forced: list[ToolCall] = []
     if follow_up and kind == "research":
+        # appended, not rebuilt from the question: the board block and readings added above
+        # stay (review of 18 Nov)
         messages[-1] = {
             **messages[-1],
-            "content": f'{text}\n\n(This follows the earlier question: "{earlier_question}". '
-            "Answer it about what is asked now, from the papers of the new search.)",
+            "content": f"{messages[-1]['content']}\n\n(This follows the earlier question: "
+            f'"{earlier_question}". Answer it about what is asked now, from the papers of the '
+            "new search.)",
         }
         topic = together(text, earlier_question)
         forced = [ToolCall("search_papers", {"query": keywords(topic)})]
+    if explaining:
+        # code searches on the question's words before the model answers: left to it, a
+        # small model explains from memory (14 Nov)
+        messages[-1] = {**messages[-1], "content": f"{messages[-1]['content']}\n\n{EXPLAIN_RULES}"}
+        forced = [ToolCall("search_papers", {"query": keywords(text)})]
     if in_french(text):
         # said last, where a small model attends to it, or it answers in the papers' English
         messages[-1] = {
@@ -738,7 +827,7 @@ def answer(
         }
         messages[0]["content"] += (
             "\n\nPapers cited earlier in this conversation. When you mention one of them again, "
-            f"cite it by the number given here:\n{for_the_model(earlier, 1)}"
+            f"cite it by the number given here:\n{for_the_model(earlier, 1, here)}"
         )
     if judge is None and isinstance(provider, Ollama):
         judge = judge_with(provider.stream, (ProviderError, OSError))
@@ -821,7 +910,8 @@ def answer(
     if not asks_to_run(text):
         proposed = MAX_PROPOSALS
     while True:
-        tools = [SEARCH_TOOL] if searches < max_searches and kind in ("research", "general") else []
+        searching = kind in ("research", "general") or explaining
+        tools = [SEARCH_TOOL] if searches < max_searches and searching else []
         if facts and reads < max_reads:
             tools.append(READ_TOOL)
         if facts and proposed < MAX_PROPOSALS:
@@ -958,7 +1048,15 @@ def answer(
                 "type": "papers",
                 "papers": [{"n": first + i, **p.to_dict()} for i, p in enumerate(found)],
             }
-            given = for_the_model(found, first)
+            given = for_the_model(found, first, here)
+            if explaining and here is not None and here.known and found:
+                # the evidence check, before anything is written: when no paper found was made
+                # in a setting like the researcher's, the model is told so with the papers
+                # (Joren et al. 2024; Chen et al. 2026)
+                rated = [fit.rate(fit.record_of(p), here) for p in found if not p.label]
+                if rated and not any(r.usable for r in rated):
+                    given += "\n\n" + NO_FITTING.format(target=here.describe())
+                    yield {"type": "no_fitting_evidence", "target": here.describe()}
             if library is not None and any(p.pdf_url for p in found):
                 # the full text of the open-access papers, and its passages that answer
                 yield {"type": "reading", "count": sum(1 for p in found if p.pdf_url)}
@@ -1031,13 +1129,85 @@ def answer(
             final, found, gone = withdraw(final, found)
             event["withdrawn"] = event.get("withdrawn", []) + [s.to_dict() for s in gone]
         event["support"] = [s.to_dict() for s in found]
-    if kind == "research" and papers:
+    if (kind == "research" and papers) or explaining:
         # the sentences that cite nothing: checked against every paper found, and marked,
-        # so that not citing is not a way past the check
+        # so that not citing is not a way past the check. In an explanation of the
+        # researcher's data, a sentence whose numbers code computed is not an explanation:
+        # it is checked as a number, and the rest is either borne out by a paper or marked
+        # as Magon's own reasoning
+        computed = []
+        if explaining:
+            # only numbers code computed from the researcher's data (cards, readings, tests),
+            # not from the question, the settings or a paper (ADR 0021; review of 18 Nov)
+            computed = [
+                n
+                for n in check_numbers(final, sources)
+                if n.status == "verified" and from_data(n.source or "")
+            ]
+
+        def from_the_data(start: int, end: int) -> bool:
+            # a sentence that also gives a reason is an explanation, whatever numbers it has:
+            # "NDVI peaked at 0.62 in March, because olive leaves are short-lived"
+            if CAUSAL.search(final[start:end]):
+                return False
+            return any(start <= n.start < end for n in computed)
+
         since = time.monotonic()
-        loose = check_uncited(final, evidence, embed=embed, judge=judge, more=elsewhere)
+        loose = check_uncited(
+            final, evidence, embed=embed, judge=judge, more=elsewhere, skip=from_the_data
+        )
         clock.add("support", since)
         event["uncited"] = [s.to_dict() for s in loose]
+    if here is not None and here.known and papers and kind != "chat":
+        # a paper made elsewhere, used without saying so: code names where it was made
+        matches = {
+            n: setting.compare(setting.of_paper(p), here)
+            for n, p in enumerate(papers, 1)
+            if not p.label  # the researcher's own files are theirs to place
+        }
+        final, named = setting.name_settings(final, matches)
+        if named:
+            event["settings"] = named
+        # a far paper applied to the researcher's own data: shown by code, whatever the model did
+        far = {
+            n: fit.rate(record, here).paper
+            for n, p in enumerate(papers, 1)
+            if not p.label
+            for record in [fit.record_of(p)]
+            if fit.rate(record, here).level == "far"
+        }
+        final, transfers = fit.flag_transfers(final, far, areas)
+        if transfers:
+            event["transfers"] = transfers
+    if explaining and here is not None and here.known and papers:
+        # whether the evidence fits, written by code from each cited paper's record: the
+        # comparison is shown, not a verdict of the model
+        cited = sorted(
+            {
+                int(x)
+                for group in setting.CITATION.findall(final)
+                for x in re.split(r"[,;]", group)
+                if x.strip().isdigit()
+            }
+        )
+        records = {
+            n: (papers[n - 1].short, record, fit.rate(record, here))
+            for n in cited
+            if 0 < n <= len(papers) and not papers[n - 1].label
+            for record in [fit.record_of(papers[n - 1])]
+        }
+        if part := fit.summary(records, here):
+            final = f"{final.rstrip()}\n\n{part}"
+            event["fit"] = {str(n): f.to_dict() for n, (_, _, f) in records.items()}
+    if explaining and view is not None:
+        # each explanation that code can read as a claim is tested on the researcher's own
+        # series, with the rules of claim testing (#171): an explanation becomes a test of it
+        # (after Popper, Huang et al. 2025, arXiv 2502.09858), and its verdict is code's
+        tested = claims.tests_of(final.split(fit.HEADING)[0], view)
+        if part := claims.tested_part(tested):
+            final = f"{final.rstrip()}\n\n{part}"
+            event["tested"] = [t.to_dict() for t in tested]
+            sources += [("the test of an explanation", line) for t in tested for line in t.summary]
     since = time.monotonic()
     event["text"] = final
     # numbers are checked when there was something to check them against

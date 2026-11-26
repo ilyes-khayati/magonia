@@ -1,0 +1,11 @@
+{
+  "written": "YYYY-MM-DD, before any rediscovery run",
+  "by": "the researcher",
+  "how": "Copy to rediscovery_key.json. For each region, 3 to 6 short claims, one fact each, in plain concrete words (the month, not the season; 'grass under the trees', not 'non-tree signal'). Only what you saw yourself in Magonia; nothing Magon told you.",
+  "regions": {
+    "Jendouba": ["NDVI peaks in March.", "..."],
+    "Sfax": ["..."],
+    "Zarzis": ["..."],
+    "Kairouan": ["..."]
+  }
+}

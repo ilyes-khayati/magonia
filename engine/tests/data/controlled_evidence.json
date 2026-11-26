@@ -1,0 +1,756 @@
+{
+ "written": "2026-11-17, before any version was run on these cases and before the build they test",
+ "view": "jendouba_view with the area named \"Olive orchard\" and located (WHERE), identical for every version",
+ "conditions": {
+  "matched": "the three papers from a matching or near setting",
+  "mismatched": "three papers on the same topic from other regions and climates",
+  "off-topic": "three papers that say nothing about the question (two of them about olive groves)",
+  "mixed": "matched and mismatched together, interleaved"
+ },
+ "expected": {
+  "matched": "explains from the papers; independent scorer finds its explanation sentences supported",
+  "mismatched": "does not apply the findings to the orchard as if they held there; says the evidence comes from elsewhere or does not fit",
+  "off-topic": "makes no claim attributed to the literature; says that no fitting evidence was found",
+  "mixed": "cites the matching papers more than the mismatched ones"
+ },
+ "papers": {
+  "W4307940189": {
+   "id": "W4307940189",
+   "title": "Twenty Years of Remote Sensing Applications Targeting Landscape Analysis and Environmental Issues in Olive Growing: A Review",
+   "authors": [
+    "Gaetano Messina",
+    "Giuseppe Modica"
+   ],
+   "year": 2022,
+   "venue": "Remote Sensing",
+   "doi": "10.3390/rs14215430",
+   "abstract": "The olive (Olea europaea L.) is an iconic tree linked to the birth of some of the most ancient civilizations and one of the most important cultivated tree species in the Mediterranean basin. Over the last few decades, given the high socio-economic importance of the olive sector, there has been much research involving remote sensing (RS) applications in olive growing, especially in precision agriculture. This review article is part of a review that aims to cover the past, from the 2000s onwards, and the most recent applications of remote sensing (RS) in olive growing to be able to include research and all topics related to the use of RS on olive trees. As far as the use of RS platforms such as satellites, aircraft, and unmanned aerial vehicles (UAVs) in olive growing is concerned, a review of the literature showed the presence of several works devoted to it. A brief introduction on the history of the olive tree and its distribution and cultivation around the world, together with a summary of the leading RS platforms (a good portion of which are satellites) used in olive research, anticipates the discussion of four topics about olive growing that have as their common thread positive (and non-positive) impacts on the environment: preservation of olive landscape and soil erosion, identification of olive groves, olive oil mill wastewater (OOMW) and relative environmental risks, irrigation water management and the use of RS platforms for water stress monitoring. The preservation of olive groves as an element of Mediterranean identity and strategic economic resource in agriculture depends on sustainable environmental management alongside technological advances brought by precision agriculture.",
+   "open_access_url": null,
+   "cited_by": 39,
+   "countries": [
+    "IT"
+   ],
+   "pdf_url": null,
+   "label": null,
+   "relevance": null,
+   "matched": [],
+   "gold": {
+    "fit": "direct",
+    "setting": "Mediterranean olive growing, review"
+   }
+  },
+  "W2116960794": {
+   "id": "W2116960794",
+   "title": "Analysis of Vegetation Behavior in a North African Semi-Arid Region, Using SPOT-VEGETATION NDVI Data",
+   "authors": [
+    "Rim Amri",
+    "Mehrez Zribi",
+    "Zohra Lili‐Chabaane",
+    "Benoit Duchemin",
+    "Claire Gruhier",
+    "Abdelghani Chehbouni"
+   ],
+   "year": 2011,
+   "venue": "Remote Sensing",
+   "doi": "10.3390/rs3122568",
+   "abstract": "The analysis of vegetation dynamics is essential in semi-arid regions, in particular because of the frequent occurrence of long periods of drought. In this paper, multi-temporal series of the Normalized Difference of Vegetation Index (NDVI), derived from SPOT-VEGETATION satellite data between September 1998 and June 2010, were used to analyze the vegetation dynamics over the semi-arid central region of Tunisia. A study of the persistence of three types of vegetation (pastures, annual agriculture and olive trees) is proposed using fractal analysis, in order to gain insight into the stability/instability of vegetation dynamics. In order to estimate the state of vegetation cover stress, we propose evaluating the properties of an index referred to as the Vegetation Anomaly Index (VAI). A positive VAI indicates high vegetation dynamics, whereas a negative VAI indicates the presence of vegetation stress. The VAI is tested for the above three types of vegetation, during the study period from 1998 to 2010, and is compared with other drought indices. The VAI is found to be strongly correlated with precipitation.",
+   "open_access_url": null,
+   "cited_by": 93,
+   "countries": [
+    "FR",
+    "TN"
+   ],
+   "pdf_url": null,
+   "label": null,
+   "relevance": null,
+   "matched": [],
+   "gold": {
+    "fit": "partial",
+    "setting": "central Tunisia, semi-arid, pastures, annual crops and olive trees"
+   }
+  },
+  "W2902781068": {
+   "id": "W2902781068",
+   "title": "A high-resolution spatial assessment of the impacts of drought variability on vegetation activity in Spain from 1981 to 2015",
+   "authors": [
+    "Sergio Martín Vicente-Serrano",
+    "César Azorín-Molina",
+    "Marina Peña‐Gallardo",
+    "Miquel Tomàs‐Burguera",
+    "Fernando Domínguez‐Castro",
+    "Natalia Martín‐Hernández",
+    "Santiago Beguería",
+    "Ahmed El Kenawy",
+    "Iván Noguera",
+    "Mónica García"
+   ],
+   "year": 2019,
+   "venue": "Natural hazards and earth system sciences",
+   "doi": "10.5194/nhess-19-1189-2019",
+   "abstract": "Drought is a major driver of vegetation activity in Spain, with significant impacts on crop yield, forest growth, and the occurrence of forest fires. Nonetheless, the sensitivity of vegetation to drought conditions differs largely amongst vegetation types and climates. We used a high-resolution (1.1 km) spatial dataset of the normalized difference vegetation index (NDVI) for the whole of Spain spanning the period from 1981 to 2015, combined with a dataset of the standardized precipitation evapotranspiration index (SPEI) to assess the sensitivity of vegetation types to drought across Spain. Specifically, this study explores the drought timescales at which vegetation activity shows its highest response to drought severity at different moments of the year. Results demonstrate that – over large areas of Spain – vegetation activity is controlled largely by the interannual variability of drought. More than 90 % of the land areas exhibited statistically significant positive correlations between the NDVI and the SPEI during dry summers (JJA). Nevertheless, there are some considerable spatio-temporal variations, which can be linked to differences in land cover and aridity conditions. In comparison to other climatic regions across Spain, results indicate that vegetation types located in arid regions showed the strongest response to drought. Importantly, this study stresses that the timescale at which drought is assessed is a dominant factor in understanding the different responses of vegetation activity to drought.",
+   "open_access_url": null,
+   "cited_by": 58,
+   "countries": [
+    "DK",
+    "EG",
+    "ES",
+    "SE"
+   ],
+   "pdf_url": null,
+   "label": null,
+   "relevance": null,
+   "matched": [],
+   "gold": {
+    "fit": "partial",
+    "setting": "Spain, all vegetation types, Mediterranean to arid"
+   }
+  },
+  "W2986830919": {
+   "id": "W2986830919",
+   "title": "Using Vegetation Indices and a UAV Imaging Platform to Quantify the Density of Vegetation Ground Cover in Olive Groves (Olea Europaea L.) in Southern Spain",
+   "authors": [
+    "Francisco Lima",
+    "Rafael Blanco Sepúlveda",
+    "María Luisa Gómez Moreno",
+    "Federico Benjamín Galacho-Jiménez"
+   ],
+   "year": 2019,
+   "venue": "Remote Sensing",
+   "doi": "10.3390/rs11212564",
+   "abstract": "In olive groves, vegetation ground cover (VGC) plays an important ecological role. The EU Common Agricultural Policy, through cross-compliance, acknowledges the importance of this factor, but, to determine the real impact of VGC, it must first be quantified. Accordingly, in the present study, eleven vegetation indices (VIs) were applied to quantify the density of VGC in olive groves (Olea europaea L.), according to high spatial resolution (10–12 cm) multispectral images obtained by an unmanned aerial vehicle (UAV). The fieldwork was conducted in early spring, in a Mediterranean mountain olive grove in southern Spain presenting various VGC densities. A five-step method was applied: (1) generate image mosaics using UAV technology; (2) apply the VIs; (3) quantify VGC density by means of sampling plots (ground-truth); (4) calculate the mean reflectance of the spectral bands and of the VIs in each sampling plot; and (5) quantify VGC density according to the VIs. The most sensitive index was IRVI, which accounted for 82% (p < 0.001) of the variability of VGC density. The capability of the VIs to differentiate VGC densities increased in line with the cover interval range. RVI most accurately distinguished VGC densities > 80% in a cover interval range of 10% (p < 0.001), while IRVI was most accurate for VGC densities < 30% in a cover interval range of 15% (p < 0.01). IRVI, NRVI, NDVI, GNDVI and SAVI differentiated the complete series of VGC densities when the cover interval range was 30% (p < 0.001 and p < 0.05).",
+   "open_access_url": null,
+   "cited_by": 54,
+   "countries": [
+    "ES"
+   ],
+   "pdf_url": null,
+   "label": null,
+   "relevance": null,
+   "matched": [],
+   "gold": {
+    "fit": "direct",
+    "setting": "southern Spain, olive grove ground cover, early spring"
+   }
+  },
+  "W4210577506": {
+   "id": "W4210577506",
+   "title": "Assessment of Drought Indexes on Different Time Scales: A Case in Semiarid Mediterranean Grasslands",
+   "authors": [
+    "Andrés Felipe Almeida-Ñauñay",
+    "María Villeta",
+    "Miguel Quemada",
+    "Ana Maria Tarquis"
+   ],
+   "year": 2022,
+   "venue": "Remote Sensing",
+   "doi": "10.3390/rs14030565",
+   "abstract": "Drought is a significant challenge to semiarid Mediterranean grasslands, Increasing the accuracy of monitoring allows improving the conservation and management of these vital ecosystems. Meteorological drought is commonly monitored by the Standard Precipitation Index (SPI) or the Standard Precipitation Evapotranspiration Index (SPEI). On the other hand, agriculture drought is estimated by the Vegetation Health Index (VHI). This work aims to optimise the correlation between both drought types using the best transformation of VHI and the most appropriate time scale. Two drought-vulnerable Mediterranean grasslands were selected to evaluate the performance of the drought indexes. The SPI and the SPEI were calculated using data obtained from nearby weather stations. MODIS data were used to calculate the VHI. This index was standardised, naming it as SVHI. Our results revealed that SPEI was better correlated with VHI compared to SPI. In addition, SVHI obtained better results in the critical vegetation phases than VHI. Overall, SPEI and SVHI were the best correlated indexes. The quarterly scale showed stronger relationships than the monthly scale and the most correlated time frame were Mediterranean spring and autumn. This fact suggests that SPEI and SVHI could provide a plus point for increasing the precision of vegetation monitoring during these periods.",
+   "open_access_url": null,
+   "cited_by": 33,
+   "countries": [
+    "ES"
+   ],
+   "pdf_url": null,
+   "label": null,
+   "relevance": null,
+   "matched": [],
+   "gold": {
+    "fit": "partial",
+    "setting": "semi-arid Mediterranean grasslands (Spain)"
+   }
+  },
+  "W4224231858": {
+   "id": "W4224231858",
+   "title": "Analysis of Multispectral Drought Indices in Central Tunisia",
+   "authors": [
+    "Nesrine Farhani",
+    "Julie Carreau",
+    "Zeineb Kassouk",
+    "Michel Le Page",
+    "Zohra Lili‐Chabaane",
+    "Gilles Boulet"
+   ],
+   "year": 2022,
+   "venue": "Remote Sensing",
+   "doi": "10.3390/rs14081813",
+   "abstract": "Surface water stress remote sensing indices can be very helpful to monitor the impact of drought on agro-ecosystems, and serve as early warning indicators to avoid further damages to the crop productivity. In this study, we compare indices from three different spectral domains: the plant water use derived from evapotranspiration retrieved using data from the thermal infrared domain, the root zone soil moisture at low resolution derived from the microwave domain using the Soil Water Index (SWI), and the active vegetation fraction cover deduced from the Normalized Difference Vegetation Index (NDVI) time series. The thermal stress index is computed from a dual-source model Soil Plant Atmosphere and Remote Evapotranspiration (SPARSE) that relies on meteorological variables and remote sensing data. In order to extend in time the available meteorological series, we compare the use of a statistical downscaling method applied to reanalysis data with the use of the unprocessed reanalysis data. Our study shows that thermal indices show comparable performance overall compared to the SWI at better resolution. However, thermal indices are more sensitive for a drought period and tend to react quickly to water stress.",
+   "open_access_url": null,
+   "cited_by": 18,
+   "countries": [
+    "CA",
+    "FR",
+    "TN"
+   ],
+   "pdf_url": null,
+   "label": null,
+   "relevance": null,
+   "matched": [],
+   "gold": {
+    "fit": "partial",
+    "setting": "central Tunisia, agro-ecosystems, semi-arid"
+   }
+  },
+  "W4408572945": {
+   "id": "W4408572945",
+   "title": "Spatial–Temporal Dynamics of Vegetation Indices in Response to Drought Across Two Traditional Olive Orchard Regions in the Iberian Peninsula",
+   "authors": [
+    "Nazaret Crespo",
+    "Luís Pádua",
+    "Paula Paredes",
+    "Francisco J. Rebollo",
+    "Francisco Jesús Moral",
+    "João A. Santos",
+    "Hélder Fraga"
+   ],
+   "year": 2025,
+   "venue": "Sensors",
+   "doi": "10.3390/s25061894",
+   "abstract": "This study investigates the spatial-temporal dynamics of vegetation indices in olive orchards across two traditionally rainfed regions of the Iberian Peninsula, namely the \"Trás-os-Montes\" (TM) agrarian region in Portugal and the Badajoz (BA) province in Spain, in response to drought conditions. Using satellite-derived vegetation indices, derived from the Harmonized Landsat Sentinel-2 project (HLSL30), such as the Normalized Difference Moisture Index (NDMI) and Soil-Adjusted Vegetation Index (SAVI), this study evaluates the impact of drought periods on olive tree growing conditions. The Mediterranean Palmer Drought Severity Index (MedPDSI), specifically developed for olive trees, was selected to quantify drought severity, and impacts on vegetation dynamics were assessed throughout the study period (2015-2023). The analysis reveals significant differences between the regions, with BA experiencing more intense drought conditions, particularly during the warm season, compared to TM. Seasonal variability in vegetation dynamics is clearly linked to MedPDSI, with lagged responses stronger in the previous two-months. Both the SAVI and the NDMI show vegetation vigour declines during dry seasons, particularly in the years of 2017 and 2022. The findings reported in this study highlight the vulnerability of rainfed olive orchards in BA to long-term drought-induced stress, while TM appears to have slightly higher resilience. The study underscores the value of combining satellite-derived vegetation indices with drought indicators for the effective monitoring of olive groves and to improve water use management practices in response to climate change. These insights are crucial for developing adaptation measures that ensure the sustainability, resiliency, and productivity of rainfed olive orchards in the Iberian Peninsula, particularly under climate change scenarios.",
+   "open_access_url": null,
+   "cited_by": 14,
+   "countries": [
+    "ES",
+    "PT"
+   ],
+   "pdf_url": null,
+   "label": null,
+   "relevance": null,
+   "matched": [],
+   "gold": {
+    "fit": "direct",
+    "setting": "Iberian Peninsula (Portugal, Spain), rainfed olive orchards, Mediterranean"
+   }
+  },
+  "W4221127179": {
+   "id": "W4221127179",
+   "title": "Assessment of drought stress in arid olive groves using HidroMORE model",
+   "authors": [
+    "Abderrahman Sghaier",
+    "Hanen Dhaou",
+    "Lassaad Jarray",
+    "Zouhair Abaab",
+    "Ahmed Sekrafi",
+    "Mohamed Ouessar"
+   ],
+   "year": 2022,
+   "venue": "Journal of Agricultural Engineering",
+   "doi": "10.4081/jae.2022.1264",
+   "abstract": "The olive tree is well known for being adapted to the arid conditions of the Mediterranean basin. However, prolonged drought periods which are expected to become more frequent because of climate change could result in severe water stress. In order to map the spatial distribution of drought stress in the olive groves in the arid regions of southeastern Tunisia (governorate of M denine), we made recourse to the HidroMORE model (based mainly on FAO56 ET, NDVI from Sentinel 2 images and other physical parameters) to compute the water balance in a GIS environment. The outputs were compared to in situ soil water content measurements in four selected sites representing the various agro-ecological zones (mountains, piedmont, inner plain and coast) of the study site during the observation period from January 2016 to December 2019. The model outputs performed relatively well (the overall correlation coefficient R2=0.72; index of agreement IA=0.76). The simulation results show that during normal years or average droughts, the water stress is least in the mountain and piedmont zones because of the additional runoff water supplied by the traditional water harvesting structures (Jessour and Tabias) and in the coastal zone, thanks to the higher air humidity and rainfall. In contrast, the olives in the inner plains are the most affected. Nevertheless, in case of severe droughts, the stress is generalised. Thus, the model could be used as a decision tool for prioritizing areas of intervention for drought control and mitigation (supplemental irrigation for trees safeguard, etc.)",
+   "open_access_url": null,
+   "cited_by": 7,
+   "countries": [
+    "TN"
+   ],
+   "pdf_url": null,
+   "label": null,
+   "relevance": null,
+   "matched": [],
+   "gold": {
+    "fit": "direct",
+    "setting": "south-eastern Tunisia (Medenine), arid olive groves"
+   }
+  },
+  "W2050282851": {
+   "id": "W2050282851",
+   "title": "Recent Declines in Warming and Vegetation Greening Trends over Pan-Arctic Tundra",
+   "authors": [
+    "Uma S. Bhatt",
+    "Donald A. Walker",
+    "Martha K. Raynolds",
+    "Peter A. Bieniek",
+    "Howard E. Epstein",
+    "Josefino C. Comiso",
+    "Jorge Enrique Díaz Pinzón",
+    "Compton Tucker",
+    "Igor V. Polyakov"
+   ],
+   "year": 2013,
+   "venue": "Remote Sensing",
+   "doi": "10.3390/rs5094229",
+   "abstract": "Vegetation productivity trends for the Arctic tundra are updated for the 1982–2011 period and examined in the context of land surface temperatures and coastal sea ice. Understanding mechanistic links between vegetation and climate parameters contributes to model advancements that are necessary for improving climate projections. This study employs remote sensing data: Global Inventory Modeling and Mapping Studies (GIMMS) Maximum Normalized Difference Vegetation Index (MaxNDVI), Special Sensor Microwave Imager (SSM/I) sea-ice concentrations, and Advanced Very High Resolution Radiometer (AVHRR) radiometric surface temperatures. Spring sea ice is declining everywhere except in the Bering Sea, while summer open water area is increasing throughout the Arctic. Summer Warmth Index (SWI—sum of degree months above freezing) trends from 1982 to 2011 are positive around Beringia but are negative over Eurasia from the Barents to the Laptev Seas and in parts of northern Canada. Eastern North America continues to show increased summer warmth and a corresponding steady increase in MaxNDVI. Positive MaxNDVI trends from 1982 to 2011 are generally weaker compared to trends from 1982–2008. So to better understand the changing trends, break points in the time series were quantified using the Breakfit algorithm. The most notable break points identify declines in SWI since 2003 in Eurasia and 1998 in Western North America. The Time Integrated NDVI (TI-NDVI, sum of the biweekly growing season values of MaxNDVI) has declined since 2005 in Eurasia, consistent with SWI declines. Summer (June–August) sea level pressure (slp) averages from 1999–2011 were compared to those from 1982–1998 to reveal higher slp over Greenland and the western Arctic and generally lower pressure over the continental Arctic in the recent period. This suggests that the large-scale circulation is likely a key contributor to the cooler temperatures over Eurasia through increased summer cloud cover and warming in Eastern North America from more cloud-free skies.",
+   "open_access_url": null,
+   "cited_by": 250,
+   "countries": [
+    "US"
+   ],
+   "pdf_url": null,
+   "label": null,
+   "relevance": null,
+   "matched": [],
+   "gold": {
+    "fit": "indirect",
+    "setting": "pan-Arctic tundra"
+   }
+  },
+  "W2091597654": {
+   "id": "W2091597654",
+   "title": "Investigating the Relationship between the Inter-Annual Variability of Satellite-Derived Vegetation Phenology and a Proxy of Biomass Production in the Sahel",
+   "authors": [
+    "Michele Meroni",
+    "Felix Rembold",
+    "Michel Max Verstraete",
+    "René Gommes",
+    "Anne Schucknecht",
+    "Gora Beye"
+   ],
+   "year": 2014,
+   "venue": "Remote Sensing",
+   "doi": "10.3390/rs6065868",
+   "abstract": "In the Sahel region, moderate to coarse spatial resolution remote sensing time series are used in early warning monitoring systems with the aim of detecting unfavorable crop and pasture conditions and informing stakeholders about impending food security risks. Despite growing evidence that vegetation productivity is directly related to phenology, most approaches to estimate such risks do not explicitly take into account the actual timing of vegetation growth and development. The date of the start of the season (SOS) or of the peak canopy density can be assessed by remote sensing techniques in a timely manner during the growing season. However, there is limited knowledge about the relationship between vegetation biomass production and these variables at the regional scale. This study describes the first attempt to increase our understanding of such a relationship through the analysis of phenological variables retrieved from SPOT-VEGETATION time series of the Fraction of Absorbed Photosynthetically Active Radiation (FAPAR). Two key phenological variables (growing season length (GSL); timing of SOS) and the maximum value of FAPAR attained during the growing season (Peak) are analyzed as potentially related to a proxy of biomass production (CFAPAR, the cumulative value of FAPAR during the growing season). GSL, SOS and Peak all show different spatial patterns of correlation with CFAPAR. In particular, GSL shows a high and positive correlation with CFAPAR over the whole Sahel (mean r = 0.78). The negative correlation between delays in SOS and CFAPAR is stronger (mean r = −0.71) in the southern agricultural band of the Sahel, while the positive correlation between Peak FAPAR and CFAPAR is higher in the northern and more arid grassland region (mean r = 0.75). The consistency of the results and the actual link between remote sensing-derived phenological parameters and biomass production were evaluated using field measurements of aboveground herbaceous biomass of rangelands in Senegal. This study demonstrates the potential of phenological variables as indicators of biomass production. Nevertheless, the strength of the relation between phenological variables and biomass production is not universal and indeed quite variable geographically, with large scattered areas not showing a statistically significant relationship.",
+   "open_access_url": null,
+   "cited_by": 56,
+   "countries": [
+    "BE",
+    "CN",
+    "IT",
+    "NL",
+    "ZA"
+   ],
+   "pdf_url": null,
+   "label": null,
+   "relevance": null,
+   "matched": [],
+   "gold": {
+    "fit": "indirect",
+    "setting": "Sahel, rangeland and crops, monsoon rains"
+   }
+  },
+  "W2122296413": {
+   "id": "W2122296413",
+   "title": "Assessments of Drought Impacts on Vegetation in China with the Optimal Time Scales of the Climatic Drought Index",
+   "authors": [
+    "Zheng Li",
+    "Tao Zhou",
+    "Xiang H. Zhao",
+    "Kaicheng Huang",
+    "Shan Gao",
+    "Hao Wu",
+    "Hui Luo"
+   ],
+   "year": 2015,
+   "venue": "International Journal of Environmental Research and Public Health",
+   "doi": "10.3390/ijerph120707615",
+   "abstract": "Drought is expected to increase in frequency and severity due to global warming, and its impacts on vegetation are typically extensively evaluated with climatic drought indices, such as multi-scalar Standardized Precipitation Evapotranspiration Index (SPEI). We analyzed the covariation between the SPEIs of various time scales and the anomalies of the normalized difference vegetation index (NDVI), from which the vegetation type-related optimal time scales were retrieved. The results indicated that the optimal time scales of needle-leaved forest, broadleaf forest and shrubland were between 10 and 12 months, which were considerably longer than the grassland, meadow and cultivated vegetation ones (2 to 4 months). When the optimal vegetation type-related time scales were used, the SPEI could better reflect the vegetation's responses to water conditions, with the correlation coefficients between SPEIs and NDVI anomalies increased by 5.88% to 28.4%. We investigated the spatio-temporal characteristics of drought and quantified the different responses of vegetation growth to drought during the growing season (April-October). The results revealed that the frequency of drought has increased in the 21st century with the drying trend occurring in most of China. These results are useful for ecological assessments and adapting management steps to mitigate the impact of drought on vegetation. They are helpful to employ water resources more efficiently and reduce potential damage to human health caused by water shortages.",
+   "open_access_url": null,
+   "cited_by": 54,
+   "countries": [
+    "CN"
+   ],
+   "pdf_url": null,
+   "label": null,
+   "relevance": null,
+   "matched": [],
+   "gold": {
+    "fit": "indirect",
+    "setting": "China, forests, shrubland and grassland"
+   }
+  },
+  "W2573170622": {
+   "id": "W2573170622",
+   "title": "Analysis of Drought Characteristics in Xilingol Grassland of Northern China Based on SPEI and Its Impact on Vegetation",
+   "authors": [
+    "Siqin Tong",
+    "Yuhai Bao",
+    "Rigele Te",
+    "Qiyun Ma",
+    "Si Ha",
+    "A. Lusi"
+   ],
+   "year": 2017,
+   "venue": "Mathematical Problems in Engineering",
+   "doi": "10.1155/2017/5209173",
+   "abstract": "This research is based on the standardized precipitation evapotranspiration index (SPEI) and normalized difference vegetation index (NDVI) which represent the drought and vegetation condition on land. Take the linear regression method and Pearson correlation analysis to study the spatial and temporal evolution of SPEI and NDVI and the drought effect on vegetation. The results show that (1) during 1961–2015, SPEI values at different time scales showed a downward trend; SPEI‐12 has a mutation in 1997 and the SPEI value significantly decreased after this year. (2) During 2000–2015, the annual growing season SPEI has an obvious upward trend in time and the apparent wetting spatially. (3) In the recent 16 years, the growing season NDVI showed an upward trend and more than 80% of the total area’s vegetation increased in Xilingol. (4) Vegetation coverage in Xilingol grew better in humid years and opposite in arid years. SPEI and NDVI had a significant positive correlation; 98% of the region showed positive correlation, indicating that meteorological drought affects vegetation growth more in arid and semiarid region. (5) The effect of drought on vegetation has lag effect, and the responses of different grassland types to different scales of drought were different.",
+   "open_access_url": null,
+   "cited_by": 52,
+   "countries": [
+    "CN"
+   ],
+   "pdf_url": null,
+   "label": null,
+   "relevance": null,
+   "matched": [],
+   "gold": {
+    "fit": "indirect",
+    "setting": "Xilingol, northern China, temperate grassland"
+   }
+  },
+  "W3046313524": {
+   "id": "W3046313524",
+   "title": "NDVI Changes Show Warming Increases the Length of the Green Season at Tundra Communities in Northern Alaska: A Fine-Scale Analysis",
+   "authors": [
+    "Jeremy L. May",
+    "Robert D. Hollister",
+    "Katlyn R. Betway",
+    "Jacob A. Harris",
+    "C. E. Tweedie",
+    "J. M. Welker",
+    "William A. Gould",
+    "Steven F. Oberbauer"
+   ],
+   "year": 2020,
+   "venue": "Frontiers in Plant Science",
+   "doi": "10.3389/fpls.2020.01174",
+   "abstract": "A warming Arctic has been associated with increases in aboveground plant biomass, specifically shrubs, and changes in vegetation cover. However, the magnitude and direction of changes in NDVI have not been consistent across different tundra types. Here we examine the responsiveness of fine-scale NDVI values to experimental warming at eight sites in northern Alaska, United States. Warming in our eight sites ranged in duration from 2‑23 seasons. Dry, wet and moist tundra communities were monitored for canopy surface temperatures and NDVI in ambient and experimentally-warmed plots at near-daily frequencies during the summer of 2017 to assess the impact of the warming treatment on the magnitude and timing of greening. Experimental warming increased canopy-level surface temperatures across all sites (+0.47 to +3.14˚C), with the strongest warming effect occurring during June and July and for the southernmost sites. Green-up was accelerated by warming at six sites, and autumn senescence was delayed at five sites. Warming increased the magnitude of peak NDVI values at five sites, decreased it at one site, and at two sites it did not change. Warming resulted in earlier peak NDVI at three sites and no significant change in the other sites. Shrub and graminoid cover was positively correlated with the magnitude of peak NDVI (r=0.37 to 0.60) while cryptogam influence was mixed. The magnitude and timing of peak NDVI showed considerable variability across sites. Warming extended the duration of the summer green season at most sites due to accelerated greening in the spring and delayed senescence in the autumn. We show that in a warmer Arctic (as simulated by our experiment) the timing and total period of carbon gain may change. Our results suggest these changes are dependent on community composition and abundance of specific growth forms and therefore will likely impact net primary productivity and trophic interactions.",
+   "open_access_url": null,
+   "cited_by": 37,
+   "countries": [
+    "FI",
+    "PR",
+    "US"
+   ],
+   "pdf_url": null,
+   "label": null,
+   "relevance": null,
+   "matched": [],
+   "gold": {
+    "fit": "indirect",
+    "setting": "northern Alaska, arctic tundra, experimental warming"
+   }
+  },
+  "W4394822197": {
+   "id": "W4394822197",
+   "title": "Seasonal Response of the NDVI to the SPEI at Different Time Scales in Yinshanbeilu, Inner Mongolia, China",
+   "authors": [
+    "Sinan Wang",
+    "Xigang Xing",
+    "Yingjie Wu",
+    "Jianying Guo",
+    "Mingyang Li",
+    "Bin Fu"
+   ],
+   "year": 2024,
+   "venue": "Land",
+   "doi": "10.3390/land13040523",
+   "abstract": "Recently, the frequent occurrence of droughts has caused a serious impact on vegetation growth and progression. This research is based upon the normalized difference vegetation index (NDVI) from 2001 to 2020. The correlation between the NDVI and standardized precipitation evapotranspiration index (SPEI) at disparate time scales was used to assess the response of vegetation growth to drought in the Yinshanbeilu region. The drought levels of SPEI1, SPEI3, SPEI6, and SPEI12 increased prominently in the eastern region of the country, while the NDVI decreased significantly from east to west in spring, summer, and autumn but was reversed in the winter. The area with an upward trend (33.86%) was slightly lower than that with a downward trend (66.14%). The correlation coefficients between the NDVI and SPEI over the entire year increased with the SPEI timescale. The elevated values were concentrated in the southeastern and western regions of the survey region. Additionally, the best correlation timescales were SPEI6 and SPEI12. Grassland was the most sensitive vegetation type to the SPEI response in the NDVI. The correlation coefficients of NDVI and SPEI1–12 were 0.313, 0.459, 0.422, and 0.406. Both spring and summer were more responsive to SPEI12, whereas autumn and winter were more responsive to SPEI3. The correlation of disparate time scales exhibited complex soil texture features with respect to different seasonal scales, and the soil texture showed a strong response to vegetation in both summer and autumn. Loam, sandy loam, and silty loam all exhibited the highest response to SPEI12, with coefficients of 0.509, 0.474, and 0.403, respectively.",
+   "open_access_url": null,
+   "cited_by": 19,
+   "countries": [
+    "CN"
+   ],
+   "pdf_url": null,
+   "label": null,
+   "relevance": null,
+   "matched": [],
+   "gold": {
+    "fit": "indirect",
+    "setting": "Inner Mongolia, temperate grassland"
+   }
+  },
+  "W4401910879": {
+   "id": "W4401910879",
+   "title": "The Response of NDVI to Drought at Different Temporal Scales in the Yellow River Basin from 2003 to 2020",
+   "authors": [
+    "Wenzhao Liu"
+   ],
+   "year": 2024,
+   "venue": "Water",
+   "doi": "10.3390/w16172416",
+   "abstract": "Ecological protection in the Yellow River Basin (YRB) is a major strategy for China’s sustainable development. Amid global warming, droughts have occurred more frequently, severely affecting vegetation growth. Based on the Standardized Precipitation Evapotranspiration Index (SPEI) and Normalized Difference Vegetation Index (NDVI) at different time scales from 2003 to 2020, this study employed the linear trend method and the Spearman correlation coefficient method to calculate the trends and correlation coefficients of NDVI and SPEI at different scales at the pixel scale and explored the spatial distribution pattern of the sensitivity of vegetation growth in the YRB to drought. The results show that: (1) NDVI and SPEI are positively correlated in 77% of the area, negatively correlated in 9%, and are positively correlated in the arid and semi-arid areas, while negatively correlated in the humid and subhumid areas. The significant negative correlation between NDVI and drought at high altitudes may be due to the fact that Gramineae vegetation is more sensitive to drought, with heat being more affected than water. (2) Urbanization has a relatively obvious impact on the distribution of drought. Extreme drought mainly occurs in the middle and upper reaches of the Wei River; severe drought mainly occurs in the central area of the Guanzhong Plain centered on Xi’an; the central area of the Loess Plateau; and the surrounding areas of the Zhengzhou-centered Central Plains City Group. (3) The NDVI showed an upward trend from 2003 to 2020, indicating an increase in vegetation density or an expansion of vegetation coverage. From the temporal trend, SPEI decreased at a rate of −0.17/decade, indicating that the entire watershed has a drought trend on an annual scale. (4) Spring NDVI is more sensitive to the water supply provided by SPEI-1, while the positive correlation between SPEI and NDVI begins to rise in June and reaches its peak in July, then starts to decline in August. In autumn and winter, NDVI is more sensitive to 3–6-month accumulated drought. (5) From the dynamic transmission laws of different levels of positive correlation, the positive impact of the 3-month accumulated drought on NDVI is most significant, and the influence of SPEI-1 on the negative correlation between SPEI and NDVI is most significant. This paper aims to clarify the sensitivity of vegetation to different time-scale droughts, provide a basis for alleviating drought in the YRB, and promote sustainable development of ecological environmental protection. The research findings enable us to gain a profound insight into the responsiveness of vegetation growth to drought in the context of global warming and offer a valuable theoretical foundation for devising pertinent measures to alleviate stress on vegetation growth in regions prone to frequent droughts.",
+   "open_access_url": null,
+   "cited_by": 14,
+   "countries": [
+    "CN"
+   ],
+   "pdf_url": null,
+   "label": null,
+   "relevance": null,
+   "matched": [],
+   "gold": {
+    "fit": "indirect",
+    "setting": "Yellow River Basin, China"
+   }
+  },
+  "W3156162233": {
+   "id": "W3156162233",
+   "title": "Evaluation of Seasonal Characteristics of Land Surface Temperature with NDVI and Population Density",
+   "authors": [
+    "Javed Mallick"
+   ],
+   "year": 2021,
+   "venue": "Polish Journal of Environmental Studies",
+   "doi": "10.15244/pjoes/130675",
+   "abstract": "Vegetation cover and population density and its variability characteristics in National Capital Region, NCR, India have major effects on thermal environments, mainly on land surface temperature (LST).There are very few meteorological stations to record the surface temperature in earlier periods, and they may not be the true representation for NCR region.In such cases, LST derived from thermal satellite data is useful to study the LST variability across the NCR region, an important parameter for urban micro-climate.Satellite images from Moderate Resolution Imaging Spectroradiometer (MODIS) used to obtain Normalized Difference Vegetation Index (NDVI) and LST map to determine the impact of those parameters on LST variability.Higher NDVI reveals the lower LST and vice versa.The high LST-NDVI negative correlation was observed during monsoon season.Statistical analysis of nighttime LST with population density shows that population growth tends to lead to urban LST rise or Urban Heat Island (UHI) strength, as well as effects NCR micro-climate.The high population density is one of the key contributing factors for NCR's high surface temperature, UHI intensity and also micro-climate.The study shows that the seasonal distribution of LST needs to be overcome with the high vegetation cover and some other appropriate mitigation measures.One way of mitigating such seasonal peripheral thermal effects could be to adopt better cropping practices in order to minimize the agricultural fallow period and promoting green roofing concepts in urban areas and using porous concrete for construction which might help to mitigate impacts of high LST in urban areas of NCR.The results of these studies may be useful in assessing and resolving the microclimate problem and in reducing the impact of UHI and also provide supporting data for NCR's urban planning and environmental research.",
+   "open_access_url": null,
+   "cited_by": 18,
+   "countries": [
+    "SA"
+   ],
+   "pdf_url": null,
+   "label": null,
+   "relevance": null,
+   "matched": [],
+   "gold": {
+    "fit": "indirect",
+    "setting": "National Capital Region, India, urban, monsoon"
+   }
+  },
+  "W2338397189": {
+   "id": "W2338397189",
+   "title": "Seasonal Variations of the Surface Urban Heat Island in a Semi-Arid City",
+   "authors": [
+    "Sirous Haashemi",
+    "Qihao Weng",
+    "Ali Darvishi",
+    "Seyed Kazem Alavipanah"
+   ],
+   "year": 2016,
+   "venue": "Remote Sensing",
+   "doi": "10.3390/rs8040352",
+   "abstract": "The process of the surface urban heat island (SUHI) varies with latitude, climate, topography and meteorological conditions. This study investigated the seasonal variability of SUHI in the Tehran metropolitan area, Iran, with respect to selected surface biophysical variables. Terra Moderate Resolution Imaging Spectroradiometer (MODIS) Land Surface Temperature (LST) was retrieved as nighttime LST data, while daytime LST was retrieved from Landsat 8 Thermal Infrared Sensor (TIRS) using the split-window algorithm. Both data covered the time period from September 2013 to September 2015. To assess SUHI intensity, we employed three SUHI indicators, i.e., the LST difference of urban-rural, that of urban-agriculture and that of urban-water. Physical and biophysical surface variables, including land use and land cover (LULC), elevation, impervious surface (IS), fractional vegetation cover (FVC) and albedo, were selected to estimate the relationship between LST seasonal variability and the surface properties. Results show that an inversion of the SUHI phenomenon (i.e., surface urban cool island) existed at daytime with the maximal value of urban-rural LST difference of −4 K in March; whereas the maximal value of SUHI at nighttime yielded 3.9 K in May. When using the indicators of urban-agriculture and urban-water LST differences, the maximal value of SUHI was found to be 8.2 K and 15.5 K, respectively. Both results were observed at daytime, suggesting the role of bare soils in the inversion of the SUHI phenomenon with the urban-rural indicator. Maximal correlation was observed in the relationship between night LST and elevation in spring (coefficient: −0.76), night LST and IS in spring (0.60), night LST and albedo in winter (−0.53) and day LST with fractional vegetation cover in summer (−0.41). The relationship between all surface properties with LST possessed large seasonal variations, and thus, using these relationships for SUHI modeling may not be effective. The only exception existed in the correlation between elevation and IS, which may be useful to simulate the SUHI at night. This study suggests that in semi-arid cities, such as Tehran, with the urban-rural indicator, a surface urban cool island may be observed in daytime while SUHI at nighttime; with other indicators, SUHI can be observed in both day and night. Thus, SUHI studies require the acquisition of remote sensing image data at both daytime and nighttime and careful selection of SUHI indicators.",
+   "open_access_url": null,
+   "cited_by": 253,
+   "countries": [
+    "CN",
+    "IR",
+    "US"
+   ],
+   "pdf_url": null,
+   "label": null,
+   "relevance": null,
+   "matched": [],
+   "gold": {
+    "fit": "off-topic",
+    "setting": "Tehran, surface urban heat island"
+   }
+  },
+  "W4307630849": {
+   "id": "W4307630849",
+   "title": "Convolutional Neural Networks for Agricultural Land Use Classification from Sentinel-2 Image Time Series",
+   "authors": [
+    "Alejandro-Martín Simón Sánchez",
+    "José González-Piqueras",
+    "Luis de la Ossa",
+    "Alfonso Calera"
+   ],
+   "year": 2022,
+   "venue": "Remote Sensing",
+   "doi": "10.3390/rs14215373",
+   "abstract": "Land use classification (LUC) is the process of providing information on land cover and the types of human activity involved in land use. In this study, we perform agricultural LUC using sequences of multispectral reflectance Sentinel-2 images taken in 2018. LUC can be carried out using machine or deep learning techniques. Some existing models process data at the pixel level, performing LUC successfully with a reduced number of images. Part of the pixel information corresponds to multispectral temporal patterns that, despite not being especially complex, might remain undetected by models such as random forests or multilayer perceptrons. Thus, we propose to arrange pixel information as 2D yearly fingerprints so as to render such patterns explicit and make use of a CNN to model and capture them. The results show that our proposal reaches a 91% weighted accuracy in classifying pixels among 19 classes, outperforming random forest by 8%, or a specifically tuned multilayer perceptron by 4%. Furthermore, models were also used to perform a ternary classification in order to detect irrigated fields, reaching a 97% global accuracy. We can conclude that this is a promising operational tool for monitoring crops and water use over large areas.",
+   "open_access_url": null,
+   "cited_by": 55,
+   "countries": [
+    "ES"
+   ],
+   "pdf_url": null,
+   "label": null,
+   "relevance": null,
+   "matched": [],
+   "gold": {
+    "fit": "off-topic",
+    "setting": "land-use classification with neural networks"
+   }
+  },
+  "W4366975310": {
+   "id": "W4366975310",
+   "title": "ARD‐VO: Agricultural robot data set of vineyards and olive groves",
+   "authors": [
+    "Francesco Crocetti",
+    "Enrico Bellocchio",
+    "Alberto Dionigi",
+    "Simone Felicioni",
+    "Gabriele Costante",
+    "Mario Luca Fravolini",
+    "Paolo Valigi"
+   ],
+   "year": 2023,
+   "venue": "Journal of Field Robotics",
+   "doi": "10.1002/rob.22179",
+   "abstract": "Abstract The availability of real‐world data in agricultural applications is of paramount importance to develop robust and effective robotic‐based solutions for farming operations. In this application context, however, very few data sets are available to the community and for some important crops, such as grapes and olives, they are almost absent. Therefore, the aim of this paper is to introduce and release ARD‐VO, a data set for agricultural robotics applications focused on vineyards and olive cultivations. Its main purpose is to provide the researchers with a real‐world extensive set of data to support the development of solutions and algorithms for precision farming technologies in the aforementioned crops. ARD‐VO has been collected with an unmanned ground vehicle (UGV) equipped with different heterogeneous sensors that capture information essential for robot localization and plant monitoring tasks. It is composed of sequences gathered in 11 experimental sessions between August and October 2021, navigating the UGV for several kilometers in four cultivation fields in Umbria, a central region of Italy. In addition, to highlight the utility of ARD‐VO, two application case studies are presented. In the first one, the data set is used to compare the performance of simultaneous localization and mapping and odometry estimation methods using vision systems, light detection and ranging, and inertial measurement unit sensors. The second one shows how the multispectral images included in ARD‐VO can be used to compute Normalized Difference Vegetation Index maps, which are crucial to monitor the crops and build prescription maps.",
+   "open_access_url": null,
+   "cited_by": 30,
+   "countries": [
+    "IT"
+   ],
+   "pdf_url": null,
+   "label": null,
+   "relevance": null,
+   "matched": [],
+   "gold": {
+    "fit": "off-topic",
+    "setting": "robot data set of vineyards and olive groves"
+   }
+  },
+  "W4280536505": {
+   "id": "W4280536505",
+   "title": "Detecting olive grove abandonment with Sentinel-2 and machine learning: The development of a web-based tool for land management",
+   "authors": [
+    "Iride Volpi",
+    "Susanna Marchi",
+    "Ruggero Petacchi",
+    "Klean Hoxha",
+    "D. Guidotti"
+   ],
+   "year": 2022,
+   "venue": "Smart Agricultural Technology",
+   "doi": "10.1016/j.atech.2022.100068",
+   "abstract": "The abandonment of rural areas is an important environmental and socio-economic issue in Europe, threatening the stability and profitability of agricultural production. The identification and quantification of abandoned land is key for temporal and spatial monitoring of the process and for applying alternative management measures. Italy is one of the most important European countries for the production of high quality olive oil, accounting for a large slice of the current certificated production (i.e., PDO, PGI). In this study, we present a machine learning model (i.e., Random Forest) for the identification of abandoned olive tree groves using field observations and NDVI time series, tested in a typical agroecosystem in central Italy dominated by olive groves. An application for smartphones able to record the geographic position was developed and used to collect field points, which in turn were utilised to train the model. The data of NDVI from January to December 2020, calculated on Sentinel-2 images, were extracted for each monitoring point and gap-filled to obtain a 10-days interval time series. The Random Forest model used the annual NDVI time series as features and classified the sampling points in the test dataset with an accuracy of 0.85. The model showed a higher capacity of classifying cultivated than abandoned points, sensitivity being equal to 0.88 and specificity equal to 0.82. Results demonstrated the applicability of the combined approach for discriminating cultivated from abandoned olive tree groves, in case that the parcels destined for olive tree cultivation are known. A web-based tool was implemented to support land monitoring and management.",
+   "open_access_url": null,
+   "cited_by": 19,
+   "countries": [
+    "IT"
+   ],
+   "pdf_url": null,
+   "label": null,
+   "relevance": null,
+   "matched": [],
+   "gold": {
+    "fit": "off-topic",
+    "setting": "Italy, detecting abandoned olive groves"
+   }
+  }
+ },
+ "cases": [
+  {
+   "id": "c01",
+   "question": "Why is NDVI lowest in summer in my olive orchard?",
+   "matched": [
+    "W4408572945",
+    "W2902781068",
+    "W4221127179"
+   ],
+   "mismatched": [
+    "W3046313524",
+    "W2050282851",
+    "W2091597654"
+   ],
+   "off-topic": [
+    "W2338397189",
+    "W4307630849",
+    "W4280536505"
+   ]
+  },
+  {
+   "id": "c02",
+   "question": "Why does NDVI peak in early spring here?",
+   "matched": [
+    "W2986830919",
+    "W4210577506",
+    "W2116960794"
+   ],
+   "mismatched": [
+    "W3046313524",
+    "W4394822197",
+    "W2091597654"
+   ],
+   "off-topic": [
+    "W4366975310",
+    "W2338397189",
+    "W4307630849"
+   ]
+  },
+  {
+   "id": "c03",
+   "question": "Why does NDVI respond to SPEI with a delay of a few months in this orchard?",
+   "matched": [
+    "W4408572945",
+    "W2902781068",
+    "W4210577506"
+   ],
+   "mismatched": [
+    "W2122296413",
+    "W4394822197",
+    "W2573170622"
+   ],
+   "off-topic": [
+    "W4280536505",
+    "W4307630849",
+    "W2338397189"
+   ]
+  },
+  {
+   "id": "c04",
+   "question": "Why are NDVI and LST negatively correlated in my orchard?",
+   "matched": [
+    "W4224231858",
+    "W4221127179",
+    "W4408572945"
+   ],
+   "mismatched": [
+    "W2050282851",
+    "W3046313524",
+    "W3156162233"
+   ],
+   "off-topic": [
+    "W4366975310",
+    "W4307630849",
+    "W4280536505"
+   ]
+  },
+  {
+   "id": "c05",
+   "question": "What could explain the low NDVI years in my record?",
+   "matched": [
+    "W4408572945",
+    "W2902781068",
+    "W2116960794"
+   ],
+   "mismatched": [
+    "W2573170622",
+    "W4401910879",
+    "W2091597654"
+   ],
+   "off-topic": [
+    "W4280536505",
+    "W4366975310",
+    "W4307630849"
+   ]
+  },
+  {
+   "id": "c06",
+   "question": "Why does NDVI rise again in autumn in my orchard?",
+   "matched": [
+    "W4210577506",
+    "W2116960794",
+    "W2986830919"
+   ],
+   "mismatched": [
+    "W3046313524",
+    "W2050282851",
+    "W4394822197"
+   ],
+   "off-topic": [
+    "W2338397189",
+    "W4307630849",
+    "W4280536505"
+   ]
+  },
+  {
+   "id": "c07",
+   "question": "Why is the seasonal amplitude of NDVI so large for my olive orchard?",
+   "matched": [
+    "W2986830919",
+    "W2116960794",
+    "W4307940189"
+   ],
+   "mismatched": [
+    "W3046313524",
+    "W2091597654",
+    "W2122296413"
+   ],
+   "off-topic": [
+    "W4366975310",
+    "W4307630849",
+    "W2338397189"
+   ]
+  },
+  {
+   "id": "c08",
+   "question": "Why does NDVI vary so much from year to year in my orchard?",
+   "matched": [
+    "W2902781068",
+    "W2116960794",
+    "W4221127179"
+   ],
+   "mismatched": [
+    "W2573170622",
+    "W4401910879",
+    "W2091597654"
+   ],
+   "off-topic": [
+    "W4280536505",
+    "W4307630849",
+    "W2338397189"
+   ]
+  }
+ ]
+}

@@ -7,18 +7,20 @@ screen that it describes, computed with the same definitions as the interface
 
 import math
 from dataclasses import dataclass, field
-from statistics import fmean, median, pstdev
+from statistics import NormalDist, fmean, median, pstdev
 
 import pandas as pd
 
 from engine import guardrails
 from engine.catalogue import large
-from engine.decompose import DecompositionError, decompose
-from engine.lags import explore
+from engine.decompose import DecompositionError, decompose, trend_from
+from engine.lags import effective_n, explore
 
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 MIN_PAIRS = 12  # fewer months in common and a correlation is not computed
 MIN_TREND_YEARS = 5
+
+NORMAL = NormalDist()
 
 
 @dataclass
@@ -322,6 +324,27 @@ def lag_correlation(
     return lags
 
 
+def memory(series: dict[int, float]) -> float:
+    """Lag-1 autocorrelation of a monthly series, each month paired with the month before."""
+    pairs = [(series[m - 1], v) for m, v in series.items() if m - 1 in series]
+    r = pearson([a for a, _ in pairs], [b for _, b in pairs]) if len(pairs) > 2 else 0.0
+    return 0.0 if math.isnan(r) else r
+
+
+def searched_band(
+    response: Series, driver: Series, n: int, tests: int, deseasonalise: bool
+) -> float:
+    """The |r| the strongest of several lags (or scales) must pass to stand out from chance:
+    5%, two-sided, Bonferroni over what was searched, on the effective number of months of two
+    autocorrelated series (Bretherton et al. 1999), as the Lags card tests. The single-lag band
+    ±1.96/√n, kept for the chart, is too lenient for the best of many (review of 18 Nov)."""
+    a, b = monthly(response.points), monthly(driver.points)
+    if deseasonalise:
+        a, b = anomalies(a), anomalies(b)
+    z = NORMAL.inv_cdf(1 - 0.05 / (2 * tests))
+    return z / math.sqrt(max(effective_n(n, memory(a), memory(b)), 4))
+
+
 def correlation_fact(card: str, response: Series, driver: Series, deseasonalise: bool) -> Fact:
     lags = lag_correlation(response.points, driver.points, deseasonalise=deseasonalise)
     who = f"{response.area}"
@@ -337,9 +360,13 @@ def correlation_fact(card: str, response: Series, driver: Series, deseasonalise:
         if best.lag == 0
         else f"{best.lag} month{'s' if best.lag > 1 else ''} earlier"
     )
-    stats = f"r = {best.r:.2f}, {best.n} months, chance band ±{best.band:.2f}"
-    values = [round(best.r, 4), best.n, round(best.band, 4)]
-    if abs(best.r) < best.band:
+    band = searched_band(response, driver, best.n, len(lags), deseasonalise)
+    stats = (
+        f"r = {best.r:.2f}, {best.n} months; the strongest of {len(lags)} lags must pass "
+        f"±{band:.2f} to stand out from chance"
+    )
+    values = [round(best.r, 4), best.n, round(band, 4)]
+    if abs(best.r) < band:
         text = (
             f"{who}: no lag of {driver.title} stands out from chance for {response.title} {what} "
             f"(strongest at {when}: {stats})."
@@ -386,8 +413,17 @@ def scale_fact(card: str, response: Series, scales: list[Series], deseasonalise:
         else f"{best.lag} month{'s' if best.lag > 1 else ''} earlier"
     )
     tested = len({t for t, _ in found})
-    stats = f"r = {best.r:.2f}, {best.n} months, chance band ±{best.band:.2f}"
-    verdict = "" if abs(best.r) >= best.band else " This does not stand out from chance."
+    scale = next(s for s in scales if s.title == title)
+    band = searched_band(response, scale, best.n, len(found), deseasonalise)
+    stats = (
+        f"r = {best.r:.2f}, {best.n} months; the strongest of {len(found)} scale and lag pairs "
+        f"must pass ±{band:.2f} to stand out from chance"
+    )
+    verdict = (
+        " It stands out from chance."
+        if abs(best.r) >= band
+        else " It does not stand out from chance."
+    )
     return Fact(
         card,
         f"{who}: of {tested} scales, {response.title} {what} follow {title} from {when} most "
@@ -439,7 +475,9 @@ def decomposition_facts(card: str, s: Series) -> list[Fact]:
             card,
             f"{who}: discrete Meyer wavelet at level {result.level} on {s.title}'s "
             f"{result.cadence_days:.0f}-day steps, so the trend keeps cycles longer than about "
-            f"{result.semi_period_days:.0f} days; {result.interpolated} empty dates were filled by "
+            f"{trend_from(result.level, result.cadence_days):.0f} days and the seasonal part "
+            "carries the year-to-year variation shorter than that as well as the yearly cycle; "
+            f"{result.interpolated} empty dates were filled by "
             "straight lines first. The filter uses later data too, so the trend describes the "
             "past and is not a forecast.",
         ),

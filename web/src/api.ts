@@ -103,8 +103,21 @@ export function errorText(body: { detail?: unknown }, status: number): string {
     : `The request was refused (error ${status}).`;
 }
 
+// A server that cannot be reached is said in plain words, not as the browser's "Failed to fetch"
+// or "Load failed" (review of 18 Nov)
+export const UNREACHABLE = "Magonia's server cannot be reached. Check that it is running, then try again.";
+
+async function reach(input: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(input, init);
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") throw e;
+    throw new Error(UNREACHABLE);
+  }
+}
+
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`/api${path}`, {
+  const response = await reach(`/api${path}`, {
     ...init,
     // a file upload (FormData) sets its own content type
     headers:
@@ -305,6 +318,7 @@ export type DecompositionResponse = {
   level: number;
   cadence_days: number;
   semi_period_days: number;
+  trend_from_days: number; // the trend keeps cycles longer than this
   interpolated: number;
   area_id: number;
   points: {
@@ -363,7 +377,7 @@ export type LagEvidence = {
   lag: number;
   best: number;
   expected: number | null;
-  decision: "stands out" | "not significant" | "implausible sign";
+  decision: "stands out" | "not significant" | "unexpected sign";
 };
 
 export type LagsResponse = {
@@ -595,6 +609,7 @@ export type AnswerDetails = {
   board?: BoardGiven[]; // the pinned items it was given, [B1]…
   board_cited?: number[];
   claim_test?: ClaimTest; // a claim from a paper, tested on the researcher's own data
+  interrupted?: boolean; // the answer stopped before Magonia could check it
 };
 
 // A claim tested by code on the researcher's data, with the verdict fixed rules gave it
@@ -658,7 +673,7 @@ export type ChatMessage = {
 };
 
 // How far Magon may trust a pinned item; a failed answer is never given to it as evidence
-export type BoardTrust = "computed" | "checked" | "passage" | "note" | "failed" | "changed";
+export type BoardTrust = "computed" | "checked" | "unchecked" | "passage" | "note" | "failed" | "changed";
 export type BoardGiven = { n: number; title: string; trust: BoardTrust; pinned: string };
 
 export type ChatEvent =
@@ -706,10 +721,10 @@ export type LibraryFile = {
 // Each workspace has its own files; a file is then reached by its id
 export const listFiles = (workspaceId: number) =>
   call<LibraryFile[]>(`/workspaces/${workspaceId}/library`);
-export const removeFile = (id: string) =>
-  call<void>(`/library/${id}`, send("DELETE"));
-export const restoreFile = (id: string) =>
-  call<LibraryFile>(`/library/${id}/restore`, send("POST"));
+export const removeFile = (workspaceId: number, id: string) =>
+  call<void>(`/workspaces/${workspaceId}/library/${id}`, send("DELETE"));
+export const restoreFile = (workspaceId: number, id: string) =>
+  call<LibraryFile>(`/workspaces/${workspaceId}/library/${id}/restore`, send("POST"));
 export function addFile(workspaceId: number, file: File) {
   const body = new FormData();
   body.append("file", file);
@@ -790,7 +805,7 @@ export async function ask(
   onEvent: (event: ChatEvent) => void,
   view?: View,
 ) {
-  const response = await fetch(`/api/conversations/${conversationId}/chat`, {
+  const response = await reach(`/api/conversations/${conversationId}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ content, view }),

@@ -114,3 +114,21 @@ def test_counting_studies_is_caught():
 def test_french_is_recognised():
     assert french("Le NDVI des oliviers est plus bas pendant la sécheresse dans le sud.")
     assert not french("NDVI of olive trees is lower during drought in the south.")
+
+
+def test_a_blinded_rediscovery_case_names_no_place_crop_or_workspace():
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).parent.parent / "evaluation"))
+    import rediscovery
+
+    points = [
+        {"date": f"{2000 + i // 12}-{i % 12 + 1:02d}-01", "value": 0.5, "masked": False}
+        for i in range(36)
+    ]
+    results = {"ndvi": {"name": "NDVI", "units": "", "points": points}}
+    blinded = rediscovery.view_for("Jendouba", 0.64, results, True, "Site A").sheet().lower()
+    named = rediscovery.view_for("Jendouba", 0.64, results, False, "Site A").sheet().lower()
+    assert not any(word in blinded for word in ("olive", "orchard", "jendouba", "tunisia"))
+    assert "jendouba olive orchard" in named and "orchards" in named

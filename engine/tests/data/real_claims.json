@@ -1,5 +1,5 @@
 {
- "note": "Labelled by hand before the reader was run on them. The development set was used while fixing the reader; the held-out set was run once (14 Nov 2026: 5 of 11, 4 of 5 genuine claims) and then the rain/drier rule was generalised.",
+ "note": "Labelled by hand before the reader was run on them. The development set was used while fixing the reader; the held-out set was run once (14 Nov 2026: 5 of 11, 4 of 5 genuine claims) and then the rain/drier rule was generalised. held_out_2: 20 sentences from OpenAlex abstracts, labelled by hand on 15 Nov 2026 before the reader was run on them, to measure refusing non-claims; run once before and once after that change. held_out_3: 18 sentences from other OpenAlex abstracts (vineyards, cereals, grassland, trends), labelled by hand on 15 Nov 2026 after the refusal rules were written and before the reader was run on them; run once.",
  "development": [
   {
    "source": "Bounouh 2024",
@@ -238,6 +238,334 @@
      "rain",
      1
     ]
+   ]
+  }
+ ],
+ "held_out_2": [
+  {
+   "source": "Vicente-Serrano 2019",
+   "text": "More than 90 % of the land areas exhibited statistically significant positive correlations between the NDVI and the SPEI during dry summers (JJA).",
+   "expected": [
+    [
+     "lag",
+     "spei",
+     1
+    ]
+   ]
+  },
+  {
+   "source": "Vicente-Serrano 2019",
+   "text": "In comparison to other climatic regions across Spain, results indicate that vegetation types located in arid regions showed the strongest response to drought.",
+   "expected": [
+    null
+   ]
+  },
+  {
+   "source": "Vicente-Serrano 2019",
+   "text": "Results demonstrate that – over large areas of Spain – vegetation activity is controlled largely by the interannual variability of drought.",
+   "expected": [
+    [
+     "lag",
+     "spei",
+     1
+    ]
+   ]
+  },
+  {
+   "source": "Carreño 2021",
+   "text": "NDVI is frequent in studies related to vegetation mapping, crop state indicator, biomass estimator, drought monitoring and evapotranspiration.",
+   "expected": [
+    null
+   ]
+  },
+  {
+   "source": "Page 2019",
+   "text": "Three satellite products are considered: the Normalized Difference Vegetation Index (NDVI), Soil Moisture Index (SWI), and Land Surface Temperature (LST).",
+   "expected": [
+    null
+   ]
+  },
+  {
+   "source": "Han 2023",
+   "text": "First, correlation analysis was used to determine the characteristics of the normalized precipitation evapotranspiration index (SPEI) response of the grassland normalized difference vegetation index (NDVI) to multiscale drought stress (SPEI-1 ~ SPEI-24) in the study area.",
+   "expected": [
+    null
+   ]
+  },
+  {
+   "source": "Vasilakos 2022",
+   "text": "The LSTM networks predicted the NDVI with root mean squared error (RMSE) ranging from 0.017 to 0.079.",
+   "expected": [
+    null
+   ]
+  },
+  {
+   "source": "Cramer 2015",
+   "text": "NDVI was strongly correlated with both precipitation and P-PET (r2 = 0.8).",
+   "expected": [
+    [
+     "lag",
+     "rain",
+     1
+    ]
+   ]
+  },
+  {
+   "source": "Cramer 2015",
+   "text": "There was no evidence, however, that winter-precipitation reduces NDVI in comparison to similar amounts of summer-precipitation.",
+   "expected": [
+    null
+   ]
+  },
+  {
+   "source": "Belay 2025",
+   "text": "The findings reveal significant vegetation loss in areas experiencing intensive land use, accompanied by elevated LST and reduced ET.",
+   "expected": [
+    null
+   ]
+  },
+  {
+   "source": "Fernández-Carrillo 2021",
+   "text": "The trend of RREL (Δyear = -0.012; r2 = 0.52) indicated that vegetation is moving to a more constant seasonal behaviour.",
+   "expected": [
+    null
+   ]
+  },
+  {
+   "source": "Novillo 2019",
+   "text": "We found 7.6% significant negative NDVI trends and 11.8% significant positive NDVI trends.",
+   "expected": [
+    null
+   ]
+  },
+  {
+   "source": "Kang 2018",
+   "text": "Annual drought reduced vegetation productivity and the sensitivity of productivity regarding drought disturbance was higher than that of phenology.",
+   "expected": [
+    [
+     "lag",
+     "spei",
+     1
+    ]
+   ]
+  },
+  {
+   "source": "Wang 2021",
+   "text": "Precipitation was found to mainly control the growth of vegetation in the arid and semi-arid regions of northwest China (WNW and ENW), and precipitation had a much greater impact on grassland than on forests.",
+   "expected": [
+    [
+     "lag",
+     "rain",
+     1
+    ]
+   ]
+  },
+  {
+   "source": "Luo 2020",
+   "text": "The average yearly NDVI was 0.28 and increased slightly by 0.001 yr−1 (r = 0.94, p = 3.64) between 1998 and 2015.",
+   "expected": [
+    [
+     "trend",
+     null,
+     1
+    ]
+   ]
+  },
+  {
+   "source": "Luo 2020",
+   "text": "Significantly, positive correlations between SPEI and NDVI were observed, while drought exerted a five-year lag effect on vegetation.",
+   "expected": [
+    [
+     "lag",
+     "spei",
+     1
+    ]
+   ]
+  },
+  {
+   "source": "Wang 2021",
+   "text": "The Standardized Precipitation Evapotranspiration Index (SPEI) showed a downward trend, indicating an aridification trend in China, particularly in ENW, NNC, and WNW.",
+   "expected": [
+    null
+   ]
+  },
+  {
+   "source": "Du 2025",
+   "text": "Quantifying vegetation's response to drought and understanding its mechanisms is crucial for mitigating the adverse effects of drought disasters.",
+   "expected": [
+    null
+   ]
+  },
+  {
+   "source": "Zhong 2021",
+   "text": "The results add more insights of the connection between vegetation and climate, and guide the development of new technology leveraging remote sensing data for vegetation drought monitoring and early-warning.",
+   "expected": [
+    null
+   ]
+  },
+  {
+   "source": "Vicente-Serrano 2019",
+   "text": "Drought is a major driver of vegetation activity in Spain, with significant impacts on crop yield, forest growth, and the occurrence of forest fires.",
+   "expected": [
+    [
+     "lag",
+     "spei",
+     1
+    ]
+   ]
+  }
+ ],
+ "held_out_3": [
+  {
+   "source": "Khellouk 2025",
+   "text": "The results indicate that NDVI is strongly related to soil moisture which reaches maximum positive correlations of 0.53.",
+   "expected": [
+    [
+     "lag",
+     "soil_moisture",
+     1
+    ]
+   ]
+  },
+  {
+   "source": "Wang 2022",
+   "text": "The results indicate that EVI trends increased during 2001 to 2020, especially in the farmland, forestland, and grassland ecosystems.",
+   "expected": [
+    [
+     "trend",
+     null,
+     1
+    ]
+   ]
+  },
+  {
+   "source": "Ding 2012",
+   "text": "Precipitation has significant impact on the vegetation productivity in the Serengeti area of eastern Africa, an arid and semi-arid region.",
+   "expected": [
+    [
+     "lag",
+     "rain",
+     1
+    ]
+   ]
+  },
+  {
+   "source": "Ghorbanian 2022",
+   "text": "The correlation coefficient between precipitation and vegetation (NDVI) was 0.54 based on all corresponding observations (n = 1785).",
+   "expected": [
+    [
+     "lag",
+     "rain",
+     1
+    ]
+   ]
+  },
+  {
+   "source": "El-Bouhali 2025",
+   "text": "Thus, we found that the VCI is a valuable indicator that reflects the vegetation's response to the rainfall deficit recorded in recent years.",
+   "expected": [
+    null,
+    [
+     "lag",
+     "rain",
+     1
+    ]
+   ]
+  },
+  {
+   "source": "Forkel 2013",
+   "text": "Our results indicate that greening NDVI trends in Alaska are more spatially and temporally prevalent than browning trends.",
+   "expected": [
+    null
+   ]
+  },
+  {
+   "source": "Sun 2017",
+   "text": "The spatial correlation between grape yield maps and the interpolated daily time series (LAI and NDVI) was quantified.",
+   "expected": [
+    null
+   ]
+  },
+  {
+   "source": "Sun 2017",
+   "text": "NDVI and LAI were found to have similar performance as a predictor of spatial yield variability, providing peak correlations of 0.8 at specific times during the growing season, and the timing of this peak correlation differed for the two years of study.",
+   "expected": [
+    null
+   ]
+  },
+  {
+   "source": "Bijaber 2018",
+   "text": "All of these satellite-based indices are being used to monitor vegetation condition, rainfall and land surface temperature.",
+   "expected": [
+    null
+   ]
+  },
+  {
+   "source": "Khellouk 2025",
+   "text": "The relationship between soil moisture and NDVI is calculated based on Lag (10-day back); the underlying reason that has been the current state of NDVI can be affected by the state of soil moisture a few periods back.",
+   "expected": [
+    null
+   ]
+  },
+  {
+   "source": "Wang 2022",
+   "text": "Affected by Epr and At, the correlation between the EVI and hydrothermal conditions varied under different hydrothermal conditions.",
+   "expected": [
+    null
+   ]
+  },
+  {
+   "source": "Ding 2012",
+   "text": "Previous studies indicate that the response of vegetation productivity to precipitation varies as the consequence of difference in total precipitation, soil properties, and vegetation type.",
+   "expected": [
+    null
+   ]
+  },
+  {
+   "source": "Ding 2012",
+   "text": "To explore the non-stationary relation between EVI and precipitation, geographically weighted regression (GWR) models are used with mean precipitation and PC1 and PC3 as independent variables and mean EVI as dependent variable.",
+   "expected": [
+    null
+   ]
+  },
+  {
+   "source": "Ding 2012",
+   "text": "The correlation between mean EVI and both mean and variation of precipitation together are maximized at the west side of north SNP and decrease towards the south-east.",
+   "expected": [
+    null
+   ]
+  },
+  {
+   "source": "Ghorbanian 2022",
+   "text": "Both positive and negative directions were observed in all trend types, with the slope magnitudes ranging between −0.048 and 0.047 (NDVI units) per year.",
+   "expected": [
+    null
+   ]
+  },
+  {
+   "source": "Ghorbanian 2022",
+   "text": "The comparison between vegetation and precipitation trends revealed matched trend directions in 60% of cases, suggesting the potential impact of precipitation dynamics on vegetation covers.",
+   "expected": [
+    null,
+    [
+     "lag",
+     "rain",
+     1
+    ]
+   ]
+  },
+  {
+   "source": "Forkel 2013",
+   "text": "Here we compare the performance of a wide range of trend estimation methods and demonstrate that performance decreases with increasing inter-annual variability in the NDVI time series.",
+   "expected": [
+    null
+   ]
+  },
+  {
+   "source": "Forkel 2013",
+   "text": "We also show that detected breakpoints in NDVI trends tend to coincide with large fires.",
+   "expected": [
+    null
    ]
   }
  ]

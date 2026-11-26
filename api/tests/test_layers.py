@@ -127,7 +127,7 @@ def test_an_areas_purity_is_measured_once_and_kept(client, monkeypatch):
 
     monkeypatch.setattr(main, "sample_pixels", sample)
     found = client.get(f"/areas/{area}/purity").json()
-    assert found["area_share"] == 0.3 and "30% annual crop" in found["summary"][0]
+    assert found["area_share"] == 0.3 and "30% seasonal cover" in found["summary"][0]
     client.get(f"/areas/{area}/purity")
     assert calls == [("2003-01-01", "2023-01-01")]
     assert client.get("/areas/999/purity").status_code == 404

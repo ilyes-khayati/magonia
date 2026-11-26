@@ -17,7 +17,7 @@ type Props = {
   end: string;
 };
 
-// perennial green to annual-crop brown, through a pale middle that reads as "mixed"
+// perennial green to seasonal-cover brown, through a pale middle that reads as "mixed"
 const SHARE = ["#1b7837", "#a6dba0", "#f7f7f7", "#dfc27d", "#8c510a"];
 
 // d3's spherical drawing reads a counter-clockwise ring as "everything but this"; GeoJSON's
@@ -71,7 +71,7 @@ function maps(found: PurityResponse, area: Area): Plot.PlotOptions {
         Plot.pointer({
           x: "lon",
           y: "lat",
-          title: (p: PurityPixel) => `${Math.round(p.share * 100)}% annual crop\nswing ${num(p.amplitude, 2)} over the year\n${p.lat.toFixed(4)}, ${p.lon.toFixed(4)}`,
+          title: (p: PurityPixel) => `${Math.round(p.share * 100)}% seasonal cover\nswing ${num(p.amplitude, 2)} over the year\n${p.lat.toFixed(4)}, ${p.lon.toFixed(4)}`,
         }),
       ),
     ],
@@ -80,14 +80,14 @@ function maps(found: PurityResponse, area: Area): Plot.PlotOptions {
 
 function cycles(found: PurityResponse): Plot.PlotOptions {
   const rows = [
-    ...found.seasonal.map((v, m) => ({ m, v, which: "Most seasonal nearby (annual crop)" })),
+    ...found.seasonal.map((v, m) => ({ m, v, which: "Most seasonal nearby (crop or understory)" })),
     ...found.perennial.map((v, m) => ({ m, v, which: "Most even nearby (perennial)" })),
     ...found.area_cycle.map((v, m) => ({ m, v, which: "The area's pixels" })),
   ];
   return {
     x: { domain: [0, 11], ticks: 12, tickFormat: (m: number) => MONTHS[m] ?? "", label: null },
     y: { label: "NDVI", labelArrow: "none", grid: true, tickFormat: (v: number) => num(v, 1) },
-    color: { domain: ["Most seasonal nearby (annual crop)", "Most even nearby (perennial)", "The area's pixels"], range: [SHARE[4], SHARE[0], "currentColor"] },
+    color: { domain: ["Most seasonal nearby (crop or understory)", "Most even nearby (perennial)", "The area's pixels"], range: [SHARE[4], SHARE[0], "currentColor"] },
     marks: [
       Plot.lineY(rows.filter((r) => r.which !== "The area's pixels"), { x: "m", y: "v", z: "which", stroke: "which", strokeWidth: 1.5, strokeDasharray: "4 3" }),
       Plot.lineY(rows.filter((r) => r.which === "The area's pixels"), { x: "m", y: "v", stroke: "which", strokeWidth: 2.4 }),
@@ -96,7 +96,7 @@ function cycles(found: PurityResponse): Plot.PlotOptions {
   };
 }
 
-// How much of each pixel over and around the area is annual crop: an area mean is only as
+// How much of each pixel over and around the area is seasonal cover (a crop around it, or green growth under its trees): an area mean is only as
 // pure as the pixels it is made of
 export default function PurityCard({ analysis, onChange, onRemove, areas, start, end }: Props) {
   const area = areas.find((a) => a.id === analysis.area) ?? areas[0];
@@ -152,7 +152,7 @@ export default function PurityCard({ analysis, onChange, onRemove, areas, start,
           </div>
           <div className="coherence-key">
             <span className="ramp" style={{ background: `linear-gradient(to right, ${SHARE.join(", ")})` }} />
-            <span className="meta">0 → 100% annual crop</span>
+            <span className="meta">0 → 100% seasonal cover</span>
             <span className="meta">Thick outline: the area. Thin outlines: its own pixels. Dashed: the two references.</span>
           </div>
           <ul className="summary">

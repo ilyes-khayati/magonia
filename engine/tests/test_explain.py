@@ -171,3 +171,15 @@ def test_effects_are_described_with_their_direction(explained):
         assert set(curves) <= {"XGBoost", "RandomForest", "Ridge"}
     lines = describe("Orchard", explained)
     assert any("(accumulated local effects)" in line for line in lines)
+
+
+def test_a_driver_other_than_lst_and_spei_is_its_own_family():
+    # before 18 Nov, rainfall was counted as the response's own history
+    names = ["NDVI_lag1", "Rainfall_lag2", "LST_lag1", "SPEI-3_lag1", "month_sin"]
+    assert [family(f, "NDVI") for f in names] == [
+        "own history",
+        "Rainfall",
+        "LST",
+        "drought",
+        "calendar",
+    ]

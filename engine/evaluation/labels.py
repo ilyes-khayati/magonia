@@ -98,9 +98,16 @@ def stratified(statements: list[dict], n: int, seed: int) -> list[dict]:
     return chosen
 
 
-def sample(folder: Path, n: int, seed: int) -> Path:
-    chosen = stratified(read_statements(folder), n, seed)
+def sample(folder: Path, n: int, seed: int, force: bool = False) -> Path:
     out = folder / "labels"
+    if (out / "key.json").exists() and not force:
+        # a second sample would give the same ids (s01, s02…) to other statements, and sheets
+        # already labelled would then be scored against the wrong ones (review of 18 Nov)
+        raise SystemExit(
+            f"{out} already holds a sample; labelled sheets refer to its ids. Move it away, or "
+            "pass --force to replace it."
+        )
+    chosen = stratified(read_statements(folder), n, seed)
     out.mkdir(exist_ok=True)
     key = {}
     with (out / "sheet.csv").open("w", newline="") as f:
@@ -246,11 +253,12 @@ def main() -> None:
     s.add_argument("results", type=Path)
     s.add_argument("--n", type=int, default=60)
     s.add_argument("--seed", type=int, default=0)
+    s.add_argument("--force", action="store_true", help="replace an existing sample")
     a = sub.add_parser("agree")
     a.add_argument("results", type=Path)
     args = parser.parse_args()
     if args.command == "sample":
-        print(sample(args.results, args.n, args.seed))
+        print(sample(args.results, args.n, args.seed, args.force))
     else:
         print(agree(args.results))
 

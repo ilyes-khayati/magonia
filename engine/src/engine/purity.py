@@ -4,8 +4,9 @@ A 250 m pixel over a small orchard also sees the fields around it. Its NDVI is a
 area mean built from mixed pixels describes the mix, not the orchard. Following Lobell and
 Asner (2004), each pixel's average year is split into two reference years: the most even one
 nearby, as perennial cover such as trees keeps its leaves, and the most seasonal one, as an
-annual crop greens in spring and is bare in summer. The share of the seasonal reference in
-each pixel is its annual-crop share.
+annual crop or a winter understory greens in spring and is bare in summer. The share of the
+seasonal reference in each pixel is its seasonal share: what that seasonal cover is (a crop,
+grass under the trees) is not measured.
 
 The references are taken from the pixels themselves (the flattest and the most seasonal
 vegetated ones within a buffer), so no outside map is needed; they can only be as pure as the
@@ -36,7 +37,7 @@ class Purity:
     perennial: list[float]  # the reference years, by calendar month
     seasonal: list[float]
     area_cycle: list[float]  # the area's pixels' average year
-    area_share: float  # mean annual-crop share of the pixels inside the area
+    area_share: float  # mean seasonal-cover share of the pixels inside the area
     pixel_m: float
     summary: list[str]
 
@@ -142,12 +143,12 @@ def describe(area, own, share, perennial, seasonal, total) -> list[str]:
     worst = max(own, key=lambda p: p["share"])
     peak = MONTHS[int(np.argmax(seasonal))]
     mix = (
-        f"{area}: its {len(own)} MODIS pixels are on average {share:.0%} annual crop and "
+        f"{area}: its {len(own)} MODIS pixels are on average {share:.0%} seasonal cover and "
         f"{1 - share:.0%} perennial cover, measured against the most seasonal and the most even "
         f"vegetated pixels among {total} around it."
     )
     most = (
-        f"{area}: the most mixed of its pixels is {worst['share']:.0%} annual crop "
+        f"{area}: the most mixed of its pixels is {worst['share']:.0%} seasonal cover "
         f"(at {worst['lat']:.4f}, {worst['lon']:.4f})."
     )
     references = (
@@ -163,8 +164,8 @@ def describe(area, own, share, perennial, seasonal, total) -> list[str]:
         )
     if share >= 0.3:
         lines.append(
-            f"{area}: with this much annual crop in its pixels, the area mean mixes the crop "
-            "around it with the cover inside it; a finer sensor (Sentinel-2, 10 m) would "
+            f"{area}: with this much seasonal cover in its pixels, the area mean mixes it (fields "
+            "around the area, or green growth under its trees) with the perennial cover; a finer sensor (Sentinel-2, 10 m) would "
             "separate them."
         )
     return lines

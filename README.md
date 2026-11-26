@@ -73,14 +73,15 @@ and view, so a link opens what you see.
 
 ## Magon, the assistant
 
-Magon runs on a small open model on your own network, so your data and papers stay with
-you. It is not trusted blindly:
+Magon runs on a small open model on your own network, so your data, your PDFs and its
+answers stay with you; only the search words of a literature search go out, to OpenAlex and
+Crossref. It is not trusted blindly:
 
 - **It answers from your workspace.** It reads the charts and analyses you have open, and
   the PDFs in your library.
 - **It cites, and the citations are checked.** A citation to a paper that wasn't found is
-  removed, a statement its paper doesn't support is flagged, and a page reference opens the
-  paper at that page.
+  removed, a statement its paper doesn't support is withdrawn (or kept and marked, if you
+  choose so in Settings), and a page reference opens the paper at that page.
 - **Its numbers are checked.** Every number in an answer is matched against what Magon was
   given.
 - **It proposes, you act.** It can suggest an analysis, but nothing runs until you click.
@@ -95,7 +96,7 @@ Its quality is measured against the bare model it runs on, by the evaluation har
 | **Variables** | NDVI, EVI, SAVI, NDMI, NBR, leaf area index, FPAR, gross primary production, evapotranspiration (MODIS); land surface temperature; air temperature, rainfall and soil moisture (ERA5-Land); the SPEI drought index |
 | **Preparation** | Cloud filtering, monthly or seasonal means, gap filling with filled values marked, and a warning when a pixel is larger than the field |
 | **Analyses** | Correlation and lag, trend and season, Mann–Kendall trend, season dates, memory and lags |
-| **Forecasting** | Ridge, Random Forest and XGBoost, tuned on the training years only, compared with persistence and climatology, and with what each model relies on |
+| **Forecasting** | Ridge, Random Forest and XGBoost, and the neural networks MLP, LSTM, GRU and TCN, tuned on the training years only, compared with persistence and climatology, and with what each model relies on |
 | **Library** | Your own PDFs, kept per workspace, plus standing instructions for Magon |
 | **Safety net** | Deletions can be undone (⌘Z); deleted workspaces and conversations are kept for 30 days |
 
@@ -135,8 +136,9 @@ server everything works except Magon; `MAGONIA_MODEL_URL=scripted` gives fixed a
 
 ## Next
 
-Deep learning forecasting models alongside the current ones, sign-in and cloud deployment,
-and Magon's evaluation on a second, independent set of questions.
+Sign-in and cloud deployment (Magonia is single-user today: every workspace and setting is
+shared by whoever can reach the server), SVR and SARIMAX among the forecasting models, and
+Magon's evaluation on a second, independent set of questions.
 
 ## Contributing
 

@@ -141,13 +141,21 @@ def test_uncited_sentences_are_checked_against_every_paper_found_and_marked():
     # the third is on nothing any paper discusses: there was nothing to judge it against
     assert [s.judged for s in found] == [True, True, False]
     # without a judge, code only says whether a related passage exists
-    assert [s.status for s in check_uncited(text, EVIDENCE)] == ["unclear", "unsourced", "unsourced"]
+    assert [s.status for s in check_uncited(text, EVIDENCE)] == [
+        "unclear",
+        "unsourced",
+        "unsourced",
+    ]
     assert check_uncited("Thanks! [1]", EVIDENCE) == []
 
 
 def test_the_judge_reads_the_first_word_and_survives_a_dead_model():
     assert judge_with(lambda messages, tools: iter(["Yes, ", "it does."]))("a", "b") == "yes"
-    assert judge_with(lambda messages, tools: iter(["Maybe"]))("a", "b") == "no"
+    # since 18 Nov: an unclear reply is "partly", not a "no" that withdraws the sentence
+    assert judge_with(lambda messages, tools: iter(["Maybe"]))("a", "b") == "partly"
+    assert (
+        judge_with(lambda messages, tools: iter(["Based on the passage, yes."]))("a", "b") == "yes"
+    )
 
     def dead(messages, tools):
         raise OSError("no route to host")
@@ -252,9 +260,11 @@ def stated(text, sentence, status):
 
 def test_withdraw_removes_unsupported_statements_and_says_so():
     text = "Olive NDVI peaks in March [1]. It doubles in drought [1]. LST lowers it [2]."
-    found = [stated(text, "Olive NDVI peaks in March [1].", "supported"),
-             stated(text, "It doubles in drought [1].", "unsupported"),
-             stated(text, "LST lowers it [2].", "unclear")]
+    found = [
+        stated(text, "Olive NDVI peaks in March [1].", "supported"),
+        stated(text, "It doubles in drought [1].", "unsupported"),
+        stated(text, "LST lowers it [2].", "unclear"),
+    ]
     new, kept, gone = withdraw(text, found)
     assert new.startswith("Olive NDVI peaks in March [1]. LST lowers it [2].")
     assert "1 statement was withdrawn" in new
@@ -265,9 +275,11 @@ def test_withdraw_removes_unsupported_statements_and_says_so():
 
 def test_withdraw_takes_a_bullet_line_with_its_sentence():
     text = "Findings:\n- NDVI falls in summer [1].\n- NDVI triples in July [2].\n- LST matters [1]."
-    found = [stated(text, "NDVI falls in summer [1].", "supported"),
-             stated(text, "NDVI triples in July [2].", "unsupported"),
-             stated(text, "LST matters [1].", "supported")]
+    found = [
+        stated(text, "NDVI falls in summer [1].", "supported"),
+        stated(text, "NDVI triples in July [2].", "unsupported"),
+        stated(text, "LST matters [1].", "supported"),
+    ]
     new, kept, _ = withdraw(text, found)
     assert new.split("\n\n")[0] == "Findings:\n- NDVI falls in summer [1].\n- LST matters [1]."
     assert all(new[s.start : s.end] == s.claim for s in kept)

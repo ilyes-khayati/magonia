@@ -33,6 +33,7 @@ MONTHS = 300  # 2000 to 2024, as the reference orchard
 DRIVER_MEMORY = 0.8  # lag-1 autocorrelation of SPEI-like anomalies
 RESPONSE_MEMORY = 0.6  # of NDVI anomalies left after the link
 CLAIMED_LAG = 6
+SINGLE = False  # --single: the single correlation test that ADR 0025 replaced
 
 
 def ar1(rng: np.random.Generator, n: int, phi: float) -> np.ndarray:
@@ -56,7 +57,8 @@ def orchard(rng: np.random.Generator, r: float, lag: int) -> tuple[Series, Serie
 
     def points(values: np.ndarray) -> list[dict]:
         return [
-            {"date": d, "value": float(v), "masked": False} for d, v in zip(dates, values, strict=True)
+            {"date": d, "value": float(v), "masked": False}
+            for d, v in zip(dates, values, strict=True)
         ]
 
     return (
@@ -70,7 +72,7 @@ def verdicts(rng, runs: int, r: float, lag: int, claimed_sign: int) -> dict[str,
     counts: dict[str, int] = {}
     for _ in range(runs):
         response, driver = orchard(rng, r, lag)
-        verdict = lag_test(claim, response, driver).verdict
+        verdict = lag_test(claim, response, driver, single=SINGLE).verdict
         counts[verdict] = counts.get(verdict, 0) + 1
     return {v: counts.get(v, 0) / runs for v in ("replicates", "contradicts", "undecided")}
 
@@ -91,7 +93,10 @@ def main() -> None:
     parser.add_argument("out", type=Path)
     parser.add_argument("--runs", type=int, default=500)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--single", action="store_true", help="the single test ADR 0025 replaced")
     args = parser.parse_args()
+    global SINGLE
+    SINGLE = args.single
     args.out.mkdir(parents=True, exist_ok=True)
     rng = np.random.default_rng(args.seed)
     results = {}
@@ -103,7 +108,7 @@ def main() -> None:
         "",
         (
             f"{args.runs} synthetic orchards per row, 300 months each; the claim tested is "
-            f"\"NDVI rises with SPEI {CLAIMED_LAG} months earlier\". Driver memory "
+            f'"NDVI rises with SPEI {CLAIMED_LAG} months earlier". Driver memory '
             f"{DRIVER_MEMORY}, vegetation memory {RESPONSE_MEMORY} (lag-1 autocorrelation)."
         ),
         "",

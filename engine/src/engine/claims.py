@@ -13,10 +13,15 @@ analysis on the researcher's area, and given one of four verdicts by fixed rules
 Two kinds of claim are tested:
 
 - a driver acting on vegetation, perhaps with a delay ("drought lowers NDVI a year later"):
-  the correlation of the two series' anomalies at lags 1 to 12 months, or up to the claimed
-  lag, against a bound corrected for autocorrelation and for testing several lags (lags.py,
-  as in the paper's notebook 03). A claimed lag is matched within one month either side, and
-  the strongest of those lags is the one judged.
+  when the claim says which way the driver acts, it is tested by trying to falsify what it
+  implies (falsify.py): the anomalies are linked at the claimed lag, beyond the vegetation's
+  own memory of the month before, in both halves of the record, and not through a shared
+  trend. It replicates only if all four hold. On simulated records the single correlation
+  test this replaced confirmed a link that was only feedback (the driver following
+  vegetation) 97.5% of the time, and a shared trend 81.6%; the falsification test 3.7% and
+  1.9%, at the cost of power (evaluation/falsification_plan.md). With no direction stated, the
+  correlation of the anomalies at lags 1 to 12 months is judged against a bound corrected for
+  autocorrelation and for testing several lags (lags.py, as in the paper's notebook 03).
 - a long-term change ("NDVI has declined since 2000"): the Theil–Sen slope of the annual means
   and the Mann–Kendall test (trend.py).
 
@@ -34,6 +39,8 @@ from dataclasses import asdict, dataclass, field
 import numpy as np
 
 from engine.facts import Series, View, monthly_series
+from engine.falsify import falsify
+from engine.falsify import lines as falsification_lines
 from engine.lags import EXPECTED, deseasonalise, driver_evidence
 from engine.proposals import named
 from engine.trend import trend
@@ -76,17 +83,67 @@ DRIVER_MOVES = re.compile(
 DRIVER_DOWN = re.compile(r"^(lower|less|decreas\w*|falling|cooler|drier|weaker)$", re.IGNORECASE)
 
 
+SCALE = re.compile(
+    rf"\b({COUNT})[\s-]*months?[\s-]+(?:(?:long|accumulat\w*|cumulative|integrated)\s+)?"
+    r"(?=(SPEI|SPI|PDSI|drought index|(time[\s-]?)?scales?|timescales?|accumulat\w*|window)\b)"
+    r"|\b(SPEI|SPI)[\s_-]*\d{1,2}\b"
+    rf"|\b(?:time[\s-]?)?scales?\s+of\s+({COUNT})\s+months?\b",
+    re.IGNORECASE,
+)
+
+
 RAIN_FALLS = re.compile(r"\b(fell|falls?|fallen|falling)\b", re.IGNORECASE)
 DRY = re.compile(r"\b(drought|dry|drier|aridity|water deficit)\b", re.IGNORECASE)
 # Not a finding a series can test: a link denied ("was not observed in the 12-month range")
 # is easily read as the link itself, and a sentence about methods ("linear metrics alone are
 # insufficient") claims nothing about the data (both from Bounouh 2024)
+#
+# Following VeriScore (Song et al. 2024), only what can be checked is checked: of the sentences
+# in paper abstracts that name vegetation and a driver, most were not findings (measured on 20
+# sentences labelled by hand, 15 Nov: 1 of 12 refused). Besides denials and methods, these are:
+# - what was done or why: "correlation analysis was used to determine…", "quantifying the
+#   response is crucial", "the results add insights"
+# - a comparison between places or vegetation types: "arid regions showed the strongest
+#   response", "vegetation loss in areas experiencing intensive land use". One series cannot
+#   test a difference between series
+# - an absence: "there was no evidence that winter rain reduces NDVI"
 NOT_A_FINDING = re.compile(
     r"\b(not|no|never|neither|nor)\s+(\w+\s+){0,2}(observed|found|captured|detected|"
     r"significant|correlat\w*|affect\w*|related|linked)\b"
-    r"|\b(metrics?|methods?|methodolog\w*|approach(es)?|insufficient|inappropriate)\b",
+    # a change denied: "your NDVI did not decline since 2002" is not a decline (review of 18 Nov)
+    r"|\b(did|does|do|has|have|had|was|were)\s*(not|n't)\s+(\w+\s+)?(declin\w*|decreas\w*|"
+    r"increas\w*|ris(e|en|ing)|f[ae]ll\w*|chang\w*|drop\w*|lower\w*|rais\w*)\b"
+    r"|\bno (significant |clear |detectable )?(trend|change|decline|increase|decrease)\b"
+    r"|\b(metrics?|methods?|methodolog\w*|approach(es)?|insufficient|inappropriate)\b"
+    r"|\b(was|were|is|are) (used|considered|applied|employed|derived|calculated|obtained)\b"
+    r"|\bto (determine|assess|quantify|investigate|explore|understand|evaluate|examine)\b"
+    r"|\b(quantifying|understanding|monitoring) [^.]{0,60}\b(is|are) (crucial|essential|"
+    r"important|key|needed)\b|\b(add|adds|provide|provides) (more |new )?(insights?|support)\b"
+    r"|\bguide the development\b|\b(RMSE|root mean squared? error|accuracy)\b"
+    r"|\b(strongest|weakest|most sensitive|least sensitive|in comparison (to|with))\b"
+    r"|\b(in|within) (the )?(areas|regions|sites|zones|places) (experiencing|with|where|that)\b"
+    r"|\bno evidence\b",
     re.IGNORECASE,
 )
+# A finding links vegetation to something: without one of these words a sentence names the
+# variables ("three products are considered: NDVI, SWI and LST") but says nothing about them
+RELATION = re.compile(
+    r"\b(correlat\w*|respon\w*|reduc\w*|decreas\w*|increas\w*|lower\w*|rais\w*|declin\w*|"
+    r"affect\w*|impact\w*|effects?|control\w*|driv(e|es|en|er|ers|ing)|depend\w*|sensitiv\w*|"
+    r"limit\w*|linked|associated|explain\w*|coupled|influenc\w*|stress\w*|harm\w*|"
+    r"suppress\w*|enhanc\w*|boost\w*|improv\w*|ris(e|es|ing)|rose|fell|fall\w*|drop\w*|"
+    r"lag\w*|loss|lost|green(er|ing))\b",
+    re.IGNORECASE,
+)
+# The sign of a correlation stated outright: "positive correlations between the NDVI and the
+# SPEI during dry summers" is NDVI rising with SPEI, whatever else the sentence says of drought
+STATED_SIGN = re.compile(
+    r"\b(?P<sign>positiv|negativ)\w*\s+(\w+\s+){0,3}?correlat\w*"
+    r"|\bcorrelat\w*\s+(\w+\s+){0,2}?(?P<sign2>positiv|negativ)\w*",
+    re.IGNORECASE,
+)
+# the driver named by its own name, not as drought
+NAMED_DRIVER = re.compile(r"\b(spei|spi|precipitation|rain\w*|soil moisture)\b", re.IGNORECASE)
 
 
 def count(word: str) -> int:
@@ -95,6 +152,7 @@ def count(word: str) -> int:
 
 TREND = re.compile(
     r"\b(trend\w*|since (19|20)\d\d|over (the )?(last|past) \d+|decades?|long[- ]term|"
+    r"between (19|20)\d\d and (19|20)\d\d|per year|yr\s*[−-]1|"
     r"has (been )?(declin|increas|decreas|risen|fallen|grown)\w*)\b",
     re.IGNORECASE,
 )
@@ -156,13 +214,36 @@ def claim_in(message: str) -> str:
     return message.strip()
 
 
+DRIVER_NAMES = {
+    "spei": r"spei|spi|drought",
+    "lst": r"lst|land surface temperature|temperature",
+    "air_temperature": r"air temperature|temperature",
+    "rain": r"rain\w*|precipitation",
+    "soil_moisture": r"soil moisture",
+    "et": r"et|evapotranspiration",
+}
+
+
+def said_of(driver: str, text: str) -> int:
+    """The sign of a correlation stated outright for this driver, or 0. "NDVI is negatively
+    correlated with LST and positively correlated with SPEI" gives -1 for LST, 1 for SPEI:
+    each sign is the one whose words, up to the next sign, name the driver."""
+    found = list(STATED_SIGN.finditer(text))
+    for k, match in enumerate(found):
+        end = found[k + 1].start() if k + 1 < len(found) else len(text)
+        if re.search(rf"\b({DRIVER_NAMES[driver]})\b", text[match.start() : end], re.IGNORECASE):
+            word = (match.group("sign") or match.group("sign2")).lower()
+            return 1 if word == "positiv" else -1
+    return 0
+
+
 def read(text: str) -> Claim | None:
     """What a claim asserts, or None when it is not one Magonia can test."""
     variables = named(text)
     response = next((v for v in variables if v in VEGETATION), None)
     if response is None and re.search(r"\b(vegetation|greenness|canopy)\b", text, re.IGNORECASE):
         response = "ndvi"
-    if response is None or NOT_A_FINDING.search(text):
+    if response is None or NOT_A_FINDING.search(text) or not RELATION.search(text):
         return None
     driver = next((v for v in variables if v in DRIVERS), None)
     # the way the driver moves ("higher LST") is read apart from what it does ("reduces NDVI")
@@ -176,15 +257,21 @@ def read(text: str) -> Claim | None:
         effect = -effect  # "less rain lowers NDVI": NDVI rises with rain
 
     if driver is None:
-        if not TREND.search(text):
+        # a change with no direction ("moving to a more constant seasonal behaviour"), or
+        # both ("7.6% negative and 11.8% positive NDVI trends"), is not one change to test
+        if not TREND.search(text) or effect is None:
             return None
         return Claim(text, "trend", response, sign=effect, sign_from="claim" if effect else "")
 
     lag = None
-    if found := LAG.search(text):
+    # an accumulation scale is not a delay: "the 12-month SPEI", "SPEI-12", "at a 3-month
+    # time scale" say over how long drought is summed, not how late vegetation answers
+    # (review of 18 Nov: "NDVI correlates with the 12-month SPEI" was tested as a 12-month lag)
+    delays = SCALE.sub(" ", text)
+    if found := LAG.search(delays):
         low, high = count(found.group(1)), found.group(2)
         lag = round((low + count(high)) / 2) if high else low
-    elif YEAR_LAG.search(text):
+    elif YEAR_LAG.search(delays):
         lag = 12
     if lag is not None and not 1 <= lag <= MAX_LAG:
         lag = None
@@ -194,6 +281,9 @@ def read(text: str) -> Claim | None:
     # with SPEI. Said of drought rather than of SPEI's own value, the sign turns over; the
     # same holds for rain and soil moisture ("a decrease in vegetation due to drier years")
     sign = effect
+    stated = said_of(driver, text)
+    if stated and (driver not in ("spei", "rain", "soil_moisture") or NAMED_DRIVER.search(text)):
+        return Claim(text, "lag", response, driver, stated, "claim", lag)
     if sign is not None and driver in ("spei", "rain", "soil_moisture"):
         drought_moved = moved and re.search(r"drought|aridity", moved.group(0), re.IGNORECASE)
         said_dry = DRY.search(text) and not moved
@@ -226,7 +316,9 @@ def test(claim: Claim, view: View) -> ClaimTest:
     )
 
 
-def lag_test(claim: Claim, response: Series, driver: Series) -> ClaimTest:
+def lag_test(claim: Claim, response: Series, driver: Series, single: bool = False) -> ClaimTest:
+    """The claim tested on two series. single=True keeps the single correlation test that the
+    falsification test replaced (ADR 0025), so that the two can still be compared."""
     y = deseasonalise(monthly_series(response))
     x = deseasonalise(monthly_series(driver))
     longest = max(12, (claim.lag or 0) + NEAR)
@@ -246,6 +338,13 @@ def lag_test(claim: Claim, response: Series, driver: Series) -> ClaimTest:
         verdict = "contradicts"
     else:
         verdict = "undecided"
+    tried = falsify(y, x, claim.sign, claim.lag) if claim.sign and not single else None
+    if tried is not None and tried.verdict != "cannot test":
+        verdict = {"holds": "replicates", "contradicted": "contradicts"}.get(
+            tried.verdict, "undecided"
+        )
+        at = tried.lag
+        value = r[at - 1] if at <= len(r) else value
     who = f"{response.area}: {response.title} anomalies and {driver.title} anomalies"
     where = f"{at} month{'s' if at > 1 else ''} earlier"
     stats = f"r = {value:.2f}, bound ±{found.bound:.2f} over lags 1 to {longest}"
@@ -253,10 +352,19 @@ def lag_test(claim: Claim, response: Series, driver: Series) -> ClaimTest:
     told = (
         f" ({expected}, as the claim says)"
         if claim.sign_from == "claim"
-        else (f" ({expected}, the physical expectation)" if expected else "")
+        else (f" ({expected}, the usual sign where water limits growth)" if expected else "")
     )
     lines = [f"Tested: {claim.reading()}{told}."]
-    if verdict == "replicates":
+    if tried is not None and tried.verdict != "cannot test":
+        lines.append(f"{who}, {where}: {verdict}.")
+        lines += falsification_lines(tried, response.title, driver.title)
+        failed = ", ".join(i.words for i in tried.failed)
+        if verdict == "undecided" and failed:
+            lines.append(f"Not shown: it fails {failed}.")
+        if verdict == "undecided" and found.decision == "stands out" and found.lag != at:
+            months = f"{found.lag} month{'s' if found.lag > 1 else ''}"
+            lines.append(f"The lag that does stand out is {months} (r = {found.best:.2f}).")
+    elif verdict == "replicates":
         lines.append(f"{who}: at {where} {stats}; beyond chance with the claimed sign.")
     elif verdict == "contradicts":
         lines.append(f"{who}: at {where} {stats}; beyond chance, with the opposite sign.")
@@ -284,6 +392,7 @@ def lag_test(claim: Claim, response: Series, driver: Series) -> ClaimTest:
             "response": response.title,
             "driver": driver.title,
             "months": int(y.notna().sum()),
+            "falsification": tried.to_dict() if tried is not None else None,
         },
     )
 
@@ -326,3 +435,46 @@ def block(result: ClaimTest) -> str:
         "only the numbers of these lines for the claim, not other facts. Say what was tested, "
         "and that it holds or not for this area and period, not for the paper's."
     )
+
+
+# advice to the researcher, not an explanation (seen 17 Nov: "To test these possibilities,
+# consider analyzing the correlation between LST and NDVI" was read as a claim)
+ADVICE = re.compile(
+    r"\b(consider|you (could|may|might|can|should)|we (suggest|recommend)|it would be (useful|"
+    r"worth)|to test (this|these|it)|further (analysis|research|study))\b",
+    re.IGNORECASE,
+)
+
+
+def tests_of(text: str, view: View, limit: int = 4) -> list[ClaimTest]:
+    """The explanations in an answer that code can test, each tested once on the open data.
+
+    An explanation offered for the researcher's data ("drought lowers NDVI two months later")
+    is a claim like one from a paper: read by code, tested with the same rules. Sentences that
+    are not a testable claim, or that need series that are not open, are left out."""
+    from engine.honesty import sentences
+
+    done: dict[str, ClaimTest] = {}
+    for _, _, sentence in sentences(text):
+        if ADVICE.search(sentence):
+            continue  # "consider analysing NDVI against SPEI" proposes a test, it claims nothing
+        claim = read(re.sub(r"\[[^\]]*\]|\*\*", "", sentence))
+        if claim is None or claim.reading() in done:
+            continue
+        result = test(claim, view)
+        if result.verdict != "cannot test":
+            done[claim.reading()] = result
+        if len(done) >= limit:
+            break
+    return list(done.values())
+
+
+def tested_part(results: list[ClaimTest]) -> str:
+    """The part of the answer, written by code, that gives each explanation's test."""
+    if not results:
+        return ""
+    lines = ["**Tested on your data** (by code, on this area and period):"]
+    for r in results:
+        first = next((x for x in r.summary if not x.startswith("Tested:")), "")
+        lines.append(f"- {r.claim.reading()}: {r.verdict}. {first}".rstrip())
+    return "\n".join(lines)

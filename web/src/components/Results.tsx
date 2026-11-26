@@ -262,7 +262,13 @@ export default function Results({
   );
 }
 
+// the usual families first; any other driver (rainfall, soil moisture…) is a family of its own
 const FAMILIES = ["own history", "LST", "drought", "calendar"];
+const familiesOf = (data: ExplanationResponse) => {
+  const found = Object.values(data.families).flatMap((f) => Object.keys(f ?? {}));
+  const others = [...new Set(found)].filter((f) => !FAMILIES.includes(f) && f !== "noise probe");
+  return [...FAMILIES.slice(0, 3), ...others, "calendar"];
+};
 
 // Share of each model's importance by family of inputs, and how far the models agree
 function Explanations({ data }: { data: ExplanationResponse }) {
@@ -287,7 +293,7 @@ function Explanations({ data }: { data: ExplanationResponse }) {
             </tr>
           </thead>
           <tbody>
-            {FAMILIES.filter((f) =>
+            {familiesOf(data).filter((f) =>
               models.some((m) => data.families[m]?.[f] !== undefined),
             ).map((f) => (
               <tr key={f}>
@@ -336,7 +342,7 @@ function Explanations({ data }: { data: ExplanationResponse }) {
               </tr>
             </thead>
             <tbody>
-              {FAMILIES.filter((f) =>
+              {familiesOf(data).filter((f) =>
                 models.some((m) => data.dropped?.[m]?.[f] !== undefined),
               ).map((f) => (
                 <tr key={f}>

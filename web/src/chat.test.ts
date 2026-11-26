@@ -161,3 +161,11 @@ describe("conversation titles", () => {
     expect(long.endsWith("…")).toBe(true);
   });
 });
+
+describe("an event the client does not know (review of 18 Nov)", () => {
+  it("leaves the answer as it was instead of blanking the app", () => {
+    const turn = { role: "assistant" as const, content: "So far." };
+    const unknown = { type: "no_fitting_evidence" } as unknown as Parameters<typeof applyEvent>[1];
+    expect(applyEvent(turn as Parameters<typeof applyEvent>[0], unknown)).toEqual(turn);
+  });
+});

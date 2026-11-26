@@ -24,9 +24,9 @@ def test_a_pdf_is_uploaded_listed_and_removed(client):
     assert added.json()["title"] == "field survey" and added.json()["pages"] == 1
     assert [f["id"] for f in client.get(f"/workspaces/{ws}/library").json()] == ["U1"]
 
-    assert client.delete("/library/U1").status_code == 204
+    assert client.delete(f"/workspaces/{ws}/library/U1").status_code == 204
     assert client.get(f"/workspaces/{ws}/library").json() == []
-    assert client.delete("/library/U1").status_code == 404
+    assert client.delete(f"/workspaces/{ws}/library/U1").status_code == 404
 
 
 def test_a_kept_pdf_is_shown_and_a_removed_file_restored(client):
@@ -35,16 +35,28 @@ def test_a_kept_pdf_is_shown_and_a_removed_file_restored(client):
     client.post(
         f"/workspaces/{ws}/library", files={"file": ("field_survey.pdf", pdf, "application/pdf")}
     )
-    shown = client.get("/library/U1/pdf")
+    shown = client.get(f"/workspaces/{ws}/library/U1/pdf")
     assert shown.status_code == 200 and shown.content == pdf
     assert shown.headers["content-type"] == "application/pdf"
     assert shown.headers["content-disposition"].startswith("inline")
 
-    client.delete("/library/U1")
-    assert client.get("/library/U1/pdf").status_code == 404
-    assert client.post("/library/U1/restore").json()["pdf"] is True
+    client.delete(f"/workspaces/{ws}/library/U1")
+    assert client.get(f"/workspaces/{ws}/library/U1/pdf").status_code == 404
+    assert client.post(f"/workspaces/{ws}/library/U1/restore").json()["pdf"] is True
     assert [f["id"] for f in client.get(f"/workspaces/{ws}/library").json()] == ["U1"]
-    assert client.post("/library/U9/restore").status_code == 404
+    assert client.post(f"/workspaces/{ws}/library/U9/restore").status_code == 404
+
+
+def test_another_workspace_cannot_read_or_remove_a_file(client):
+    mine, theirs = workspace(client), workspace(client, "Beja")
+    client.post(
+        f"/workspaces/{mine}/library",
+        files={"file": ("field_survey.pdf", make_pdf([SURVEY]), "application/pdf")},
+    )
+    # file ids are easy to guess; the workspace in the address decides
+    assert client.get(f"/workspaces/{theirs}/library/U1/pdf").status_code == 404
+    assert client.delete(f"/workspaces/{theirs}/library/U1").status_code == 404
+    assert client.get(f"/workspaces/{mine}/library/U1/pdf").status_code == 200
 
 
 def test_what_is_not_a_readable_pdf_is_refused(client):

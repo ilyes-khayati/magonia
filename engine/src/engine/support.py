@@ -150,8 +150,11 @@ def judge_with(stream: Callable, errors: tuple[type[Exception], ...] = (OSError,
             )
         except errors:  # the model could not be asked: the statement stays unclear
             return "partly"
-        first = (re.findall(r"[a-z]+", said.lower()) or ["no"])[0]
-        return first if first in ("yes", "partly", "no") else "no"
+        # the first of the three words it uses, wherever it comes ("Based on the passage,
+        # yes"); a reply with none of them is unclear, not a "no" that would withdraw a
+        # sentence (withdrawing a true statement costs more, ADR 0019; review of 18 Nov)
+        words = re.findall(r"\b(yes|partly|no)\b", said.lower())
+        return words[0] if words else "partly"
 
     return judge
 
@@ -245,7 +248,9 @@ def check_support(
     return result
 
 
-def uncited(answer: str) -> list[tuple[int, int, str]]:
+def uncited(
+    answer: str, skip: Callable[[int, int], bool] | None = None
+) -> list[tuple[int, int, str]]:
     """The declarative sentences that cite nothing, not even by their paragraph.
 
     A sentence that cites, or follows a citation in its paragraph, is a cited statement
@@ -264,7 +269,7 @@ def uncited(answer: str) -> list[tuple[int, int, str]]:
         if GROUP.search(sentence):
             carried = True
         start = match.start() + len(sentence) - len(sentence.lstrip())
-        if carried or start in cited:
+        if carried or start in cited or (skip is not None and skip(start, match.end())):
             continue
         claim = re.sub(r"\*\*", "", " ".join(sentence.split()).strip(" -*#:"))
         if (
@@ -285,15 +290,17 @@ def check_uncited(
     embed: Embed | None = None,
     judge: Judge | None = None,
     more: More | None = None,
+    skip: Callable[[int, int], bool] | None = None,
 ) -> list[Statement]:
     """Each sentence that cites nothing, with whether any paper found bears it out.
 
     Checked like a cited statement, but against every paper found rather than the ones it
     cites: the given passages first, then the papers' full text. At most MAX_UNCITED
     judgements are spent on an answer. Without a judge, code only says whether a related
-    passage exists (unclear) or not (unsourced).
+    passage exists (unclear) or not (unsourced). skip(start, end) leaves out the sentences
+    checked another way, such as those stating numbers computed from the researcher's data.
     """
-    found = uncited(answer)
+    found = uncited(answer, skip)
     if not found:
         return []
     claims = [claim for _, _, claim in found]
@@ -322,7 +329,9 @@ def check_uncited(
         near = [(s, t) for score, s, t in sorted(scored, reverse=True) if score >= low]
         near = near[:CANDIDATES]
         best = near[0] if near else ("", "")
-        statement = Statement(start, end, claim, [], "unclear" if near else "unsourced", best[1], best[0])
+        statement = Statement(
+            start, end, claim, [], "unclear" if near else "unsourced", best[1], best[0]
+        )
         if judge is not None and calls < MAX_UNCITED:
             candidates = list(near)
             if more is not None and papers:
@@ -354,7 +363,9 @@ ABSENCE = re.compile(
     re.IGNORECASE,
 )
 
-BULLET = re.compile(r"^\s*(?:[-*•]|\d+[.)])?\s*$")  # what is left of a line once its sentence is gone
+BULLET = re.compile(
+    r"^\s*(?:[-*•]|\d+[.)])?\s*$"
+)  # what is left of a line once its sentence is gone
 
 
 def withdraw(

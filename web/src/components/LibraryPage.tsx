@@ -130,11 +130,11 @@ export default function LibraryPage({ workspaceId, onUndoable }: Props) {
                     aria-label={`Remove ${f.title} from the library`}
                     title="Remove from the library"
                     onClick={() =>
-                      removeFile(f.id).then(
+                      removeFile(workspaceId, f.id).then(
                         () => {
                           setFiles((all) => (all ?? []).filter((x) => x.id !== f.id));
                           onUndoable?.(`${f.title} removed from the library`, async () => {
-                            const back = await restoreFile(f.id);
+                            const back = await restoreFile(workspaceId, f.id);
                             setFiles((all) => [...(all ?? []).filter((x) => x.id !== back.id), back].sort((a, b) => a.added.localeCompare(b.added)));
                           });
                         },

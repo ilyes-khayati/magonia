@@ -1,3 +1,5 @@
+import pytest
+
 """Failures found by a researcher testing Magon on 14 November 2026, each kept as a test.
 
 The texts are Magon's own answers from that session, cut to what each test needs.
@@ -294,3 +296,72 @@ def test_a_library_file_does_not_stop_the_search(tmp_path):
     )
     assert asked, "the search must run"
     assert "Ben Salah" not in events[-1]["text"]
+
+
+# Research said to have found something, with no paper named and none found: the sentence
+# that escaped the author–year check (15 Nov)
+FROM_MEMORY = [
+    "Studies have shown that olive NDVI responds to drought within two months.",
+    "A 2019 study in Kairouan found that olive groves recover quickly.",
+    "According to the literature, olive leaves live about two years.",
+    "Research indicates that understory grass dominates the signal.",
+    "It has been reported that olive trees shed leaves in summer.",
+    "Several studies in Spain have consistently reported a lag of one month.",
+]
+NOT_FROM_MEMORY = [
+    "Positive SPEI values indicate wetter conditions.",
+    "No studies have shown a link between hail and NDVI in Béja.",
+    "NDVI peaks in March (0.61) (NDVI chart).",
+    "Researchers often use SPEI-3 for agricultural drought.",
+    "My own reading is that the March peak comes from grass under the trees.",
+]
+
+
+def test_research_cited_from_memory_is_withdrawn_when_no_paper_was_read():
+    for sentence in FROM_MEMORY:
+        assert honesty.withdrawn(sentence, [], searched=False), sentence
+
+
+def test_the_same_sentence_stands_for_the_other_checks_when_papers_were_found():
+    # with papers found, a sentence citing none is the uncited check's to judge
+    for sentence in FROM_MEMORY:
+        assert not honesty.withdrawn(sentence, [SGHAIER], searched=True), sentence
+
+
+def test_no_false_alarm_on_sentences_that_do_not_cite_research():
+    for sentence in NOT_FROM_MEMORY:
+        assert not honesty.withdrawn(sentence, [], searched=False), sentence
+
+
+# review of 18 Nov: correct statements about the researcher's data were withdrawn as if they
+# were claims about a literature search or about unnamed research
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "The Mann-Kendall test found no significant trend in your NDVI (Trend card).",
+        "The lag explorer did not find a lag beyond chance.",
+        "A correlation analysis shows that NDVI rises with SPEI (Correlation card).",
+        "It is shown in the NDVI chart that the peak comes in March.",
+    ],
+)
+def test_statements_about_the_researchers_own_data_are_not_withdrawn(sentence):
+    assert honesty.withdrawn(sentence, [], searched=False) == []
+
+
+def test_a_cited_paper_named_with_its_accent_or_print_year_is_not_taken_for_an_invention():
+    from types import SimpleNamespace
+
+    papers = [SimpleNamespace(authors=["José Martínez"], year=2019)]
+    assert (
+        honesty.withdrawn("Martinez et al. (2019) found NDVI fell [1].", papers, searched=True)
+        == []
+    )
+    assert honesty.withdrawn("Martinez et al. (2020) found NDVI fell.", papers, searched=True) == []
+    assert honesty.withdrawn("Smith et al. (2018) found NDVI fell.", papers, searched=True) != []
+
+
+def test_places_and_relief_are_not_mistaken_review_of_18_nov():
+    # a governorate and a year is not a reference; a relief verb is not an inverted definition
+    assert honesty.mentions("Hail in Jendouba (2019) lowered NDVI.") == []
+    assert honesty.upside_down("Higher SPEI values reduce drought stress on the trees.") == ""
+    assert honesty.upside_down("Higher SPEI values mean drier conditions.") != ""

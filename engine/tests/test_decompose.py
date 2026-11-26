@@ -78,3 +78,22 @@ def test_reproduces_the_papers_decomposition(name, key, column):
     assert len(both) == 298
     assert np.allclose(both.trend, both[f"{column}_T"], atol=1e-9)
     assert np.allclose(both.seasonal, both[f"{column}_S"], atol=1e-9)
+
+
+def test_the_trend_keeps_only_cycles_longer_than_about_three_years():
+    # measured, not assumed (review of 18 Nov): the boundary the paper sets near a year is the
+    # centre of the detail band; the trend itself begins near 2^(level+1) steps
+    from engine.decompose import split, trend_from
+
+    dt, level = 16.0, 5
+    t = np.arange(int(20 * 365.25 / dt))
+    middle = slice(len(t) // 4, 3 * len(t) // 4)
+
+    def kept(period: float) -> float:
+        x = np.sin(2 * np.pi * t * dt / period)
+        trend, _ = split(x, level)
+        return float(np.std(trend[middle]) / np.std(x[middle]))
+
+    assert kept(365.25) < 0.05 and kept(730) < 0.1  # one- and two-year cycles: seasonal part
+    assert kept(1500) > 0.9  # four years: trend
+    assert 950 < trend_from(level, dt) < 1100

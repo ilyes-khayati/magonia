@@ -7,10 +7,11 @@ from collections.abc import Iterator
 from datetime import date, timedelta
 from functools import cache
 from typing import Annotated, Literal
+from urllib.parse import quote
 
 import engine
 import pandas as pd
-from engine import assistant, facts, guardrails, layers, notebook
+from engine import assistant, facts, guardrails, layers, notebook, setting
 from engine.areas import AreaError, make_area
 from engine.board import Pinned
 from engine.catalogue import CATALOGUE, get_variable
@@ -35,7 +36,8 @@ from engine.verify import installed as verifier_installed
 from engine.verify import judge_for
 from fastapi import Depends, FastAPI, HTTPException, Query, Response, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
+from starlette.concurrency import run_in_threadpool
 
 from api.jobs import Runner, cache_key, execute
 from api.store import Store, default_path
@@ -393,7 +395,7 @@ def area_purity(
     start: Annotated[str, Query(pattern=r"^\d{4}-\d{2}$")] = "2003-01",
     end: Annotated[str, Query(pattern=r"^\d{4}-\d{2}$")] = "2022-12",
 ) -> dict:
-    """How much of each MODIS pixel over and around an area is annual crop, from its average
+    """How much of each MODIS pixel over and around an area is seasonal cover, from its average
     year split between the most seasonal and the most even vegetated pixels nearby."""
     area = store.area(area_id)
     if not area:
@@ -706,10 +708,14 @@ def export_notebook(body: NotebookRequest, store: StoreDep) -> Response:
         )
     nb = notebook.notebook(body.title, body.kind, body.options, used)
     name = "".join(c if c.isalnum() else "-" for c in body.title.lower()).strip("-") or "magonia"
+    # a header is Latin-1: a title in Arabic or Chinese goes in the RFC 5987 form, with a plain
+    # fallback, or the export failed with a server error (review of 18 Nov)
+    plain = "".join(c if c.isascii() else "-" for c in name).strip("-") or "magonia"
+    disposition = f"attachment; filename=\"{plain}.ipynb\"; filename*=UTF-8''{quote(name)}.ipynb"
     return Response(
         notebook.dumps(nb),
         media_type="application/x-ipynb+json",
-        headers={"Content-Disposition": f'attachment; filename="{name}.ipynb"'},
+        headers={"Content-Disposition": disposition},
     )
 
 
@@ -1222,6 +1228,10 @@ def workspace_view(store: Store, workspace_id: int, view: View) -> facts.View:
         context.append(
             "Areas: " + ", ".join(f"{n} ({km2:.2f} km²)" for n, km2 in used.items()) + "."
         )
+        # where they lie, so that a paper made elsewhere can be told apart (setting.py)
+        placed = setting.where([a["geometry"] for a in areas.values() if a["name"] in used])
+        if placed:
+            context.append(placed)
     if view.series:
         first = view.series[0]
         last_month = (first.end - timedelta(days=1)).isoformat()[:7]
@@ -1286,14 +1296,20 @@ def forecast_facts(store: Store, view: View, areas: dict[int, dict]) -> list[fac
                 for k in ("models", "params", "calendar", "rolling")
                 if analysis.get(k) is not None
             }
-            body = ModelsRequest(
-                response=mine[analysis["response"]],
-                drivers=[mine[k] for k in analysis.get("drivers", []) if k in mine],
-                own_lags=analysis.get("own_lags"),
-                driver_lags=analysis.get("driver_lags"),
-                test_years=analysis.get("test_years", 3),
-                **later,
-            )
+            try:
+                body = ModelsRequest(
+                    response=mine[analysis["response"]],
+                    drivers=[mine[k] for k in analysis.get("drivers", []) if k in mine],
+                    own_lags=analysis.get("own_lags"),
+                    driver_lags=analysis.get("driver_lags"),
+                    test_years=analysis.get("test_years", 3),
+                    **later,
+                )
+            except ValidationError:
+                # a card saved by an older version, or no longer valid, is left out of what
+                # Magon reads; it failed every chat in its workspace (review of 18 Nov)
+                log.warning("forecast card %s left out of the view: no longer valid", n)
+                continue
             name = analysis.get("name") or f"Models {n}"
             card = f"{name}: {analysis['response'].upper()} forecast"
             key = models_key(body, store)
@@ -1350,34 +1366,40 @@ async def add_file(
     if not data.startswith(b"%PDF"):
         raise HTTPException(400, f"{file.filename} is not a PDF.")
     try:
-        return Uploads(library.scoped(workspace_id)).add(file.filename or "file.pdf", data)
+        # reading and embedding a PDF takes seconds: done in a worker thread, so chat streams
+        # and job polls go on meanwhile (on the event loop they all waited; review of 18 Nov)
+        return await run_in_threadpool(
+            Uploads(library.scoped(workspace_id)).add, file.filename or "file.pdf", data
+        )
     except FullTextError as exc:
         raise HTTPException(400, str(exc)) from exc
 
 
-@app.delete("/library/{file_id}", status_code=204)
-def remove_file(file_id: str, library: LibraryDep) -> None:
+# A file is reached through its workspace: another workspace's file is "No such file" (ADR 0017)
+@app.delete("/workspaces/{workspace_id}/library/{file_id}", status_code=204)
+def remove_file(workspace_id: int, file_id: str, library: LibraryDep) -> None:
     """Remove a file from the library; it can be restored for 30 days."""
     try:
-        Uploads(library).remove(file_id)
+        Uploads(library.scoped(workspace_id)).remove(file_id)
     except KeyError as exc:
         raise HTTPException(404, "No such file.") from exc
 
 
-@app.post("/library/{file_id}/restore")
-def restore_file(file_id: str, library: LibraryDep) -> dict:
+@app.post("/workspaces/{workspace_id}/library/{file_id}/restore")
+def restore_file(workspace_id: int, file_id: str, library: LibraryDep) -> dict:
     try:
-        return Uploads(library).restore(file_id)
+        return Uploads(library.scoped(workspace_id)).restore(file_id)
     except KeyError as exc:
         raise HTTPException(404, "No such file.") from exc
 
 
-@app.get("/library/{file_id}/pdf")
-def read_file(file_id: str, library: LibraryDep) -> FileResponse:
+@app.get("/workspaces/{workspace_id}/library/{file_id}/pdf")
+def read_file(workspace_id: int, file_id: str, library: LibraryDep) -> FileResponse:
     """The file itself, shown in the browser (#page=6 opens it at page 6)."""
+    uploads = Uploads(library.scoped(workspace_id))
     try:
-        path = Uploads(library).pdf(file_id)
-        title = Uploads(library).get(file_id)["filename"]
+        path = uploads.pdf(file_id)
+        title = uploads.get(file_id)["filename"]
     except KeyError as exc:
         raise HTTPException(404, "No such file.") from exc
     if path is None:
@@ -1421,10 +1443,13 @@ def chat(
     """
     workspace_id = existing_conversation(store, conversation_id)["workspace_id"]
     # earlier answers carry the papers they cited, so that a follow-up can cite them again
+    # An answer that stopped before it was checked is not given back as it was written: a
+    # follow-up would build on sources and numbers no check has seen (review of 18 Nov)
+    unchecked = "(This earlier answer stopped before its sources and numbers were checked.)"
     history = [
         {
             "role": m["role"],
-            "content": m["content"],
+            "content": unchecked if m["details"].get("interrupted") else m["content"],
             "papers": m["details"].get("papers", []),
             "cited": m["details"].get("check", {}).get("cited", []),
         }
@@ -1497,6 +1522,10 @@ def chat(
         except assistant.ProviderError as exc:
             log.warning("chat stopped: %s", exc)
             yield json.dumps({"type": "error", "message": str(exc)}) + "\n"
+        except Exception:  # any other failure is said too, not a stream that just stops
+            log.exception("chat failed")
+            message = "Magonia hit an error while answering; what was written so far is kept."
+            yield json.dumps({"type": "error", "message": message}) + "\n"
         finally:  # keep what was said, even if the reader left early
             details = {"searches": searches, "papers": papers, "cards": cards, "reads": reads}
             if proposals:
@@ -1531,6 +1560,10 @@ def chat(
                     # the sentences that cite nothing: shown while streaming, and kept, or
                     # they vanished from the answer when the conversation was reopened
                     details["uncited"] = verdict["uncited"]
+            if not verdict:
+                # the stream stopped before the checks ran: what was said is kept, marked as
+                # unchecked, and never taken for a checked answer (review of 18 Nov)
+                details["interrupted"] = True
             text = verdict["text"] if verdict else "".join(said)
             store.add_message(conversation_id, "assistant", text, details)
 

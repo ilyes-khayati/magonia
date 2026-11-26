@@ -32,11 +32,32 @@ def orchard():
         # the way the driver moves is read apart from the verb
         ("Higher LST reduces NDVI one month later.", "lag", "lst", -1, "claim", 1),
         ("Less rain lowers NDVI three months later.", "lag", "rain", 1, "claim", 3),
-        ("Stronger drought reduces olive greenness within two months.", "lag", "spei", 1, "claim", 2),
+        (
+            "Stronger drought reduces olive greenness within two months.",
+            "lag",
+            "spei",
+            1,
+            "claim",
+            2,
+        ),
         # no direction stated: the physical expectation is tested, and said to be
-        ("Olive NDVI responds to drought with a lag of about 12 months.", "lag", "spei", 1, "physics", 12),
+        (
+            "Olive NDVI responds to drought with a lag of about 12 months.",
+            "lag",
+            "spei",
+            1,
+            "physics",
+            12,
+        ),
         # a range is tested at its middle
-        ("SPEI-12 is positively correlated with NDVI at 3-6 months lag.", "lag", "spei", 1, "claim", 4),
+        (
+            "SPEI-12 is positively correlated with NDVI at 3-6 months lag.",
+            "lag",
+            "spei",
+            1,
+            "claim",
+            4,
+        ),
         ("Olive NDVI has declined since 2000.", "trend", None, -1, "claim", None),
     ],
 )
@@ -58,9 +79,12 @@ def test_what_is_not_a_testable_claim_is_said_to_be():
 
 
 def test_the_claim_is_found_in_the_message():
-    assert claims.claim_in(
-        'Test this claim on my orchard: "Olive NDVI responds to drought with a 12-month lag."'
-    ) == "Olive NDVI responds to drought with a 12-month lag."
+    assert (
+        claims.claim_in(
+            'Test this claim on my orchard: "Olive NDVI responds to drought with a 12-month lag."'
+        )
+        == "Olive NDVI responds to drought with a 12-month lag."
+    )
     assert claims.claim_in("Check this finding: higher LST reduces NDVI a month later") == (
         "higher LST reduces NDVI a month later"
     )
@@ -133,10 +157,31 @@ def test_verdicts_on_orchards_with_a_known_truth():
     rng = np.random.default_rng(0)
     none = verdicts(rng, 150, 0.0, 6, 1)
     assert none["replicates"] <= 0.05 and none["contradicts"] <= 0.05
+    # since 18 Nov a claim must survive four implications (falsify.py), which costs power:
+    # the plan (evaluation/falsification_plan.md) accepted that before the first run
     linked = verdicts(rng, 150, 0.35, 6, 1)
-    assert linked["replicates"] >= 0.6 and linked["contradicts"] == 0
+    assert linked["replicates"] >= 0.35 and linked["contradicts"] == 0
     opposite = verdicts(rng, 150, -0.35, 6, 1)
     assert opposite["contradicts"] >= 0.6 and opposite["replicates"] == 0
+
+
+def test_a_driver_that_only_follows_vegetation_is_not_taken_for_a_cause():
+    # feedback: this month's driver follows this month's vegetation, with no effect on it;
+    # last month's driver then shares the vegetation's memory and seems to lead it. The
+    # single correlation test confirmed such a link in 97.5% of 1,000 simulated records
+    sys.path.insert(0, str(Path(__file__).parent.parent / "evaluation"))
+    from falsification_calibration import as_series, record
+
+    rng = np.random.default_rng(1)
+    claim = claims.Claim("synthetic", "lag", "ndvi", "lst", -1, "claim", 1)
+    held = 0
+    for _ in range(100):
+        veg, drv = record(rng, "feedback", {"c": 0.6})
+        held += (
+            claims.lag_test(claim, as_series(veg, "ndvi"), as_series(drv, "lst")).verdict
+            == "replicates"
+        )
+    assert held <= 10
 
 
 REAL = json.loads((Path(__file__).parent / "data" / "real_claims.json").read_text())
@@ -164,10 +209,72 @@ def test_genuine_claims_held_out_are_read_right_and_the_rest_counted():
     genuine = [i for i in REAL["held_out"] if None not in i["expected"]]
     assert all(reading(i["text"]) in i["expected"] for i in genuine)
     right = sum(reading(i["text"]) in i["expected"] for i in REAL["held_out"])
-    assert right >= 5
+    assert right >= 7  # 7 of 11 once the refusal rules were added (15 Nov)
+
+
+def test_sentences_that_are_not_claims_are_refused():
+    # held_out_2, measured once before the refusal rules (15 Nov): 6 of 20, 1 of 12
+    # non-claims refused, and two stated positive correlations read as negative. The rules
+    # were then written on it, so it is now a development set
+    assert all(reading(i["text"]) in i["expected"] for i in REAL["held_out_2"])
+
+
+def test_refusing_non_claims_holds_on_sentences_it_was_not_written_on():
+    # held_out_3, labelled before the reader was run on it, run once (15 Nov): 16 of 18,
+    # every genuine claim read right, 10 of 12 non-claims refused. The two missed: a
+    # conditional ("the response varies with soil and vegetation type") and a contrast in
+    # space ("maximised at the west side"), left as they are, so the number stays honest
+    held = REAL["held_out_3"]
+    genuine = [i for i in held if None not in i["expected"]]
+    assert all(reading(i["text"]) in i["expected"] for i in genuine)
+    assert sum(reading(i["text"]) in i["expected"] for i in held) >= 16
 
 
 def test_magon_is_told_what_the_verdict_means():
     # left to explain REPLICATES, Magon wrote that the data showed "the opposite of the claim"
     result = claims.ClaimTest(claims.read("Higher LST reduces NDVI one month later."), "replicates")
     assert "which means the researcher's data show what the claim says" in claims.block(result)
+
+
+def test_the_explanations_in_an_answer_are_tested_on_the_data(orchard):
+    text = (
+        "**What it could mean here**: a hotter surface may lower NDVI one month later [2]. "
+        "Higher LST reduces NDVI one month later. Olive trees are evergreen. To test these "
+        "possibilities, consider analyzing the correlation between SPEI and NDVI."
+    )
+    results = claims.tests_of(text, orchard)
+    # the same claim twice is tested once; a sentence that is no claim is left out
+    assert [r.claim.reading() for r in results] == ["NDVI falls with LST 1 month earlier"]
+    assert results[0].verdict == "replicates"
+    part = claims.tested_part(results)
+    assert part.startswith("**Tested on your data**")
+    assert "- NDVI falls with LST 1 month earlier: replicates." in part
+    assert claims.tested_part([]) == ""
+
+
+def test_magon_adds_the_tests_of_its_explanations(orchard):
+    model = Scripted("**What it could mean here**: higher LST reduces NDVI one month later.")
+    final = list(
+        answer(
+            model,
+            [{"role": "user", "content": "Why does NDVI fall in summer here?"}],
+            view=orchard,
+            search=lambda q: [],
+        )
+    )[-1]
+    assert "**Tested on your data**" in final["text"]
+    assert final["tested"][0]["verdict"] == "replicates"
+
+
+@pytest.mark.parametrize(
+    "text, lag",
+    [
+        ("NDVI correlates positively with the 12-month SPEI.", None),
+        ("NDVI responds to SPEI-12 with a lag of 2 months.", 2),
+        ("Drought at the 6-month scale lowers NDVI.", None),
+        ("Olive NDVI responds to drought with a lag of about 12 months.", 12),
+    ],
+)
+def test_an_accumulation_scale_is_not_read_as_a_delay(text, lag):
+    # review of 18 Nov: "the 12-month SPEI" was tested as a 12-month lag
+    assert claims.read(text).lag == lag

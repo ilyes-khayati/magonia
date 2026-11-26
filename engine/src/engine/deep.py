@@ -49,13 +49,15 @@ class Net(nn.Module):
             self.body = nn.GRU(channels, hidden, batch_first=True)
             width = hidden
         elif kind == "cnn":
-            # dilated causal convolutions over the lag window, as a temporal convolutional net
-            self.body = nn.Sequential(
-                nn.Conv1d(channels, hidden, 3, padding=2, dilation=1),
-                nn.ReLU(),
-                nn.Conv1d(hidden, hidden, 3, padding=4, dilation=2),
-                nn.ReLU(),
-            )
+            # dilated causal convolutions over the lag window, as a temporal convolutional net,
+            # with dilations 1, 2, 4… until the last month sees the whole window: two layers
+            # saw 7 months, so a lag of 12 could never matter (review of 18 Nov)
+            layers, seen, dilation, inputs = [], 1, 1, channels
+            while seen < steps or not layers:
+                layers += [nn.Conv1d(inputs, hidden, 3, padding=2 * dilation, dilation=dilation)]
+                layers += [nn.ReLU()]
+                seen, dilation, inputs = seen + 2 * dilation, dilation * 2, hidden
+            self.body = nn.Sequential(*layers)
             width = hidden
         else:  # mlp over the flattened window
             self.body = nn.Sequential(nn.Linear(channels * steps, hidden), nn.ReLU())

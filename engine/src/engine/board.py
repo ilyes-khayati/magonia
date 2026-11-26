@@ -5,7 +5,9 @@ earlier answers, passages of papers and their own notes. Magon is given these as
 evidence, cited [B1], [B2]… like papers, each with how far it can be trusted:
 
 - computed: a card or experiment computed in this workspace from the researcher's data
-- checked: an earlier answer whose checks passed
+- checked: an earlier answer whose checks ran and passed
+- unchecked: an earlier answer no check examined; it can be recalled as what was said, never
+  as a finding
 - passage: a paper's words, pinned by the researcher
 - note: the researcher's own words, to be quoted as theirs and never stated as a finding
 - changed: a card whose result is no longer what was pinned (the data or the analysis
@@ -22,7 +24,9 @@ from engine.literature import keywords
 
 TRUST = {
     "computed": "computed in this workspace",
-    "checked": "an earlier answer whose checks passed",
+    "checked": "an earlier answer whose checks ran and passed",
+    "unchecked": "an earlier answer no check examined: recall it as what was said, never as a "
+    "finding",
     "passage": "a passage of a paper, in its words",
     "note": "the researcher's own note: quote it as theirs, never as a finding",
     # a live card whose result is no longer what was pinned (#170): both are given
@@ -46,7 +50,7 @@ RULES = (
 class Pinned:
     title: str
     text: str
-    trust: str  # computed, checked, passage, note, or failed
+    trust: str  # computed, checked, unchecked, passage, note, changed or failed
     pinned: str = ""  # the date it was pinned
     n: int = 0  # its number among the items given, set by given()
 
@@ -58,6 +62,7 @@ def given(board: list[Pinned], question: str, limit: int = MAX_GIVEN) -> list[Pi
     """The items given with a question, numbered from 1, in board order."""
     usable = [b for b in board if b.trust in TRUST and b.text.strip()]
     if len(usable) > limit:
+
         def words(t: str) -> set[str]:
             return {w.lower() for w in keywords(t, most=500).split()}
 

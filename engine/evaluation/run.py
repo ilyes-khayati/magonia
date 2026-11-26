@@ -1,6 +1,6 @@
 """Run every case through every system it applies to, several times, and keep what happened.
 
-    uv run python evaluation/run.py RESULTS_DIR [--repeats 2] [--only r01,d03] [--systems bare]
+    uv run python evaluation/run.py RESULTS_DIR [--repeats 3] [--only r01,d03] [--systems bare]
 
 Uses the model named by MAGONIA_MODEL_URL and MAGONIA_MODEL, live OpenAlex and live
 publishers. Each answer is one line of RESULTS_DIR/raw.jsonl, written as soon as it is done,
@@ -28,7 +28,7 @@ from engine.library import Library
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("results", type=Path)
-    parser.add_argument("--repeats", type=int, default=2)
+    parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--only", default="", help="case ids, comma separated")
     parser.add_argument("--systems", default="", help="system names, comma separated")
     parser.add_argument(

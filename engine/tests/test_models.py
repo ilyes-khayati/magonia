@@ -10,7 +10,7 @@ import pandas as pd
 import pytest
 from acceptance_cases import DATA
 
-from engine.models import baselines, evaluate, features, scores
+from engine.models import baselines, design, evaluate, features, scores
 
 # notebook 04: test scores, then the seed noise floor (RMSE mean and sd over 20 refits)
 PAPER = {
@@ -224,3 +224,18 @@ def test_impossible_choices_are_refused_with_a_reason(choice, message):
     own = choice.pop("own_lags", [1])
     with pytest.raises(ForecastError, match=message):
         forecast("Orchard", ("NDVI", "ndvi", d.NDVI), [], own, seeds=1, draws=1, **choice)
+
+
+def test_lags_are_recommended_on_the_training_years_only():
+    # a driver linked to the response only in the test years must not be chosen: the lags
+    # were chosen on the whole record until 18 Nov, and this one then "stood out"
+    rng = np.random.default_rng(1)
+    months = pd.date_range("2005-01-01", periods=240, freq="MS")
+    y = pd.Series(rng.normal(size=240), months)
+    x = pd.Series(rng.normal(size=240), months)
+    x.iloc[-61:-1] = -y.iloc[-60:].to_numpy()
+    _, _, chosen, test_start = design(
+        ("NDVI", "ndvi", y), [("LST", "lst", x)], own_lags=[1], test_years=5, calendar=False
+    )
+    assert test_start == "2020-01-01"
+    assert [c["name"] for c in chosen if c["name"].startswith("LST")] == ["LST"]  # left out
