@@ -171,7 +171,11 @@ export default function AnalysesPage(props: Props) {
     `${month(settings.start)} to ${month(settings.end)}`,
     STEPS[settings.resolution],
     CLOUDS[settings.masking],
-    settings.fill ? `gaps up to ${settings.maxGap} filled` : "gaps left empty",
+    settings.fill
+      ? settings.masking === "strict"
+        ? "gaps filled before the monthly means, as the research"
+        : `gaps up to ${settings.maxGap} filled`
+      : "gaps left empty",
   ].join(" · ");
 
   // The series an analysis used, in its order, for a notebook that reproduces it

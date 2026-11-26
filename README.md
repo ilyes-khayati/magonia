@@ -34,14 +34,14 @@ what it means.
 <table>
 <tr>
 <td width="50%"><img src="docs/images/map.jpg" alt="An olive orchard outlined on the satellite map"></td>
-<td width="50%"><img src="docs/images/data.jpg" alt="NDVI and land surface temperature for an olive orchard and a forest, 2000–2024"></td>
+<td width="50%"><img src="docs/images/data.jpg" alt="NDVI, land surface temperature and SPEI-6 for the Jendouba olive orchard, 2000–2024"></td>
 </tr>
 <tr>
 <td><b>Map</b>: draw, type coordinates or upload GeoJSON, KML or shapefiles. Show any variable for any month, compare two months side by side, outline the pixels behind an area's mean, and read a single pixel over time.</td>
 <td><b>Data</b>: 14 satellite and climate variables through Google Earth Engine, cleaned and gap-filled, with every step shown. Charts share one date and zoom together, and export as figures at a journal's column width.</td>
 </tr>
 <tr>
-<td><img src="docs/images/analyses.jpg" alt="Memory and lag analyses of NDVI and land surface temperature"></td>
+<td><img src="docs/images/analyses.jpg" alt="Memory and lags of NDVI with its drivers, and the wavelet leakage audit"></td>
 <td><img src="docs/images/model.jpg" alt="A forecast experiment comparing Random Forest, XGBoost and Ridge"></td>
 </tr>
 <tr>
