@@ -251,16 +251,16 @@ async function fakeApi(page: Page, connected = true) {
     return route.fulfill({ json: library });
   });
   let removed: typeof library = [];
-  await page.route("**/api/library/*", (route) => {
+  await page.route("**/api/workspaces/1/library/*", (route) => {
     removed = library.filter((f) => route.request().url().endsWith(`/${f.id}`));
     library = library.filter((f) => !route.request().url().endsWith(`/${f.id}`));
     return route.fulfill({ status: 204 });
   });
-  await page.route("**/api/library/*/restore", (route) => {
+  await page.route("**/api/workspaces/1/library/*/restore", (route) => {
     library = [...library, ...removed];
     return route.fulfill({ json: removed[0] });
   });
-  await page.route("**/api/library/*/pdf", (route) =>
+  await page.route("**/api/workspaces/1/library/*/pdf", (route) =>
     route.fulfill({ contentType: "application/pdf", body: Buffer.from("%PDF-1.4\n%%EOF") }),
   );
   await page.route("**/api/workspaces/1/instructions", (route) => {
