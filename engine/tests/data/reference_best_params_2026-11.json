@@ -1,0 +1,25 @@
+{
+  "XGBoost": {
+    "colsample_bytree": 0.7869378119471999,
+    "learning_rate": 0.003066396019416707,
+    "max_depth": 8,
+    "min_child_weight": 4,
+    "n_estimators": 2361,
+    "reg_lambda": 1.089853846878525,
+    "subsample": 0.36046388625944886
+  },
+  "RandomForest": {
+    "max_depth": 8,
+    "max_features": 0.75,
+    "min_samples_leaf": 2,
+    "n_estimators": 428
+  },
+  "SVR": {
+    "regressor__svr__C": 7.599528920757915,
+    "regressor__svr__epsilon": 0.05972082434777331,
+    "regressor__svr__gamma": 0.0194539422879406
+  },
+  "Ridge": {
+    "ridge__alpha": 5.011872336272725
+  }
+}

@@ -121,6 +121,7 @@ class SeriesRequest(BaseModel):
     scale: int | None = Field(None, ge=1, le=48)  # SPEI time scale in months
     resolution: Resolution = "native"
     max_gap: int = Field(2, ge=0, le=12)  # longest run of empty dates to fill; 0 turns filling off
+    fill_before: bool = False  # the research's order: fill the native dates, then average
 
 
 class SeriesPoint(BaseModel):
@@ -309,6 +310,7 @@ def submit_job(body: SeriesRequest, store: StoreDep, runner: RunnerDep) -> Job:
         scale=body.scale,
         resolution=body.resolution,
         max_gap=body.max_gap,
+        fill_before=body.fill_before,
     )
     check_area(geometry, "This area")
     try:  # check everything that can be checked before calling Earth Engine
@@ -625,6 +627,7 @@ def series_request(body: SeriesRequest, store: Store) -> tuple[dict, Request]:
         scale=body.scale,
         resolution=body.resolution,
         max_gap=body.max_gap,
+        fill_before=body.fill_before,
     )
     return area, request
 
@@ -844,12 +847,13 @@ class ModelsRequest(BaseModel):
     own_lags: list[int] | None = Field(None, max_length=12)  # None: recommended by code
     driver_lags: dict[str, list[int]] | None = None  # by variable; a driver left out: recommended
     test_years: int = Field(3, ge=1, le=10)
-    models: list[Literal["Ridge", "RandomForest", "XGBoost", "MLP", "LSTM", "GRU", "TCN"]] = Field(
-        ["Ridge", "RandomForest", "XGBoost"], min_length=1
-    )
+    models: list[
+        Literal["Ridge", "RandomForest", "XGBoost", "SVR", "MLP", "LSTM", "GRU", "TCN", "SARIMAX"]
+    ] = Field(["Ridge", "RandomForest", "XGBoost"], min_length=1)
     params: dict[str, dict[str, float]] | None = None  # by model; a model left out is tuned
     calendar: bool = True
     rolling: bool = True  # also test on earlier windows
+    research: bool = False  # the research notebooks' design, to reproduce them exactly
 
 
 # forecasts being fitted, and the last error of each, by key; results go to the store
@@ -863,7 +867,7 @@ def models_key(body: ModelsRequest, store: Store) -> str:
     choices = body.model_dump(include={"own_lags", "driver_lags", "test_years"})
     # later choices count only when changed, so earlier forecasts keep their key
     later = body.model_dump(
-        include={"models", "params", "calendar", "rolling"}, exclude_defaults=True
+        include={"models", "params", "calendar", "rolling", "research"}, exclude_defaults=True
     )
     if later.get("models") == ["Ridge", "RandomForest", "XGBoost"]:
         later.pop("models")
@@ -902,6 +906,7 @@ def fit_forecast(store: Store, key: str, response: facts.Series, drivers: list[f
             params=body.params,
             calendar=body.calendar,
             rolling=body.rolling,
+            research=body.research,
         )
         store.save_result(key, {**found.to_dict(), "area": response.area})
     except ForecastError as exc:
@@ -1179,6 +1184,7 @@ def list_messages(conversation_id: int, store: StoreDep) -> list[ChatMessage]:
 
 MASKING = {
     "pixel": "cloudy pixels removed",
+    "strict": "only good pixels kept, dates under half good removed",
     "date": "cloudy dates removed",
     "none": "no cloud filter",
 }
@@ -1202,6 +1208,7 @@ def workspace_view(store: Store, workspace_id: int, view: View) -> facts.View:
             scale=s.scale,
             resolution=s.resolution,
             max_gap=s.max_gap,
+            fill_before=s.fill_before,
         )
         result = store.result(cache_key(request))
         if result is None:

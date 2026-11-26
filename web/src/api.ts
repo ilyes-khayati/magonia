@@ -1,6 +1,6 @@
 // Typed calls to the Magonia API (served under /api by the Vite proxy)
 
-export type Masking = "pixel" | "date" | "none";
+export type Masking = "pixel" | "strict" | "date" | "none";
 export type VariableKey =
   | "ndvi"
   | "savi"
@@ -151,8 +151,6 @@ export const layerTiles = (
   call<Tiles>(
     `/layers/${variable}/tiles?month=${month}${scale ? `&scale=${scale}` : ""}`,
   );
-export const layerLegend = (variable: VariableKey) =>
-  call<Legend>(`/layers/${variable}/legend`);
 
 export type PointSeries = {
   variable: VariableKey;
@@ -309,6 +307,7 @@ export type SeriesOptions = {
   scale: number | null;
   resolution: Resolution;
   max_gap: number;
+  fill_before?: boolean; // the research's order: fill the native dates, then average
 };
 
 // Starts a background job on the API, then asks every second until it finishes
@@ -400,7 +399,7 @@ export const exploreLags = (body: LagsBody) =>
 
 // Models forecasting a series one month ahead, tuned and tested by time
 export type FittedModel = {
-  name: "Ridge" | "RandomForest" | "XGBoost" | "MLP" | "LSTM" | "GRU" | "TCN";
+  name: "Ridge" | "RandomForest" | "XGBoost" | "SVR" | "MLP" | "LSTM" | "GRU" | "TCN" | "SARIMAX";
   params: Record<string, unknown>;
   test: { RMSE: number; R2: number; MAE: number };
   seeds: {
@@ -436,16 +435,17 @@ export type ModelsBody = {
   driver_lags: Partial<Record<VariableKey, number[]>> | null;
   test_years: number;
   models?: (
-    "Ridge" | "RandomForest" | "XGBoost" | "MLP" | "LSTM" | "GRU" | "TCN"
+    "Ridge" | "RandomForest" | "XGBoost" | "SVR" | "MLP" | "LSTM" | "GRU" | "TCN" | "SARIMAX"
   )[]; // the paper's three when left out
   params?: Partial<
     Record<
-      "Ridge" | "RandomForest" | "XGBoost" | "MLP" | "LSTM" | "GRU" | "TCN",
+      "Ridge" | "RandomForest" | "XGBoost" | "SVR" | "MLP" | "LSTM" | "GRU" | "TCN" | "SARIMAX",
       Record<string, number>
     >
   >; // else tuned
   calendar?: boolean;
   rolling?: boolean;
+  research?: boolean; // the research notebooks' design
 };
 
 // How fitted models explain their inputs, and whether they agree
@@ -645,7 +645,7 @@ export type Proposal = {
   drivers?: VariableKey[];
   area?: string;
   models?: (
-    "Ridge" | "RandomForest" | "XGBoost" | "MLP" | "LSTM" | "GRU" | "TCN"
+    "Ridge" | "RandomForest" | "XGBoost" | "SVR" | "MLP" | "LSTM" | "GRU" | "TCN" | "SARIMAX"
   )[];
   test_years?: number;
   period?: { start: string | null; end: string | null };
@@ -804,8 +804,10 @@ export async function ask(
   content: string,
   onEvent: (event: ChatEvent) => void,
   view?: View,
+  signal?: AbortSignal, // aborting stops the answer; the server keeps what was written, unchecked
 ) {
   const response = await reach(`/api/conversations/${conversationId}/chat`, {
+    signal,
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ content, view }),

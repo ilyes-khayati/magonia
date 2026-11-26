@@ -100,3 +100,17 @@ def test_monthly_means_match_the_reference(file, column):
     reference = pd.read_csv(DATA / "reference_monthly.csv", parse_dates=["date"], index_col="date")
     assert len(monthly) == len(reference) == 298
     assert monthly["value"].to_numpy() == pytest.approx(reference[column].to_numpy(), abs=1e-9)
+
+
+def test_filling_by_position_draws_straight_lines_whatever_the_dates():
+    # the research notebooks' pandas default: neighbours, not days, set the line
+    table = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2023-01-01", "2023-01-02", "2023-01-31"]),
+            "value": [0.0, None, 1.0],
+        }
+    )
+    by_time = fill_gaps(table, 2)["value"][1]
+    by_position = fill_gaps(table, 2, by="position")["value"][1]
+    assert by_position == pytest.approx(0.5)
+    assert by_time == pytest.approx(1 / 30)

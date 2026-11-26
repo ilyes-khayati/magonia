@@ -41,7 +41,7 @@ export default function Results({
   compact,
   label: axis,
 }: Props) {
-  const theme = (document.documentElement.dataset.theme as Theme) ?? "light";
+  const theme = (document.documentElement.dataset.theme as Theme) ?? "dark";
   if (!fit || fit.status === "loading")
     return (
       <p className="placeholder working" role="status">
@@ -249,7 +249,7 @@ export default function Results({
                   {Object.entries(m.params)
                     .map(
                       ([k, v]) =>
-                        `${k.replace("ridge__", "")} ${typeof v === "number" ? +v.toPrecision(4) : v}`,
+                        `${k.split("__").pop()} ${typeof v === "number" ? +v.toPrecision(4) : Array.isArray(v) ? `(${v.join(", ")})` : v}`,
                     )
                     .join(", ") || "library defaults"}
                 </li>
@@ -273,7 +273,7 @@ const familiesOf = (data: ExplanationResponse) => {
 // Share of each model's importance by family of inputs, and how far the models agree
 function Explanations({ data }: { data: ExplanationResponse }) {
   const models = (
-    ["XGBoost", "RandomForest", "Ridge", "MLP", "LSTM", "GRU", "TCN"] as const
+    ["XGBoost", "RandomForest", "Ridge", "SVR", "MLP", "LSTM", "GRU", "TCN", "SARIMAX"] as const
   ).filter((m) => data.families[m]);
   return (
     <>
@@ -485,7 +485,7 @@ function Timeline({
   const families = [
     ...new Set(rows.flatMap((r) => Object.keys(r).filter((k) => k !== "date"))),
   ];
-  const theme = (document.documentElement.dataset.theme as Theme) ?? "light";
+  const theme = (document.documentElement.dataset.theme as Theme) ?? "dark";
   const series = families.map((f, i) => ({
     id: f,
     name: f,
@@ -545,7 +545,7 @@ function Effects({
   data: ExplanationResponse;
   models: string[];
 }) {
-  const theme = (document.documentElement.dataset.theme as Theme) ?? "light";
+  const theme = (document.documentElement.dataset.theme as Theme) ?? "dark";
   const shown = models.filter((m) =>
     Object.values(data.effects ?? {}).some((curves) => curves[m]),
   );

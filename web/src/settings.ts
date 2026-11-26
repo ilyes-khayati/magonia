@@ -84,7 +84,10 @@ export function seriesOptions(
     masking: GRIDDED.has(variable) ? "none" : settings.masking,
     scale: variable === "spei" ? speiScale(settings, areaId) : null,
     resolution: settings.resolution,
-    max_gap: settings.fill ? settings.maxGap : 0,
+    // the strict filter is the research's recipe: every gap up to a year filled on the native
+    // dates, by straight lines, before the monthly means
+    max_gap: settings.fill ? (settings.masking === "strict" ? 12 : settings.maxGap) : 0,
+    ...(settings.fill && settings.masking === "strict" && !GRIDDED.has(variable) ? { fill_before: true } : {}),
   };
 }
 

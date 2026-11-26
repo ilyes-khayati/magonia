@@ -7,7 +7,7 @@ import pandas as pd
 
 from engine.catalogue import Variable, get_variable
 
-Masking = Literal["pixel", "date", "none"]
+Masking = Literal["pixel", "strict", "date", "none"]
 COLUMNS = ["date", "value", "sd", "n_pixels", "masked"]
 
 
@@ -15,11 +15,13 @@ COLUMNS = ["date", "value", "sd", "n_pixels", "masked"]
 FILL = {"lai": 100, "fpar": 100, "gpp": 30000, "et": 32700}
 
 
-def flagged(key: str, image: ee.Image) -> ee.Image:
-    """1 where the variable's quality flag says the pixel should not be used."""
+def flagged(key: str, image: ee.Image, strict: bool = False) -> ee.Image:
+    """1 where the variable's quality flag says the pixel should not be used. Strict keeps
+    only the vegetation indices' good pixels, as the research notebooks do."""
     if key in ("ndvi", "savi", "evi", "nbr"):
-        # SummaryQA: 0 good, 1 marginal, 2 snow or ice, 3 cloudy
-        return image.select("SummaryQA").gte(2)
+        # SummaryQA: 0 good, 1 marginal, 2 snow or ice, 3 cloudy; a composite of marginal
+        # pixels alone can be cloud-contaminated, so strict drops them too
+        return image.select("SummaryQA").gte(1 if strict else 2)
     if key == "lst":
         # QC_Day bits 6-7: LST error 0 (<= 1 K), 1 (<= 2 K), 2 (<= 3 K), 3 (> 3 K)
         return image.select("QC_Day").rightShift(6).bitwiseAnd(3).gte(2)
@@ -49,7 +51,9 @@ def series(
 
     masking chooses how flagged observations are removed: "pixel" drops
     flagged pixels and averages the rest, "date" drops the whole date when
-    half the area or more is flagged, "none" keeps everything.
+    half the area or more is flagged, "none" keeps everything. "strict" is the
+    research notebooks' rule: only good pixels are averaged (marginal ones are
+    dropped too), and a date with fewer than half its pixels good is dropped.
     scale is the accumulation period in months, for multi-scale indices such as SPEI.
     """
     features = fetch(key, geometry, start, end, masking, scale)
@@ -58,8 +62,8 @@ def series(
 
 def band_name(variable: Variable, masking: Masking, scale: int | None) -> str:
     """Check the options for a variable and return the band to extract."""
-    if masking not in ("pixel", "date", "none"):
-        raise ValueError(f"masking must be 'pixel', 'date' or 'none', not {masking!r}")
+    if masking not in ("pixel", "strict", "date", "none"):
+        raise ValueError(f"masking must be 'pixel', 'strict', 'date' or 'none', not {masking!r}")
     if variable.scales:
         return variable.band.format(scale=check_scale(variable, scale))
     if scale is not None:
@@ -100,12 +104,12 @@ def fetch(
     )
 
     def summarise(image):
-        bad = flagged(key, image)
+        bad = flagged(key, image, strict=masking == "strict")
         values = derived(key, image) if key in DERIVED else image.select(band)
         if key in FILL:
             # fill values are never data, whatever the cloud filter
             values = values.updateMask(image.select(band).lte(FILL[key]))
-        if masking == "pixel":
+        if masking in ("pixel", "strict"):
             values = values.updateMask(bad.Not())
         result = values.reduceRegion(stats, area, scale=variable.pixel_m)
         share_flagged = bad.reduceRegion(ee.Reducer.mean(), area, scale=variable.pixel_m)
@@ -168,8 +172,10 @@ def to_table(features: list[dict], variable: Variable, masking: Masking = "pixel
     table["n_pixels"] = pd.to_numeric(table["n_pixels"]).fillna(0).astype(int)
     table.loc[table["value"].isna(), "n_pixels"] = 0
 
-    if masking == "date" and variable.sampling == "mean":
-        dropped = pd.to_numeric(table["flagged"]) >= 0.5
+    if masking in ("date", "strict") and variable.sampling == "mean":
+        share = pd.to_numeric(table["flagged"])
+        # strict keeps a date with exactly half its pixels good, as the notebooks do
+        dropped = share > 0.5 if masking == "strict" else share >= 0.5
         table.loc[dropped, ["value", "sd"]] = float("nan")
         table.loc[dropped, "n_pixels"] = 0
 

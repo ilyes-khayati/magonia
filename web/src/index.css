@@ -2505,19 +2505,6 @@ td {
   font-size: 12px;
 }
 
-/* Brand: a mark and a plain wordmark */
-.brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.brand-name {
-  letter-spacing: 0;
-  font-weight: 600;
-  font-size: 14px;
-}
-
 /* Cards: a panel with a rule under its head, not a floating box */
 .card {
   border-radius: 0;

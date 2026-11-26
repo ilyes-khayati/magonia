@@ -8,7 +8,7 @@ embeddings from nomic-embed-text.
 
 ## Decision
 Embeddings are stored as BLOBs beside their passages in SQLite and compared by exact cosine
-in numpy, only over the papers of this answer (at most six found, plus the researcher's
+in numpy, only over the papers of this answer (at most ten found, as set in Settings, plus the researcher's
 files): a few hundred vectors, about a millisecond. No vector database or index.
 
 ## Consequences

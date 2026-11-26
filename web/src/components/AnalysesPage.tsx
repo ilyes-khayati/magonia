@@ -82,6 +82,7 @@ const FACT_LABEL: Record<Kind, string> = {
 
 const CLOUDS = {
   pixel: "cloudy pixels removed",
+  strict: "only good pixels, dates under half good removed",
   date: "cloudy dates removed",
   none: "no cloud filter",
 };

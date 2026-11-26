@@ -41,10 +41,12 @@ def aggregate(table: pd.DataFrame, resolution: Resolution = "native") -> pd.Data
     return table[COLUMNS].reset_index(drop=True)
 
 
-def fill_gaps(table: pd.DataFrame, max_gap: int = 2) -> pd.DataFrame:
-    """Fill runs of at most max_gap empty rows by linear interpolation in time.
+def fill_gaps(table: pd.DataFrame, max_gap: int = 2, by: str = "time") -> pd.DataFrame:
+    """Fill runs of at most max_gap empty rows by linear interpolation.
 
-    Longer runs, and gaps at the start or end of the series, stay empty.
+    by="time" weighs the neighbours by their distance in days; by="position" draws a straight
+    line between neighbouring rows whatever their dates, as the research notebooks do (pandas'
+    default). Longer runs, and gaps at the start or end of the series, stay empty.
     Filled rows keep masked=True and get filled=True.
     """
     table = table.copy()
@@ -54,7 +56,8 @@ def fill_gaps(table: pd.DataFrame, max_gap: int = 2) -> pd.DataFrame:
     inside = table["value"].ffill().notna() & table["value"].bfill().notna()
     fillable = missing & (run_length <= max_gap) & inside
 
-    interpolated = table.set_index("date")["value"].interpolate(method="time").to_numpy()
+    values = table.set_index("date")["value"]
+    interpolated = values.interpolate(method="time" if by == "time" else "linear").to_numpy()
     table.loc[fillable, "value"] = interpolated[fillable.to_numpy()]
     table["filled"] = fillable
     return table

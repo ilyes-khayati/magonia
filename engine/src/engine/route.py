@@ -154,6 +154,10 @@ MODELS = {
     "xgboost": "XGBoost: trees added one after another, each correcting the errors of the "
     "previous ones; learning_rate shrinks each tree's step, subsample and colsample_bytree "
     "use a share of years and predictors per tree, min_child_weight stops tiny leaves.",
+    "svr": "SVR: support vector regression with a radial (RBF) kernel, on standardised inputs; "
+    "C sets how hard errors are penalised, gamma how local each month's influence is, and "
+    "epsilon the band of errors ignored. It has no importance of its own, so it is explained "
+    "by shuffling.",
     "mlp": "MLP: a small feed-forward neural network; hidden units combine the predictors "
     "through a non-linear activation, and alpha penalises large weights so the fit stays smooth.",
     "lstm": "LSTM: a recurrent neural network that reads the months in order and carries a memory "

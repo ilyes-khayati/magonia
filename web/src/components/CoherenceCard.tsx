@@ -9,6 +9,7 @@ import { useAnalysis } from "../useAnalysis";
 import type { Entry } from "./ChartCard";
 import CardTitle from "./CardTitle";
 import { CloseIcon } from "./Icons";
+import { waitingFor } from "../inputs";
 
 type Props = {
   analysis: Coherence;
@@ -95,6 +96,7 @@ export default function CoherenceCard({ analysis, onChange, onRemove, variables,
     .map((e) => e.area);
   const areaId = areas.some((a) => a.id === analysis.area) ? analysis.area! : (areas[0]?.id ?? null);
   const done = (key: VariableKey) => entries(key).find((e) => e.area.id === areaId)?.state?.status === "done";
+  const inputs = [analysis.response, analysis.driver].map((k) => ({ name: name(k), state: entries(k).find((e) => e.area.id === areaId)?.state }));
   const body: CoherenceBody | null =
     areaId !== null && !seasonal && done(analysis.response) && done(analysis.driver)
       ? { response: options(areaId, analysis.response), driver: options(areaId, analysis.driver), deseasonalise: analysis.deseasonalise }
@@ -178,7 +180,7 @@ export default function CoherenceCard({ analysis, onChange, onRemove, variables,
         <p className="placeholder">{result.error}</p>
       ) : !found || !chart ? (
         <p className="placeholder" role="status">
-          {body ? "Computing coherence and its significance against red noise…" : `Waiting for ${name(analysis.response)} and ${name(analysis.driver)} to load.`}
+          {body ? "Computing coherence and its significance against red noise…" : waitingFor(inputs)}
         </p>
       ) : (
         <>

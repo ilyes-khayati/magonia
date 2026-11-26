@@ -9,6 +9,7 @@ import type { Entry } from "./ChartCard";
 import { CloseIcon } from "./Icons";
 import { TimeChart } from "../plot/Chart";
 import { dateOf } from "../plot/time";
+import { waitingFor } from "../inputs";
 
 type Props = {
   name?: string;
@@ -70,7 +71,7 @@ export default function PhenologyCard({ name, onRename, onRemove, entries, optio
       {shown?.result?.status === "failed" ? (
         <p className="placeholder">{shown.result.error}</p>
       ) : !data ? (
-        <p className="placeholder">Waiting for the series to load.</p>
+        <p className="placeholder">{waitingFor([{ name: "NDVI", state: shown?.state }])}</p>
       ) : (
         <>
           <TimeChart title="Season dates" series={series} marks={marks} height={200} y={{ label: "NDVI", digits: 1 }} />

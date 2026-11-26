@@ -319,6 +319,7 @@ def test_models_and_their_settings_are_the_researchers_choice(client, store, mon
         "params": {"XGBoost": {"max_depth": 3.0}},
         "calendar": False,
         "rolling": False,
+        "research": False,
     }
     # earlier forecasts keep their key: the defaults, written out or not, are the same choice
     defaults = {**base, "models": ["Ridge", "RandomForest", "XGBoost"], "calendar": True}

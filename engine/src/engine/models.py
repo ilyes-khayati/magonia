@@ -14,28 +14,38 @@ import numpy as np
 import pandas as pd
 from scipy.stats import loguniform, randint, uniform
 from sklearn.base import clone
+from sklearn.compose import TransformedTargetRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import Ridge
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, TimeSeriesSplit
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVR
 from xgboost import XGBRegressor
 
 from engine.catalogue import large
 from engine.deep import DeepRegressor
 from engine.lags import acf, deseasonalise, driver_evidence
+from engine.sarimax import reference
 
 SEED = 0
 NAMES = ("Ridge", "RandomForest", "XGBoost")  # the paper's models, chosen by default
+KERNEL = ("SVR",)  # the research's support vector regression, chosen by the researcher
 DEEP = ("MLP", "LSTM", "GRU", "TCN")  # small neural networks, chosen by the researcher
-ALL = NAMES + DEEP
+REFERENCE = ("SARIMAX",)  # the research's seasonal ARIMA with the drivers as regressors
+ALL = NAMES + KERNEL + DEEP + REFERENCE
+FIXED = ("Ridge", "SVR", "SARIMAX")  # fit the same whatever the seed
 
 # the paper's estimators and search spaces
 ESTIMATORS = {
     "XGBoost": XGBRegressor(random_state=SEED, n_jobs=1),
     "RandomForest": RandomForestRegressor(random_state=SEED, n_jobs=1),
     "Ridge": make_pipeline(StandardScaler(), Ridge()),
+    # as in the research notebooks: inputs and target standardised, an RBF kernel
+    "SVR": TransformedTargetRegressor(
+        make_pipeline(StandardScaler(), SVR()), transformer=StandardScaler()
+    ),
     "MLP": DeepRegressor(kind="mlp", random_state=SEED),
     "LSTM": DeepRegressor(kind="lstm", random_state=SEED),
     "GRU": DeepRegressor(kind="gru", random_state=SEED),
@@ -62,12 +72,18 @@ SPACES = {
         "max_features": ["sqrt", 0.5, 1.0],
     },
     "Ridge": {"ridge__alpha": np.logspace(-4, 3, 50)},
+    "SVR": {
+        "regressor__svr__C": loguniform(1e-2, 1e3),
+        "regressor__svr__gamma": loguniform(1e-4, 1),
+        "regressor__svr__epsilon": loguniform(1e-3, 1),
+    },
     **{name: NEURAL for name in DEEP},
 }
 
 # What a researcher may set by hand instead of tuning, by its plain name, with its range
 SETTABLE = {
     "Ridge": {"alpha": (1e-6, 1e6)},
+    "SVR": {"C": (1e-3, 1e4), "gamma": (1e-5, 10.0), "epsilon": (1e-4, 10.0)},
     "RandomForest": {
         "n_estimators": (10, 2000),
         "max_depth": (1, 50),
@@ -81,6 +97,7 @@ SETTABLE = {
         "subsample": (0.1, 1.0),
         "colsample_bytree": (0.1, 1.0),
         "min_child_weight": (0, 50),
+        "reg_lambda": (0.0, 1000.0),
     },
     **{
         name: {
@@ -100,13 +117,14 @@ def manual_params(name: str, given: dict) -> dict:
     left out keeps the library's default."""
     out = {}
     for key, value in given.items():
-        if key not in SETTABLE[name]:
+        if key not in SETTABLE.get(name, {}):
             raise ForecastError(f"{LABELS[name]} has no setting {key!r}.")
         low, high = SETTABLE[name][key]
         if not low <= float(value) <= high:
             raise ForecastError(f"{LABELS[name]} {key} must be between {low:g} and {high:g}.")
         value = int(value) if key in INTEGER else float(value)
-        out["ridge__alpha" if name == "Ridge" else key] = value
+        prefix = {"Ridge": "ridge__", "SVR": "regressor__svr__"}.get(name, "")
+        out[prefix + key] = value
     return out
 
 
@@ -133,7 +151,7 @@ def features(
 
 def estimator(name: str, params: dict, seed: int = SEED):
     model = clone(ESTIMATORS[name]).set_params(**params)
-    if name != "Ridge":
+    if name not in FIXED:
         model.set_params(random_state=seed)
     return model
 
@@ -186,6 +204,7 @@ class Fitted:
     seeds: dict = field(default_factory=dict)  # mean and sd of RMSE and R2 over refits
     rolling: list[dict] = field(default_factory=list)  # one score per earlier window
     predictions: list[float] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)  # what the summary says about this model alone
 
 
 def evaluate(
@@ -201,6 +220,9 @@ def evaluate(
     train, test = X.index < test_start, X.index >= test_start
     fitted = []
     for name in [n for n in ALL if n in params]:
+        if name in REFERENCE:
+            fitted.append(seasonal_reference(X, y, test_start, windows or []))
+            continue
         model = estimator(name, params[name]).fit(X[train], y[train])
         p = model.predict(X[test])
         f = Fitted(name, params[name], scores(y[test], p), predictions=[float(v) for v in p])
@@ -208,10 +230,8 @@ def evaluate(
             scores(
                 y[test], estimator(name, params[name], s).fit(X[train], y[train]).predict(X[test])
             )
-            # Ridge fits the same every time; a network's seeds are fewer, as it costs more
-            for s in (
-                [SEED] if name == "Ridge" else range(min(seeds, 5) if name in DEEP else seeds)
-            )
+            # Ridge and SVR fit the same every time; a network's seeds are fewer, as it costs more
+            for s in ([SEED] if name in FIXED else range(min(seeds, 5) if name in DEEP else seeds))
         ]
         f.seeds = {
             "runs": len(runs),
@@ -233,14 +253,47 @@ def evaluate(
     return fitted, base
 
 
+def seasonal_reference(
+    X: pd.DataFrame, y: pd.Series, test_start: str, windows: list[tuple[str, str]]
+) -> Fitted:
+    """SARIMAX scored like the other models: orders and coefficients from the training months,
+    one month ahead on the test months, and chosen again before each earlier window."""
+    test = X.index >= test_start
+    found = reference(X, y, test_start)
+    p = found.predictions.reindex(y.index[test])
+    s = scores(y[test], p)
+    f = Fitted("SARIMAX", found.spec.to_dict(), s, predictions=[float(v) for v in p])
+    f.seeds = {"runs": 1, "RMSE_mean": s["RMSE"], "RMSE_sd": 0.0, "R2_mean": s["R2"], "R2_sd": 0.0}
+    for start, end in windows:
+        inside = (y.index >= start) & (y.index <= end)
+        early = reference(X, y, start, end).predictions.reindex(y.index[inside])
+        f.rolling.append({"window": f"{start[:4]}-{end[:4]}", **scores(y[inside], early)})
+    spec = found.spec
+    terms = "; ".join(
+        f"{c['term'].replace('_lag', ' lag ')} {c['value']:+.3g} (p {c['p']:.3f}, "
+        f"{c['effect_of_1sd']:+.3g} per standard deviation)"
+        for c in found.coefficients
+    )
+    f.notes.append(
+        f"SARIMAX{tuple(spec.order)}{tuple(spec.seasonal_order)}, orders chosen on the training "
+        "months by the research's rule"
+        + (f"; regressors: {terms}" if terms else ", with no driver as regressor")
+        + f". Residual autocorrelation, Ljung–Box p {found.ljung_box['12']:.2f} at 12 months"
+        + (" (none left)." if found.ljung_box["12"] >= 0.05 else " (some left: read with care).")
+    )
+    return f
+
+
 LABELS = {
     "Ridge": "Ridge",
     "RandomForest": "Random Forest",
     "XGBoost": "XGBoost",
+    "SVR": "SVR",
     "MLP": "MLP",
     "LSTM": "LSTM",
     "GRU": "GRU",
     "TCN": "TCN",
+    "SARIMAX": "SARIMAX",
 }
 MIN_TRAIN_YEARS = 8
 
@@ -303,6 +356,24 @@ class ForecastError(ValueError):
     """The series is too short or too gappy to train and test a model."""
 
 
+def research_layout(X: pd.DataFrame, y: pd.Series, drivers: list[pd.Series]) -> pd.DataFrame:
+    """The research notebooks' design, so that a forecast reproduces them exactly: the calendar
+    (cosine, then sine) after the own lags, then the drivers, then a noise probe of random
+    numbers (seed 0) over the months where the response and every driver have a value. The
+    order matters to Random Forest and XGBoost, which draw columns at random."""
+    calendar = [c for c in ("month_cos", "month_sin") if c in X.columns]
+    own = [c for c in X.columns if c.startswith(f"{y.name}_lag")]
+    rest = [c for c in X.columns if c not in own and c not in calendar]
+    X = X[own + calendar + rest].copy()
+    common = y.dropna().index
+    for x in drivers:
+        common = common.intersection(x.dropna().index)
+    common = pd.date_range(common.min(), common.max(), freq="MS")
+    noise = pd.Series(np.random.default_rng(0).standard_normal(len(common)), index=common)
+    X["noise_probe"] = noise.reindex(X.index)
+    return X
+
+
 def design(
     target: tuple[str, str, pd.Series],
     drivers: list[tuple[str, str, pd.Series]],
@@ -310,6 +381,7 @@ def design(
     driver_lags: dict[str, list[int]] | None = None,
     test_years: int = 3,
     calendar: bool = True,
+    research: bool = False,
 ) -> tuple[pd.DataFrame, pd.Series, list[dict], str]:
     """The predictors, the target, why each predictor is there, and the first test month."""
     title, _, y = target
@@ -347,6 +419,11 @@ def design(
         )
 
     X = features(y, own_lags, lagged, calendar)
+    if research:
+        X = research_layout(X, y, [x for _, _, x in drivers])
+        chosen.append(
+            {"name": "noise probe", "reason": "random numbers (seed 0), as the research adds"}
+        )
     if X.empty:
         raise ForecastError("Choose at least one predictor: a lag, a driver or the calendar.")
     table = pd.concat([X, y.rename("target")], axis=1).dropna()
@@ -372,6 +449,7 @@ def forecast(
     params: dict[str, dict] | None = None,
     calendar: bool = True,
     rolling: bool = True,
+    research: bool = False,
 ) -> Forecast:
     """Forecast a monthly target one month ahead; lags not given are recommended by code, and
     each chosen model is tuned unless its settings are given."""
@@ -379,7 +457,9 @@ def forecast(
     models = [n for n in ALL if n in models]
     if not models:
         raise ForecastError("Choose at least one model.")
-    X, y_, chosen, test_start = design(target, drivers, own_lags, driver_lags, test_years, calendar)
+    X, y_, chosen, test_start = design(
+        target, drivers, own_lags, driver_lags, test_years, calendar, research
+    )
     end = y_.index.max()
     train = X.index < test_start
     if train.sum() < 12 * MIN_TRAIN_YEARS or (~train).sum() < 12:
@@ -391,6 +471,8 @@ def forecast(
     params = {
         name: manual_params(name, given[name])
         if name in given
+        else {}
+        if name in REFERENCE  # its orders are chosen by a fixed rule in evaluate, not tuned
         else tune(name, X[train], y_[train], draws)
         for name in models
     }
@@ -437,8 +519,8 @@ def forecast(
         )
         + "."
     )
-    summary = [span, ranking]
-    trees = [f for f in fitted if f.name != "Ridge"]
+    summary = [span, ranking] + [f"{area}: {note}" for f in fitted for note in f.notes]
+    trees = [f for f in fitted if f.name not in FIXED]
     if trees and len(order) > 1:
         floor = max(f.seeds["RMSE_sd"] for f in trees)
         gap = order[1].test["RMSE"] - order[0].test["RMSE"]

@@ -26,13 +26,6 @@ after the city fell. **Magon** is also the research assistant inside it.
 
 ![Magon answering a question about an olive orchard and a forest near Jendouba, next to their NDVI and land surface temperature charts](docs/images/magon-data.jpg)
 
-
-
-
-
-
-
-
 ## A tour
 
 The pages follow the order of a research paper's method: from the field, to the data, to
@@ -52,8 +45,8 @@ what it means.
 <td><img src="docs/images/model.jpg" alt="A forecast experiment comparing Random Forest, XGBoost and Ridge"></td>
 </tr>
 <tr>
-<td><b>Analyses</b>: trend, season, phenology, correlation and lags. Each one exports as a notebook that reruns it.</td>
-<td><b>Model</b>: forecasts with Ridge, Random Forest and XGBoost, scored against baselines and a noise floor.</td>
+<td><b>Analyses</b>: trend and season, long-term trend, season dates, correlation, memory and lags, drought scale, wavelet coherence, a look-ahead audit for wavelet forecasts and a pixel-purity check. Each one exports as a notebook that reruns it.</td>
+<td><b>Model</b>: forecasts with linear, kernel, tree and neural models and a seasonal ARIMA reference, scored against baselines and a noise floor.</td>
 </tr>
 <tr>
 <td><img src="docs/images/board.jpg" alt="The board with a pinned forecast experiment and NDVI seasonal cycle"></td>
@@ -94,11 +87,11 @@ Its quality is measured against the bare model it runs on, by the evaluation har
 | | |
 |---|---|
 | **Variables** | NDVI, EVI, SAVI, NDMI, NBR, leaf area index, FPAR, gross primary production, evapotranspiration (MODIS); land surface temperature; air temperature, rainfall and soil moisture (ERA5-Land); the SPEI drought index |
-| **Preparation** | Cloud filtering, monthly or seasonal means, gap filling with filled values marked, and a warning when a pixel is larger than the field |
-| **Analyses** | Correlation and lag, trend and season, Mann–Kendall trend, season dates, memory and lags |
-| **Forecasting** | Ridge, Random Forest and XGBoost, and the neural networks MLP, LSTM, GRU and TCN, tuned on the training years only, compared with persistence and climatology, and with what each model relies on |
+| **Preparation** | Cloud filtering (including the strict rule of the research notebooks), monthly or seasonal means, gap filling with filled values marked, and a warning when a pixel is larger than the field |
+| **Analyses** | Trend and season (wavelet), long-term trend (Mann–Kendall and Theil–Sen), season dates, correlation, memory and lags, drought scale and lag, wavelet coherence, a look-ahead audit for wavelet forecasts, pixel purity |
+| **Forecasting** | Ridge, SVR, Random Forest and XGBoost, the neural networks MLP, LSTM, GRU and TCN, and SARIMAX as a seasonal reference; tuned on the training years only, compared with persistence and climatology. What each model relies on is shown by permutation importance, each model's own importance and accumulated local effects |
 | **Library** | Your own PDFs, kept per workspace, plus standing instructions for Magon |
-| **Safety net** | Deletions can be undone (⌘Z); deleted workspaces and conversations are kept for 30 days |
+| **Safety net** | Deletions can be undone (⌘Z); deleted workspaces and conversations are kept for 30 days, then removed when Magonia next starts |
 
 ## Running it
 
@@ -137,8 +130,8 @@ server everything works except Magon; `MAGONIA_MODEL_URL=scripted` gives fixed a
 ## Next
 
 Sign-in and cloud deployment (Magonia is single-user today: every workspace and setting is
-shared by whoever can reach the server), SVR and SARIMAX among the forecasting models, and
-Magon's evaluation on a second, independent set of questions.
+shared by whoever can reach the server), and Magon's evaluation on a second, independent set
+of questions with a second labeller.
 
 ## Contributing
 

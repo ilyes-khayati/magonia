@@ -1,6 +1,6 @@
 # 0003. Earth Engine through each user's own project
 
-Status: accepted
+Status: accepted; refined for version 1, which is single-user and local (see 0004): one Earth Engine project per installation, signed in on that computer, and no demo mode.
 
 ## Context
 Earth Engine is free for noncommercial research, but a shared platform account

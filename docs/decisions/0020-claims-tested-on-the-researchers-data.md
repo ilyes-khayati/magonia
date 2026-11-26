@@ -1,6 +1,6 @@
 # 0020. A claim from a paper is tested on the researcher's data, by code
 
-Status: accepted
+Status: accepted; refined by 0025 (an explanation is tested by trying to falsify what it implies)
 
 ## Context
 A literature assistant can say what a paper claims. Whether the claim holds where the

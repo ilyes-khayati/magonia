@@ -9,6 +9,7 @@ import Cautions from "./Cautions";
 import { CloseIcon } from "./Icons";
 import { PlotFrame } from "../plot/Chart";
 import { num } from "../format";
+import { waitingFor } from "../inputs";
 
 type Props = {
   analysis: Correlation;
@@ -128,7 +129,14 @@ export default function CorrelationCard({ analysis, onChange, onRemove, variable
       {seasonal ? (
         <p className="placeholder">Correlation needs native or monthly data. Change the time step on the left.</p>
       ) : !areas.length ? (
-        <p className="placeholder">Waiting for both variables to load.</p>
+        <p className="placeholder">
+          {waitingFor(
+            entries(response).flatMap(({ area, state }) => [
+              { name: name(response), state },
+              { name: name(driver), state: drivers.find((d) => d.area.id === area.id)?.state },
+            ]),
+          )}
+        </p>
       ) : (
         <>
           <PlotFrame title="Lag correlation" options={chart} height={200} />

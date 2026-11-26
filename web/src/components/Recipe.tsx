@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Area, Variable, VariableKey } from "../api";
-import { DEEP, DEFAULT_MODELS, MODEL_KIND, MODEL_LABEL, MODEL_NAMES, SETTABLE, type ModelName, type Recipe as RecipeT } from "../experiments";
+import { DEEP, MODEL_GROUPS, MODEL_KIND, MODEL_LABEL, MODEL_NAMES, SETTABLE, type ModelName, type Recipe as RecipeT } from "../experiments";
 
 type Props = {
   recipe: RecipeT;
@@ -110,7 +110,7 @@ export default function Recipe({ recipe, onChange, areas, variables, title }: Pr
 
       <fieldset className="recipe-group">
         <legend>Models</legend>
-        {([["Linear and tree models", DEFAULT_MODELS], ["Neural networks", DEEP]] as const).map(([group, names]) => (
+        {MODEL_GROUPS.map(([group, names]) => (
         <div key={group} className="model-group">
         <span className="meta">{group}</span>
         <div className="model-choices">
@@ -126,7 +126,13 @@ export default function Recipe({ recipe, onChange, areas, variables, title }: Pr
                     <span className="meta">{MODEL_KIND[m]}</span>
                   </span>
                 </label>
-                {on && (
+                {on && m === "SARIMAX" && (
+                  <p className="reason">
+                    Orders chosen on the training years by the research&apos;s rule: seasonal strength, the ADF and KPSS tests,
+                    then the lowest AIC. The drivers&apos; lags are its regressors; the seasonal part replaces the calendar.
+                  </p>
+                )}
+                {on && m !== "SARIMAX" && (
                   <>
                     <span className="hyper-label">Hyperparameters</span>
                     <div className="segmented small" role="group" aria-label={`${MODEL_LABEL[m]} hyperparameters`}>

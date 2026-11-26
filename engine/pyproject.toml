@@ -16,6 +16,7 @@ dependencies = [
     "xgboost>=2.1",
     "pypdf>=6.21.4",
     "torch>=2.6",
+    "statsmodels>=0.14",
 ]
 
 [project.optional-dependencies]
