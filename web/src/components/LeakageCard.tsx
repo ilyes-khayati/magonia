@@ -40,7 +40,7 @@ export default function LeakageCard({ analysis, onChange, onRemove, variables, t
   const requests = signature === "null" ? [] : [{ key: signature, body: JSON.parse(signature) as LeakageBody }];
   const result = useAnalysis(requests, leakageOf).get(signature);
   const found = result?.status === "done" ? result.data : null;
-  const theme = (document.documentElement.dataset.theme as Theme) ?? "light";
+  const theme = (document.documentElement.dataset.theme as Theme) ?? "dark";
   const digits = large(analysis.response) ? 2 : 4;
 
   const at = found?.dates.map((d) => dateOf(`${d}-01`)) ?? [];

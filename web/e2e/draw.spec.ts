@@ -599,11 +599,12 @@ test("Magon's model and answers are chosen in Settings", async ({ page }) => {
   expect(saved).toEqual([{ model_url: null, model: "qwen3:8b", temperature: 0.2, detail: "detailed", papers_per_search: 8 }]);
 });
 
-test("the theme can be switched to dark", async ({ page }) => {
+test("the theme is dark by default and can be switched to light", async ({ page }) => {
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await page.getByRole("button", { name: "Settings" }).click();
   await page.getByRole("navigation", { name: "Settings sections" }).getByRole("button", { name: "Appearance" }).click();
-  await page.getByRole("group", { name: "Theme" }).getByRole("button", { name: "Dark" }).click();
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.getByRole("group", { name: "Theme" }).getByRole("button", { name: "Light" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
 });
 
 test("an area with NDVI chosen shows its chart, statistics, provenance and summary", async ({ page }) => {
@@ -1374,10 +1375,10 @@ test("an answer shows its checked sources and what the check removed", async ({ 
 
 for (const theme of ["light", "dark"]) {
   test(`no serious accessibility problems in the ${theme} theme`, async ({ page }) => {
-    if (theme === "dark") {
+    if (theme === "light") {
       await page.getByRole("button", { name: "Settings" }).click();
       await page.getByRole("navigation", { name: "Settings sections" }).getByRole("button", { name: "Appearance" }).click();
-      await page.getByRole("group", { name: "Theme" }).getByRole("button", { name: "Dark" }).click();
+      await page.getByRole("group", { name: "Theme" }).getByRole("button", { name: "Light" }).click();
       await page.getByRole("button", { name: "Close settings" }).click();
     }
     await page.getByTestId("upload").setInputFiles({

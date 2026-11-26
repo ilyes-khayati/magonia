@@ -32,7 +32,7 @@ export default function LagsCard(props: Props) {
   };
   const areas = entries(analysis.response).map((e) => e.area);
   const areaId = areas.some((a) => a.id === analysis.area) ? analysis.area! : (areas[0]?.id ?? null);
-  const theme = (document.documentElement.dataset.theme as Theme) ?? "light";
+  const theme = (document.documentElement.dataset.theme as Theme) ?? "dark";
 
   // asked for once the response and every driver of this area have been extracted
   const done = (key: VariableKey) =>

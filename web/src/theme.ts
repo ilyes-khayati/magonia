@@ -25,7 +25,8 @@ export function initialTheme(): ThemeChoice {
   } catch {
     // storage unavailable (private window): fall back to the default
   }
-  return "light";
+  // dark by default (requirement NFR-U2): calm on long sessions and kinder to satellite imagery
+  return "dark";
 }
 
 export const systemTheme = (): Theme =>

@@ -41,7 +41,7 @@ export default function Results({
   compact,
   label: axis,
 }: Props) {
-  const theme = (document.documentElement.dataset.theme as Theme) ?? "light";
+  const theme = (document.documentElement.dataset.theme as Theme) ?? "dark";
   if (!fit || fit.status === "loading")
     return (
       <p className="placeholder working" role="status">
@@ -485,7 +485,7 @@ function Timeline({
   const families = [
     ...new Set(rows.flatMap((r) => Object.keys(r).filter((k) => k !== "date"))),
   ];
-  const theme = (document.documentElement.dataset.theme as Theme) ?? "light";
+  const theme = (document.documentElement.dataset.theme as Theme) ?? "dark";
   const series = families.map((f, i) => ({
     id: f,
     name: f,
@@ -545,7 +545,7 @@ function Effects({
   data: ExplanationResponse;
   models: string[];
 }) {
-  const theme = (document.documentElement.dataset.theme as Theme) ?? "light";
+  const theme = (document.documentElement.dataset.theme as Theme) ?? "dark";
   const shown = models.filter((m) =>
     Object.values(data.effects ?? {}).some((curves) => curves[m]),
   );
