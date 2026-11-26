@@ -4,11 +4,17 @@ import type { Area, ModelsBody, SeriesOptions, VariableKey } from "./api";
 // Forecasting experiments on the Model page. Each is a recipe the researcher edits and the
 // recipe it last ran: results always belong to a run, so nothing refits while editing.
 
-export type ModelName = "Ridge" | "RandomForest" | "XGBoost" | "SVR" | "MLP" | "LSTM" | "GRU" | "TCN";
-export const MODEL_NAMES: ModelName[] = ["Ridge", "RandomForest", "XGBoost", "SVR", "MLP", "LSTM", "GRU", "TCN"];
+export type ModelName = "Ridge" | "RandomForest" | "XGBoost" | "SVR" | "MLP" | "LSTM" | "GRU" | "TCN" | "SARIMAX";
+export const MODEL_NAMES: ModelName[] = ["Ridge", "RandomForest", "XGBoost", "SVR", "MLP", "LSTM", "GRU", "TCN", "SARIMAX"];
 // the paper's three, chosen for a new experiment; the networks are added by choice
 export const DEFAULT_MODELS: ModelName[] = ["Ridge", "RandomForest", "XGBoost"];
 export const DEEP: ModelName[] = ["MLP", "LSTM", "GRU", "TCN"];
+// the recipe's groups of models, as the research compares them
+export const MODEL_GROUPS: [string, ModelName[]][] = [
+  ["Linear, kernel and tree models", ["Ridge", "SVR", "RandomForest", "XGBoost"]],
+  ["Neural networks", DEEP],
+  ["Seasonal time-series model", ["SARIMAX"]],
+];
 // One line on what each model is, under its name in the recipe
 export const MODEL_KIND: Record<ModelName, string> = {
   Ridge: "Linear regression with an L2 penalty",
@@ -19,6 +25,7 @@ export const MODEL_KIND: Record<ModelName, string> = {
   LSTM: "Recurrent network over the lag sequence",
   GRU: "Recurrent network, lighter than the LSTM",
   TCN: "Dilated convolutions over the lag sequence",
+  SARIMAX: "Seasonal ARIMA with the drivers as regressors",
 };
 export const MODEL_LABEL: Record<ModelName, string> = {
   Ridge: "Ridge",
@@ -29,6 +36,7 @@ export const MODEL_LABEL: Record<ModelName, string> = {
   LSTM: "LSTM",
   GRU: "GRU",
   TCN: "TCN",
+  SARIMAX: "SARIMAX",
 };
 
 const NEURAL: Setting[] = [
@@ -66,6 +74,7 @@ export const SETTABLE: Record<ModelName, Setting[]> = {
   LSTM: NEURAL,
   GRU: NEURAL,
   TCN: NEURAL,
+  SARIMAX: [], // its orders are chosen by the research's rule, never by hand
 };
 
 export type Recipe = {

@@ -400,7 +400,7 @@ export const exploreLags = (body: LagsBody) =>
 
 // Models forecasting a series one month ahead, tuned and tested by time
 export type FittedModel = {
-  name: "Ridge" | "RandomForest" | "XGBoost" | "SVR" | "MLP" | "LSTM" | "GRU" | "TCN";
+  name: "Ridge" | "RandomForest" | "XGBoost" | "SVR" | "MLP" | "LSTM" | "GRU" | "TCN" | "SARIMAX";
   params: Record<string, unknown>;
   test: { RMSE: number; R2: number; MAE: number };
   seeds: {
@@ -436,11 +436,11 @@ export type ModelsBody = {
   driver_lags: Partial<Record<VariableKey, number[]>> | null;
   test_years: number;
   models?: (
-    "Ridge" | "RandomForest" | "XGBoost" | "SVR" | "MLP" | "LSTM" | "GRU" | "TCN"
+    "Ridge" | "RandomForest" | "XGBoost" | "SVR" | "MLP" | "LSTM" | "GRU" | "TCN" | "SARIMAX"
   )[]; // the paper's three when left out
   params?: Partial<
     Record<
-      "Ridge" | "RandomForest" | "XGBoost" | "SVR" | "MLP" | "LSTM" | "GRU" | "TCN",
+      "Ridge" | "RandomForest" | "XGBoost" | "SVR" | "MLP" | "LSTM" | "GRU" | "TCN" | "SARIMAX",
       Record<string, number>
     >
   >; // else tuned
@@ -645,7 +645,7 @@ export type Proposal = {
   drivers?: VariableKey[];
   area?: string;
   models?: (
-    "Ridge" | "RandomForest" | "XGBoost" | "SVR" | "MLP" | "LSTM" | "GRU" | "TCN"
+    "Ridge" | "RandomForest" | "XGBoost" | "SVR" | "MLP" | "LSTM" | "GRU" | "TCN" | "SARIMAX"
   )[];
   test_years?: number;
   period?: { start: string | null; end: string | null };

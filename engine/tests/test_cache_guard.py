@@ -11,10 +11,10 @@ from pathlib import Path
 import engine
 
 # The modules whose output is cached
-COMPUTING = ["areas", "catalogue", "explain", "models", "pipeline", "prepare", "series"]
+COMPUTING = ["areas", "catalogue", "explain", "models", "pipeline", "prepare", "sarimax", "series"]
 
 VERSION = "0.0.3"
-HASH = "fc42ece4765f834d"
+HASH = "87641097d8012ca6"
 
 
 def source_hash() -> str:

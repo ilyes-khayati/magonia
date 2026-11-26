@@ -249,7 +249,7 @@ export default function Results({
                   {Object.entries(m.params)
                     .map(
                       ([k, v]) =>
-                        `${k.replace("ridge__", "")} ${typeof v === "number" ? +v.toPrecision(4) : v}`,
+                        `${k.split("__").pop()} ${typeof v === "number" ? +v.toPrecision(4) : Array.isArray(v) ? `(${v.join(", ")})` : v}`,
                     )
                     .join(", ") || "library defaults"}
                 </li>
@@ -273,7 +273,7 @@ const familiesOf = (data: ExplanationResponse) => {
 // Share of each model's importance by family of inputs, and how far the models agree
 function Explanations({ data }: { data: ExplanationResponse }) {
   const models = (
-    ["XGBoost", "RandomForest", "Ridge", "SVR", "MLP", "LSTM", "GRU", "TCN"] as const
+    ["XGBoost", "RandomForest", "Ridge", "SVR", "MLP", "LSTM", "GRU", "TCN", "SARIMAX"] as const
   ).filter((m) => data.families[m]);
   return (
     <>

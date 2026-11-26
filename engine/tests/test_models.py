@@ -275,3 +275,26 @@ def test_svr_is_offered_as_in_the_research_and_fits_the_same_every_time():
     explained = explain(X, y, {"SVR": {"regressor__svr__C": 10.0}}, seeds=2)
     assert "SVR" in explained.families  # explained by shuffling
     assert "SVR" not in explained.native  # it has no importance of its own
+
+
+def test_sarimax_is_scored_like_the_other_models_and_says_its_orders():
+    from engine.models import forecast
+
+    d = pd.read_csv(
+        DATA / "reference_decomposition.csv", index_col="date", parse_dates=True
+    ).asfreq("MS")
+    found = forecast(
+        "Orchard",
+        ("NDVI", "ndvi", d.NDVI),
+        [],
+        [1, 12],
+        seeds=2,
+        models=["SARIMAX", "Ridge"],
+        params={"Ridge": {"alpha": 1.0}},
+        rolling=False,
+    )
+    sarimax = next(m for m in found.models if m.name == "SARIMAX")
+    assert len(sarimax.predictions) == len(found.dates)
+    assert sarimax.seeds["runs"] == 1 and sarimax.test["R2"] > 0.5
+    assert set(sarimax.params) == {"order", "seasonal_order", "trend"}
+    assert any("SARIMAX(" in line and "research's rule" in line for line in found.summary)

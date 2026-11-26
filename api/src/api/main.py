@@ -845,7 +845,7 @@ class ModelsRequest(BaseModel):
     driver_lags: dict[str, list[int]] | None = None  # by variable; a driver left out: recommended
     test_years: int = Field(3, ge=1, le=10)
     models: list[
-        Literal["Ridge", "RandomForest", "XGBoost", "SVR", "MLP", "LSTM", "GRU", "TCN"]
+        Literal["Ridge", "RandomForest", "XGBoost", "SVR", "MLP", "LSTM", "GRU", "TCN", "SARIMAX"]
     ] = Field(["Ridge", "RandomForest", "XGBoost"], min_length=1)
     params: dict[str, dict[str, float]] | None = None  # by model; a model left out is tuned
     calendar: bool = True

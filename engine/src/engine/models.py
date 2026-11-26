@@ -27,13 +27,15 @@ from xgboost import XGBRegressor
 from engine.catalogue import large
 from engine.deep import DeepRegressor
 from engine.lags import acf, deseasonalise, driver_evidence
+from engine.sarimax import reference
 
 SEED = 0
 NAMES = ("Ridge", "RandomForest", "XGBoost")  # the paper's models, chosen by default
 KERNEL = ("SVR",)  # the research's support vector regression, chosen by the researcher
 DEEP = ("MLP", "LSTM", "GRU", "TCN")  # small neural networks, chosen by the researcher
-ALL = NAMES + KERNEL + DEEP
-FIXED = ("Ridge", "SVR")  # fit the same whatever the seed
+REFERENCE = ("SARIMAX",)  # the research's seasonal ARIMA with the drivers as regressors
+ALL = NAMES + KERNEL + DEEP + REFERENCE
+FIXED = ("Ridge", "SVR", "SARIMAX")  # fit the same whatever the seed
 
 # the paper's estimators and search spaces
 ESTIMATORS = {
@@ -114,7 +116,7 @@ def manual_params(name: str, given: dict) -> dict:
     left out keeps the library's default."""
     out = {}
     for key, value in given.items():
-        if key not in SETTABLE[name]:
+        if key not in SETTABLE.get(name, {}):
             raise ForecastError(f"{LABELS[name]} has no setting {key!r}.")
         low, high = SETTABLE[name][key]
         if not low <= float(value) <= high:
@@ -201,6 +203,7 @@ class Fitted:
     seeds: dict = field(default_factory=dict)  # mean and sd of RMSE and R2 over refits
     rolling: list[dict] = field(default_factory=list)  # one score per earlier window
     predictions: list[float] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)  # what the summary says about this model alone
 
 
 def evaluate(
@@ -216,6 +219,9 @@ def evaluate(
     train, test = X.index < test_start, X.index >= test_start
     fitted = []
     for name in [n for n in ALL if n in params]:
+        if name in REFERENCE:
+            fitted.append(seasonal_reference(X, y, test_start, windows or []))
+            continue
         model = estimator(name, params[name]).fit(X[train], y[train])
         p = model.predict(X[test])
         f = Fitted(name, params[name], scores(y[test], p), predictions=[float(v) for v in p])
@@ -246,6 +252,37 @@ def evaluate(
     return fitted, base
 
 
+def seasonal_reference(
+    X: pd.DataFrame, y: pd.Series, test_start: str, windows: list[tuple[str, str]]
+) -> Fitted:
+    """SARIMAX scored like the other models: orders and coefficients from the training months,
+    one month ahead on the test months, and chosen again before each earlier window."""
+    test = X.index >= test_start
+    found = reference(X, y, test_start)
+    p = found.predictions.reindex(y.index[test])
+    s = scores(y[test], p)
+    f = Fitted("SARIMAX", found.spec.to_dict(), s, predictions=[float(v) for v in p])
+    f.seeds = {"runs": 1, "RMSE_mean": s["RMSE"], "RMSE_sd": 0.0, "R2_mean": s["R2"], "R2_sd": 0.0}
+    for start, end in windows:
+        inside = (y.index >= start) & (y.index <= end)
+        early = reference(X, y, start, end).predictions.reindex(y.index[inside])
+        f.rolling.append({"window": f"{start[:4]}-{end[:4]}", **scores(y[inside], early)})
+    spec = found.spec
+    terms = "; ".join(
+        f"{c['term'].replace('_lag', ' lag ')} {c['value']:+.3g} (p {c['p']:.3f}, "
+        f"{c['effect_of_1sd']:+.3g} per standard deviation)"
+        for c in found.coefficients
+    )
+    f.notes.append(
+        f"SARIMAX{tuple(spec.order)}{tuple(spec.seasonal_order)}, orders chosen on the training "
+        "months by the research's rule"
+        + (f"; regressors: {terms}" if terms else ", with no driver as regressor")
+        + f". Residual autocorrelation, Ljung–Box p {found.ljung_box['12']:.2f} at 12 months"
+        + (" (none left)." if found.ljung_box["12"] >= 0.05 else " (some left: read with care).")
+    )
+    return f
+
+
 LABELS = {
     "Ridge": "Ridge",
     "RandomForest": "Random Forest",
@@ -255,6 +292,7 @@ LABELS = {
     "LSTM": "LSTM",
     "GRU": "GRU",
     "TCN": "TCN",
+    "SARIMAX": "SARIMAX",
 }
 MIN_TRAIN_YEARS = 8
 
@@ -405,6 +443,8 @@ def forecast(
     params = {
         name: manual_params(name, given[name])
         if name in given
+        else {}
+        if name in REFERENCE  # its orders are chosen by a fixed rule in evaluate, not tuned
         else tune(name, X[train], y_[train], draws)
         for name in models
     }
@@ -451,7 +491,7 @@ def forecast(
         )
         + "."
     )
-    summary = [span, ranking]
+    summary = [span, ranking] + [f"{area}: {note}" for f in fitted for note in f.notes]
     trees = [f for f in fitted if f.name not in FIXED]
     if trees and len(order) > 1:
         floor = max(f.seeds["RMSE_sd"] for f in trees)
