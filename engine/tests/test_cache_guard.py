@@ -13,7 +13,7 @@ import engine
 # The modules whose output is cached
 COMPUTING = ["areas", "catalogue", "explain", "models", "pipeline", "prepare", "sarimax", "series"]
 
-VERSION = "0.0.3"
+VERSION = "0.0.4"
 HASH = "24bbaa75a2b81f79"
 
 

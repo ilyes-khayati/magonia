@@ -67,11 +67,12 @@ def observed(points: list[dict]) -> list[tuple[str, float]]:
     return [(p["date"], p["value"]) for p in points if p["value"] is not None and not p["masked"]]
 
 
-def monthly(points: list[dict]) -> dict[int, float]:
-    """Observations averaged by calendar month, since products have different dates."""
+def monthly(points: list[dict], filled: bool = False) -> dict[int, float]:
+    """Observations averaged by calendar month, since products have different dates. Filled
+    values are left out unless asked for, as the research's recipe uses them."""
     by_month: dict[int, list[float]] = {}
     for p in points:
-        if p["value"] is not None and not p["masked"] and not p.get("filled"):
+        if p["value"] is not None and not p["masked"] and (filled or not p.get("filled")):
             by_month.setdefault(month_of(p["date"]), []).append(p["value"])
     return {m: fmean(values) for m, values in sorted(by_month.items())}
 
@@ -484,9 +485,10 @@ def decomposition_facts(card: str, s: Series) -> list[Fact]:
     ] + cautions
 
 
-def monthly_series(s: Series) -> pd.Series:
-    """The series as monthly means indexed by month start, for lag analyses."""
-    months = monthly(s.points)
+def monthly_series(s: Series, filled: bool = False) -> pd.Series:
+    """The series as monthly means indexed by month start, for lag analyses; filled values
+    only when asked for (the research's forecast trains on its filled series)."""
+    months = monthly(s.points, filled)
     index = pd.to_datetime([f"{label(m)}-01" for m in months])
     return pd.Series(list(months.values()), index=index).asfreq("MS")
 
