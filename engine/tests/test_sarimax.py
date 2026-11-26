@@ -11,7 +11,7 @@ from engine.sarimax import reference, regressors
 
 @pytest.fixture(scope="module")
 def found():
-    table = pd.read_csv(DATA / "reference_sarimax_features.csv", index_col="date", parse_dates=True)
+    table = pd.read_csv(DATA / "reference_features_2026-11.csv", index_col="date", parse_dates=True)
     X = table.drop(columns=["target", "split", "noise_probe"])
     y = table["target"].rename("NDVI")
     test = table.index[table["split"] == "test"]

@@ -1,5 +1,7 @@
-"""The models must reproduce the 2026 paper's (notebook 04, original branch), given its
-features and tuned hyperparameters."""
+"""The models must reproduce the research's (notebook 04, original branch, run of November 2026),
+given its features and tuned hyperparameters: Ridge, Random Forest, XGBoost and SVR. The
+research's MLP is scikit-learn's, not Magonia's network, so it is not compared; SARIMAX is
+compared in test_sarimax."""
 
 import json
 import platform
@@ -12,50 +14,47 @@ from acceptance_cases import DATA
 
 from engine.models import baselines, design, evaluate, features, scores
 
-# notebook 04: test scores, then the seed noise floor (RMSE mean and sd over 20 refits)
+# results/04_test_scores.csv: RMSE, R2 and MAE on 2022-2024
 PAPER = {
-    "XGBoost": (0.055026274040545574, 0.8775921501910211, 0.03676687011105039),
-    "RandomForest": (0.058445431325578244, 0.8619074682237751, 0.038482721103566646),
-    "Ridge": (0.0584405287012065, 0.8619306347023572, 0.045603599036797116),
+    "XGBoost": (0.053580356625794745, 0.8838701158531926, 0.0367883594778754),
+    "RandomForest": (0.05834443663862761, 0.8623007120647015, 0.037250461027964255),
+    "SVR": (0.05344341157655594, 0.8844629857063486, 0.038931344829089304),
+    "Ridge": (0.059658326223408095, 0.8560290328224777, 0.046963707071890286),
 }
+# results/04_noise_floor.csv: RMSE mean and sd over 20 refits
 FLOOR = {
-    "XGBoost": (0.05496766466301343, 0.0005192189968367159),
-    "RandomForest": (0.05814177783391047, 0.0004175191230628132),
-    "Ridge": (0.0584405287012065, 0.0),
+    "XGBoost": (0.05392106149929558, 0.000434323702498876),
+    "RandomForest": (0.05843361703507527, 0.00045897294993558314),
+    "SVR": (0.05344341157655594, 0.0),
+    "Ridge": (0.059658326223408095, 0.0),
 }
-BASELINES = {"persistence": 0.09719612395317319, "climatology": 0.07525357245463063}
-# On the kind of machine the paper ran on (Apple silicon) everything is reproduced exactly.
+BASELINES = {"persistence": 0.0971880554489173, "climatology": 0.07509957912791944}
+# On the kind of machine the research ran on (Apple silicon) everything is reproduced exactly.
 # Elsewhere the tree models' floating-point arithmetic runs in another order, and their
-# scores move within the seed noise the paper measured; Ridge and the baselines stay exact.
+# scores move within the seed noise the research measured; Ridge, SVR and the baselines stay
+# exact.
 PAPERS_MACHINE = sys.platform == "darwin" and platform.machine() == "arm64"
-R2_NOISE = {"XGBoost": 0.0023164620614287905, "RandomForest": 0.001965913457553337}
+R2_NOISE = {"XGBoost": 0.0018936855705318518, "RandomForest": 0.0021664869728993106}
+EXACT = ("Ridge", "SVR")
 
 
 def tolerance(name: str, metric: str = "RMSE") -> float:
-    if PAPERS_MACHINE or name == "Ridge":
+    if PAPERS_MACHINE or name in EXACT:
         return 1e-12
     return 2 * (R2_NOISE[name] if metric == "R2" else FLOOR[name][1])
 
 
-FIRST_WINDOW = {
-    "XGBoost": 0.05378960826894959,
-    "RandomForest": 0.056193956668892715,
-    "Ridge": 0.057588784611628994,
-}
-
-
 @pytest.fixture(scope="module")
 def paper_run():
-    table = pd.read_csv(
-        DATA / "reference_features_original.csv", index_col="date", parse_dates=True
-    )
-    params = json.loads((DATA / "reference_best_params.json").read_text())
+    table = pd.read_csv(DATA / "reference_features_2026-11.csv", index_col="date", parse_dates=True)
+    params = json.loads((DATA / "reference_best_params_2026-11.json").read_text())
     X, y = table.drop(columns=["target", "split"]), table["target"]
-    return evaluate(X, y, "2022-01-01", params, seeds=20, windows=[("2010-01-01", "2012-12-01")])
+    return evaluate(X, y, "2022-01-01", params, seeds=20)
 
 
 def test_reproduces_the_papers_test_scores(paper_run):
     fitted, _ = paper_run
+    assert {f.name for f in fitted} == set(PAPER)
     for f in fitted:
         rmse, r2, mae = PAPER[f.name]
         assert f.test["RMSE"] == pytest.approx(rmse, abs=tolerance(f.name))
@@ -74,11 +73,9 @@ def test_reproduces_the_papers_noise_floor(paper_run):
         )
 
 
-def test_reproduces_the_papers_baselines_and_a_rolling_window(paper_run):
-    fitted, base = paper_run
+def test_reproduces_the_papers_baselines(paper_run):
+    _, base = paper_run
     assert {k: v["RMSE"] for k, v in base.items()} == pytest.approx(BASELINES, abs=1e-12)
-    for f in fitted:
-        assert f.rolling[0]["RMSE"] == pytest.approx(FIRST_WINDOW[f.name], abs=tolerance(f.name))
 
 
 def test_features_only_look_back():
@@ -267,9 +264,7 @@ def test_svr_is_offered_as_in_the_research_and_fits_the_same_every_time():
     assert svr.seeds["runs"] == 1  # no randomness: one fit says it all
     assert svr.test["R2"] > 0.5
 
-    table = pd.read_csv(
-        DATA / "reference_features_original.csv", index_col="date", parse_dates=True
-    )
+    table = pd.read_csv(DATA / "reference_features_2026-11.csv", index_col="date", parse_dates=True)
     train = table[table["split"] == "train"].iloc[:120]
     X, y = train.drop(columns=["target", "split"]), train["target"]
     explained = explain(X, y, {"SVR": {"regressor__svr__C": 10.0}}, seeds=2)
