@@ -14,7 +14,7 @@ import engine
 COMPUTING = ["areas", "catalogue", "explain", "models", "pipeline", "prepare", "sarimax", "series"]
 
 VERSION = "0.0.3"
-HASH = "87641097d8012ca6"
+HASH = "24bbaa75a2b81f79"
 
 
 def source_hash() -> str:

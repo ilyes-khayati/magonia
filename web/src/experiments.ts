@@ -64,6 +64,7 @@ export const SETTABLE: Record<ModelName, Setting[]> = {
     { key: "subsample", label: "Row subsample", min: 0.1, max: 1, step: 0.05, fallback: "1.0" },
     { key: "colsample_bytree", label: "Column subsample per tree", min: 0.1, max: 1, step: 0.05, fallback: "1.0" },
     { key: "min_child_weight", label: "Minimum child weight", min: 0, max: 50, step: 1, fallback: "1" },
+    { key: "reg_lambda", label: "L2 penalty (reg_lambda)", min: 0, max: 1000, step: 0.1, fallback: "1.0" },
   ],
   SVR: [
     { key: "C", label: "Error penalty (C)", min: 0.001, max: 10000, step: 0.1, fallback: "1.0" },
@@ -88,6 +89,7 @@ export type Recipe = {
   params: Partial<Record<ModelName, Record<string, number>>>; // a model left out is tuned
   calendar: boolean;
   rolling: boolean; // also test on earlier windows
+  research?: boolean; // the research notebooks' design, to reproduce them exactly
 };
 
 export type Experiment = {
@@ -112,6 +114,28 @@ export const EMPTY: Omit<Recipe, "area"> = {
   params: {},
   calendar: false,
   rolling: true,
+};
+
+// The research's forecast (notebook 04, original series), to reproduce it on the platform: its
+// predictors, its tuned settings (results/04_best_params.json) and its design. With the Data
+// page on the strict filter, March 2000 to December 2024, monthly, and SPEI at 6 months, the
+// scores match the notebook's.
+export const RESEARCH: Omit<Recipe, "area"> = {
+  response: "ndvi",
+  drivers: ["spei", "lst"],
+  own_lags: [1, 3, 8, 11, 12, 14, 18, 23, 24],
+  driver_lags: { spei: [2], lst: [1] },
+  test_years: 3,
+  models: ["Ridge", "SVR", "RandomForest", "XGBoost", "SARIMAX"],
+  params: {
+    Ridge: { alpha: 5.011872336272725 },
+    SVR: { C: 7.599528920757915, epsilon: 0.05972082434777331, gamma: 0.0194539422879406 },
+    RandomForest: { max_depth: 8, max_features: 0.75, min_samples_leaf: 2, n_estimators: 428 },
+    XGBoost: { colsample_bytree: 0.7869378119471999, learning_rate: 0.003066396019416707, max_depth: 8, min_child_weight: 4, n_estimators: 2361, reg_lambda: 1.089853846878525, subsample: 0.36046388625944886 },
+  },
+  calendar: true,
+  rolling: false,
+  research: true,
 };
 
 // Equal recipes compare equal whatever the order of their choices
@@ -149,6 +173,7 @@ export function bodyOf(r: Recipe, options: (areaId: number, variable: VariableKe
   if (Object.keys(params).length) body.params = params;
   if (!r.calendar) body.calendar = false;
   if (!r.rolling) body.rolling = false;
+  if (r.research) body.research = true;
   return body;
 }
 

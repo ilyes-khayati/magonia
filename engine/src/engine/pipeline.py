@@ -11,7 +11,7 @@ import pandas as pd
 import engine
 from engine.areas import make_area
 from engine.catalogue import Variable, get_variable
-from engine.prepare import Resolution, aggregate, fill_gaps
+from engine.prepare import PERIODS, Resolution, aggregate, fill_gaps
 from engine.series import Masking, band_name, fetch, size_warnings, to_table
 
 
@@ -25,9 +25,15 @@ class Request:
     scale: int | None = None  # SPEI time scale in months
     resolution: Resolution = "native"
     max_gap: int = 2  # longest run of empty rows to fill; 0 turns filling off
+    # the research notebooks' order: gaps filled on the native dates, by straight lines between
+    # neighbours, before the monthly or seasonal means
+    fill_before: bool = False
 
     def to_dict(self) -> dict:
-        return asdict(self)
+        data = asdict(self)
+        if not data["fill_before"]:
+            data.pop("fill_before")  # counted only when on, so earlier results keep their key
+        return data
 
 
 @dataclass
@@ -55,9 +61,20 @@ def run(request: Request, fetch: Callable[..., list[dict]] = fetch) -> Result:
         request.scale,
     )
     raw = to_table(features, variable, request.masking)
-    table = aggregate(raw, request.resolution)
-    if request.max_gap:
-        table = fill_gaps(table, request.max_gap)
+    if request.fill_before and request.max_gap:
+        native = fill_gaps(raw.assign(filled=False), request.max_gap, by="position")
+        table = aggregate(native.drop(columns="filled"), request.resolution)
+        # a period counts as filled when any of its dates was
+        if request.resolution == "native":
+            table["filled"] = native["filled"].to_numpy()
+        else:
+            period = PERIODS[request.resolution]
+            touched = set(native.loc[native["filled"], "date"].dt.to_period(period))
+            table["filled"] = table["date"].dt.to_period(period).isin(touched).to_numpy()
+    else:
+        table = aggregate(raw, request.resolution)
+        if request.max_gap:
+            table = fill_gaps(table, request.max_gap)
 
     record = provenance(request, variable, band, area.area_km2, raw, table)
     return Result(table, record, size_warnings(variable, area.area_km2))
@@ -92,7 +109,9 @@ def provenance(
     filling = (
         {
             "step": "fill gaps",
-            "method": "linear interpolation in time",
+            "method": "straight lines between neighbouring dates, before averaging"
+            if request.fill_before
+            else "linear interpolation in time",
             "max_gap": request.max_gap,
             "filled": int(table["filled"].sum()),
         }

@@ -293,3 +293,34 @@ def test_sarimax_is_scored_like_the_other_models_and_says_its_orders():
     assert sarimax.seeds["runs"] == 1 and sarimax.test["R2"] > 0.5
     assert set(sarimax.params) == {"order", "seasonal_order", "trend"}
     assert any("SARIMAX(" in line and "research's rule" in line for line in found.summary)
+
+
+def test_the_research_design_orders_the_columns_and_adds_its_noise_probe():
+    from engine.models import design
+
+    months = pd.date_range("2000-03-01", periods=120, freq="MS")
+    rng = np.random.default_rng(1)
+    y = pd.Series(rng.normal(size=120), index=months)
+    spei = pd.Series(rng.normal(size=120), index=months)
+    lst = pd.Series(rng.normal(size=120), index=months)
+    X, _, chosen, _ = design(
+        ("NDVI", "ndvi", y),
+        [("SPEI_6", "spei", spei), ("LST", "lst", lst)],
+        [1, 12],
+        {"spei": [2], "lst": [1]},
+        test_years=2,
+        research=True,
+    )
+    assert list(X.columns) == [
+        "NDVI_lag1",
+        "NDVI_lag12",
+        "month_cos",
+        "month_sin",
+        "SPEI_6_lag2",
+        "LST_lag1",
+        "noise_probe",
+    ]
+    # as notebook 03: seed 0 over the months where the response and every driver exist
+    noise = pd.Series(np.random.default_rng(0).standard_normal(120), index=months)
+    assert np.allclose(X["noise_probe"], noise.reindex(X.index))
+    assert chosen[-1]["name"] == "noise probe"

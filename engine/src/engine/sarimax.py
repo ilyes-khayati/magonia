@@ -91,7 +91,11 @@ def select_order(y: pd.Series) -> Spec:
 def regressors(X: pd.DataFrame, own: str) -> list[str]:
     """The drivers' lagged values: not the response's own lags, which the ARIMA part models,
     and not the calendar, which the seasonal part models."""
-    return [c for c in X.columns if not c.startswith(f"{own}_lag") and not c.startswith("month_")]
+    return [
+        c
+        for c in X.columns
+        if not c.startswith(f"{own}_lag") and not c.startswith("month_") and c != "noise_probe"
+    ]
 
 
 def monthly(X: pd.DataFrame, y: pd.Series) -> tuple[pd.DataFrame, pd.Series]:

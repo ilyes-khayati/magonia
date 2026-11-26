@@ -307,6 +307,7 @@ export type SeriesOptions = {
   scale: number | null;
   resolution: Resolution;
   max_gap: number;
+  fill_before?: boolean; // the research's order: fill the native dates, then average
 };
 
 // Starts a background job on the API, then asks every second until it finishes
@@ -444,6 +445,7 @@ export type ModelsBody = {
   >; // else tuned
   calendar?: boolean;
   rolling?: boolean;
+  research?: boolean; // the research notebooks' design
 };
 
 // How fitted models explain their inputs, and whether they agree

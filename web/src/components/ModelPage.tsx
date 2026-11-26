@@ -4,6 +4,7 @@ import { downloadNotebook, type Area, type SeriesOptions, type Variable, type Va
 import {
   bodyOf,
   newExperiment,
+  RESEARCH,
   recipeDifferences,
   recipeLine,
   sameRecipe,
@@ -97,6 +98,14 @@ export default function ModelPage(props: Props) {
                 show how much a score moves by chance.
               </span>
             </button>
+            <button className="tile" onClick={() => add({ ...structuredClone(RESEARCH), area: firstArea }, "Reproduction: notebook 04")}>
+              <strong>Reproduce the research</strong>
+              <span>The forecast of notebook 04: its predictors, its five models and their tuned settings.</span>
+              <span className="meta">
+                On the Data page choose the strict cloud filter, March 2000 to December 2024, monthly steps and SPEI at 6
+                months; the test scores then match the notebook&apos;s.
+              </span>
+            </button>
           </div>
         </section>
       </div>
@@ -108,10 +117,15 @@ export default function ModelPage(props: Props) {
     <div className="page model-page">
       <div className="page-head">
         <h1>Model</h1>
-        <button className="primary row" onClick={() => add()}>
-          <PlusIcon size={14} />
-          New experiment
-        </button>
+        <div className="row">
+          <button onClick={() => add({ ...structuredClone(RESEARCH), area: firstArea }, "Reproduction: notebook 04")}>
+            Reproduce the research
+          </button>
+          <button className="primary row" onClick={() => add()}>
+            <PlusIcon size={14} />
+            New experiment
+          </button>
+        </div>
       </div>
 
       <div className="model-layout">

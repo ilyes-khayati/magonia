@@ -97,6 +97,7 @@ SETTABLE = {
         "subsample": (0.1, 1.0),
         "colsample_bytree": (0.1, 1.0),
         "min_child_weight": (0, 50),
+        "reg_lambda": (0.0, 1000.0),
     },
     **{
         name: {
@@ -355,6 +356,24 @@ class ForecastError(ValueError):
     """The series is too short or too gappy to train and test a model."""
 
 
+def research_layout(X: pd.DataFrame, y: pd.Series, drivers: list[pd.Series]) -> pd.DataFrame:
+    """The research notebooks' design, so that a forecast reproduces them exactly: the calendar
+    (cosine, then sine) after the own lags, then the drivers, then a noise probe of random
+    numbers (seed 0) over the months where the response and every driver have a value. The
+    order matters to Random Forest and XGBoost, which draw columns at random."""
+    calendar = [c for c in ("month_cos", "month_sin") if c in X.columns]
+    own = [c for c in X.columns if c.startswith(f"{y.name}_lag")]
+    rest = [c for c in X.columns if c not in own and c not in calendar]
+    X = X[own + calendar + rest].copy()
+    common = y.dropna().index
+    for x in drivers:
+        common = common.intersection(x.dropna().index)
+    common = pd.date_range(common.min(), common.max(), freq="MS")
+    noise = pd.Series(np.random.default_rng(0).standard_normal(len(common)), index=common)
+    X["noise_probe"] = noise.reindex(X.index)
+    return X
+
+
 def design(
     target: tuple[str, str, pd.Series],
     drivers: list[tuple[str, str, pd.Series]],
@@ -362,6 +381,7 @@ def design(
     driver_lags: dict[str, list[int]] | None = None,
     test_years: int = 3,
     calendar: bool = True,
+    research: bool = False,
 ) -> tuple[pd.DataFrame, pd.Series, list[dict], str]:
     """The predictors, the target, why each predictor is there, and the first test month."""
     title, _, y = target
@@ -399,6 +419,11 @@ def design(
         )
 
     X = features(y, own_lags, lagged, calendar)
+    if research:
+        X = research_layout(X, y, [x for _, _, x in drivers])
+        chosen.append(
+            {"name": "noise probe", "reason": "random numbers (seed 0), as the research adds"}
+        )
     if X.empty:
         raise ForecastError("Choose at least one predictor: a lag, a driver or the calendar.")
     table = pd.concat([X, y.rename("target")], axis=1).dropna()
@@ -424,6 +449,7 @@ def forecast(
     params: dict[str, dict] | None = None,
     calendar: bool = True,
     rolling: bool = True,
+    research: bool = False,
 ) -> Forecast:
     """Forecast a monthly target one month ahead; lags not given are recommended by code, and
     each chosen model is tuned unless its settings are given."""
@@ -431,7 +457,9 @@ def forecast(
     models = [n for n in ALL if n in models]
     if not models:
         raise ForecastError("Choose at least one model.")
-    X, y_, chosen, test_start = design(target, drivers, own_lags, driver_lags, test_years, calendar)
+    X, y_, chosen, test_start = design(
+        target, drivers, own_lags, driver_lags, test_years, calendar, research
+    )
     end = y_.index.max()
     train = X.index < test_start
     if train.sum() < 12 * MIN_TRAIN_YEARS or (~train).sum() < 12:
