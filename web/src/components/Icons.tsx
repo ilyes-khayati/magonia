@@ -96,6 +96,12 @@ export const SendIcon = (p: IconProps) => (
   </Svg>
 );
 
+export const StopIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="6" y="6" width="12" height="12" rx="1.5" />
+  </Svg>
+);
+
 // The pages' icons, as in a code editor's activity bar: round, soft strokes, each with one dot of
 // the mark. When a page opens, its strokes draw themselves in and the dot fills with the accent.
 function PageSvg({ size = 22, children }: IconProps & { children: React.ReactNode }) {

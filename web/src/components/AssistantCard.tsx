@@ -17,7 +17,7 @@ import {
 import { applyEvent, conversationTitle, fromSaved, type Turn } from "../chat";
 import { AnswerText, ClaimTestCard, Sources } from "./Answer";
 import { MagonMark } from "./Brand";
-import { ChevronIcon, CloseIcon, PlusIcon, SendIcon } from "./Icons";
+import { ChevronIcon, CloseIcon, PlusIcon, SendIcon, StopIcon } from "./Icons";
 
 // The conversation open in each workspace is this browser's own convenience
 const OPEN = (workspaceId: number) => `magonia-conversation-${workspaceId}`;
@@ -221,6 +221,7 @@ export default function AssistantCard(props: Props) {
     if (prefill) box.current?.focus();
   }, [prefill]);
   const [busy, setBusy] = useState(false);
+  const stopper = useRef<AbortController | null>(null); // stops the answer being written
   const [error, setError] = useState<string | null>(null);
   const [model, setModel] = useState<string | null>(null);
   const log = useRef<HTMLDivElement>(null);
@@ -324,6 +325,8 @@ export default function AssistantCard(props: Props) {
       { role: "assistant", content: "", details: {} },
     ]);
     let started = false; // whether the server began answering, and so saved the question
+    const controller = new AbortController();
+    stopper.current = controller;
     try {
       // a new conversation is saved with its first question
       let id = openId;
@@ -342,9 +345,11 @@ export default function AssistantCard(props: Props) {
           setTurns((t) => [...t.slice(0, -1), applyEvent(t[t.length - 1], event)]);
         },
         view,
+        controller.signal,
       );
     } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
+      const stopped = controller.signal.aborted;
+      const message = stopped ? "stopped by you" : e instanceof Error ? e.message : String(e);
       if (started) {
         // the server already saved the question and what was written: it stays on screen,
         // marked as stopped, so that it is not sent twice (review of 18 Nov)
@@ -355,9 +360,10 @@ export default function AssistantCard(props: Props) {
       } else {
         setTurns((t) => t.slice(0, -2));
         setDraft(question);
-        setError(message);
+        if (!stopped) setError(message);
       }
     } finally {
+      stopper.current = null;
       setBusy(false);
       refresh().catch(() => undefined);
     }
@@ -493,15 +499,15 @@ export default function AssistantCard(props: Props) {
             }
           }}
         />
-        <button
-          className="send"
-          aria-label="Send"
-          title="Send (Enter)"
-          onClick={submit}
-          disabled={busy || !draft.trim() || loading?.opening}
-        >
-          <SendIcon size={14} />
-        </button>
+        {busy ? (
+          <button className="send" aria-label="Stop" title="Stop the answer (what was written is kept, unchecked)" onClick={() => stopper.current?.abort()}>
+            <StopIcon size={14} />
+          </button>
+        ) : (
+          <button className="send" aria-label="Send" title="Send (Enter)" onClick={submit} disabled={!draft.trim() || loading?.opening}>
+            <SendIcon size={14} />
+          </button>
+        )}
       </div>
       <p className="composer-hint meta">Enter to send · Shift+Enter for a new line</p>
     </section>

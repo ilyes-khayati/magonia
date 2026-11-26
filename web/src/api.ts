@@ -804,8 +804,10 @@ export async function ask(
   content: string,
   onEvent: (event: ChatEvent) => void,
   view?: View,
+  signal?: AbortSignal, // aborting stops the answer; the server keeps what was written, unchecked
 ) {
   const response = await reach(`/api/conversations/${conversationId}/chat`, {
+    signal,
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ content, view }),
